@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Bảng kê WO - Hệ thống quản lý{% endblock %}
+
+{% block css %}
+    <link rel="stylesheet" href="{% static 'css/bang_ke_wo.css' %}">
+{% endblock %}
+
+{% block content %}
+<div id="bang_ke_wo" class="module-content">
+    <div class="module-header">
+        <h2 class="module-title">Bảng kê WO</h2>
+        <div style="display: flex; gap: 8px;">
+            <button class="btn btn-primary">Thêm mới</button>
+            <div class="view-toggle">
+                <button class="list-view active">Danh sách</button>
+                <button class="form-view">Biểu mẫu</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="table-container list-view-content">
+        <table>
+            <thead>
+                <tr>
+                    <th>ID Bảng kê WO</th>
+                    <th>Tên Bảng kê</th>
+                    <th>Ngày tạo</th>
+                    <th>Trạng thái</th>
+                    <th style="text-align: right;">Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td>BKWO001</td>
+                    <td>Bảng kê WO tháng 5</td>
+                    <td>01/05/2023</td>
+                    <td>Đã duyệt</td>
+                    <td style="text-align: right;">
+                        <button class="action-btn edit-btn">Sửa</button>
+                        <button class="action-btn delete-btn">Xóa</button>
+                    </td>
+                </tr>
+                <tr>
+                    <td>BKWO002</td>
+                    <td>Bảng kê WO tháng 4</td>
+                    <td>01/04/2023</td>
+                    <td>Đã hoàn thành</td>
+                    <td style="text-align: right;">
+                        <button class="action-btn edit-btn">Sửa</button>
+                        <button class="action-btn delete-btn">Xóa</button>
+                    </td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="form-container form-view-content" style="display: none;">
+        <div class="form-grid">
+            <div class="form-group">
+                <label class="form-label">ID Bảng kê WO</label>
+                <input type="text" class="form-control" placeholder="Nhập ID Bảng kê WO">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Tên Bảng kê</label>
+                <input type="text" class="form-control" placeholder="Nhập Tên Bảng kê">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Ngày tạo</label>
+                <input type="date" class="form-control">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Trạng thái</label>
+                <input type="text" class="form-control" placeholder="Nhập Trạng thái">
+            </div>
+        </div>
+        <div class="form-actions">
+            <button class="btn btn-secondary">Hủy</button>
+            <button class="btn btn-primary">Lưu</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascript %}
+    <script src="{% static 'js/bang_ke_wo.js' %}"></script>
+{% endblock %}
+
