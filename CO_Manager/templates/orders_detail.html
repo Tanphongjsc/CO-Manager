@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Chi tiết Đơn hàng{% endblock %}
+
+{% block css %}
+<link rel="stylesheet" href="{% static 'css/orders.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="module-content">
+  <h2 class="module-title">Chi tiết Đơn hàng #{{ orders.0.id_lenh_san_xuat.id_lenh_san_xuat }}</h2>
+
+  <div class="form-actions">
+    <button onclick="window.history.back()" class="btn btn-secondary">Quay lại</button>
+    <button id="export-pdf" class="btn btn-primary" data-orders-id="{{orders.0.id_lenh_san_xuat.id_lenh_san_xuat}}">Xuất PDF</button>
+    <button id="export-excel" class="btn btn-primary" data-orders-id="{{orders.0.id_lenh_san_xuat.id_lenh_san_xuat}}">Xuất Excel</button>
+  </div>
+
+  <div class="table-container">
+    <table class="standard-table">
+      <thead>
+        <tr>
+          <th>STT</th>
+          <th>Tên Hàng Hoá</th>
+          <th>HS Code</th>
+          <th>Số lượng</th>
+          <th>Đơn vị tính</th>
+          <th>Thao tác</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for item in order_unique_items %}
+        <tr>
+          <td>{{ forloop.counter }}</td>
+          <td>{{ item.ten_san_pham }}</td>
+          <td>{{ item.id_san_pham.ma_hs }}</td>
+          <td>{{ item.so_luong_san_pham }}</td>
+          <td>{{ item.id_san_pham.don_vi_tinh }}</td>
+          <td>
+            <button class="detail-btn" data-product-id="{{ item.id_san_pham.id_san_pham }}">Chi tiết</button>
+          </td>
+        </tr>
+        {% endfor %}
+        <tr class="total-row">
+          <td colspan="3"><strong>Tổng cộng</strong></td>
+          <td><strong>{{ total_quantity }}</strong></td>
+          <td colspan="2"></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal Popup -->
+<div id="productDetailModal" class="modal">
+    <div class="modal-content">
+        <span class="close">&times;</span>
+        <div class="product-detail-content">
+            <div class="detail-section">
+                <h4>Thông tin chung</h4>
+                <div class="detail-grid">
+                    <div class="detail-item">
+                        <span class="label">Mã lệnh sản xuất:</span>
+                        <span id="modal-product-code">{{ orders.0.id_lenh_san_xuat.id_lenh_san_xuat }}</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="label">Tên sản phẩm:</span>
+                        <span id="modal-product-name"></span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="label">Số lượng yêu cầu:</span>
+                        <span id="modal-product-quantity"></span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="label">Đơn vị tính:</span>
+                        <span id="modal-product-unit"></span>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="detail-section">
+                <h4>Định mức NVL cho sản phẩm</h4>
+                <table class="material-table">
+                    <thead>
+                        <tr>
+                            <th>Tên nguyên liệu</th>
+                            <th>Số lượng</th>
+                            <th>Đơn vị tính</th>
+                        </tr>
+                    </thead>
+                    <tbody id="modal-materials">
+                        <!-- Material rows will be inserted here by JavaScript -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Truyền dữ liệu sang JavaScript -->
+<script id="order-data" type="application/json">
+{
+    "items": [
+        {% for item in orders %}
+            {
+                "id": "{{ item.id_san_pham.id_san_pham|escapejs }}",
+                "name": "{{ item.ten_san_pham|escapejs }}",
+                "quantity": "{{ item.so_luong_san_pham|escapejs }}",
+                "unit": "{{ item.id_san_pham.don_vi_tinh|escapejs }}",
+                "materialName": "{{ item.id_nguyen_vat_lieu.ten_sp_chinh|escapejs }}",
+                "materialQuantity": "{{ item.so_luong_nguyen_vat_lieu|escapejs }}",
+                "materialUnit": "{{ item.id_nguyen_vat_lieu.don_vi_tinh|escapejs }}"
+            }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ]
+}
+</script>
+
+{% endblock %}
+
+{% block javascript %}
+<script src="{% static 'js/orders.js' %}"></script>
+{% endblock %}

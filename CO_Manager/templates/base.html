@@ -6,6 +6,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Hệ thống quản lý{% endblock %}</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <!-- Bootstrap CSS -->
     <link rel="stylesheet" href="{% static 'css/base.css' %}">
     {% block css %}{% endblock %}
 </head>
@@ -43,6 +45,10 @@
                 <i class="fas fa-users"></i>
                 <span>Quản lý người dùng</span>
             </a>
+            <a href="{% url 'products' %}" class="nav-item" data-module="products">
+                <i class="fas fa-box"></i>
+                <span>Quản lý sản phẩm</span>
+            </a>
         </nav>
     </div>
 
@@ -53,7 +59,8 @@
     </div>
 
     <script src="{% static 'js/base.js' %}"></script>
+
+
     {% block javascript %}{% endblock %}
 </body>
 </html>
-

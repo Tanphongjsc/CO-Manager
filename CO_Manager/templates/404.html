@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Không tìm thấy trang - Hệ thống quản lý{% endblock %}
+
+{% block css %}
+    {# Bạn có thể thêm CSS tùy chỉnh cho trang 404 nếu muốn #}
+    <style>
+        .not-found-container {
+            text-align: center;
+            padding: 50px 20px;
+            display: flex; /* Sử dụng flexbox để căn giữa nội dung theo chiều dọc */
+            flex-direction: column; /* Sắp xếp các item theo cột */
+            justify-content: center; /* Căn giữa theo chiều dọc */
+            align-items: center; /* Căn giữa theo chiều ngang */
+            min-height: calc(100vh - 150px); /* Chiều cao tối thiểu để chiếm gần hết màn hình, trừ đi chiều cao của header/footer (ước lượng) */
+        }
+        .not-found-container h1 {
+            font-size: 6rem; /* Tăng kích thước số 404 */
+            color: #dc3545; /* Màu đỏ cảnh báo */
+            margin-bottom: 0.5rem;
+        }
+        .not-found-container .module-title {
+            margin-bottom: 1rem;
+        }
+        .not-found-container p {
+            margin-bottom: 1.5rem; /* Thêm khoảng cách dưới đoạn văn bản */
+            font-size: 1.1rem;
+            color: #6c757d; /* Màu xám nhẹ cho chữ */
+        }
+        .not-found-container .btn-primary {
+            padding: 10px 20px; /* Tăng kích thước nút một chút */
+            font-size: 1rem;
+        }            
+
+
+    </style>
+{% endblock %}
+
+{% block content %}
+<div class="module-content not-found-container">
+    <h1>404</h1>
+    <h2 class="module-title">Không tìm thấy trang</h2>
+    <p>Rất tiếc, trang bạn đang tìm kiếm không tồn tại hoặc đã bị di chuyển.</p>
+    <button type="button" onclick="window.history.back()" class="btn btn-primary">Quay lại</button>
+</div>
+{% endblock %}

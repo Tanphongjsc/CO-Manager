@@ -12,46 +12,67 @@
         <h2 class="module-title">Tổng quan hệ thống</h2>
         <div class="dashboard-grid">
             <div class="dashboard-card" data-module="lenh_sx">
-                <div class="card-header">
-                    <i class="fas fa-shopping-cart"></i>
-                    <h3>Đơn hàng</h3>
-                </div>
-                <p class="card-description">Theo dõi đơn hàng, Lệnh sản xuất.</p>
+                <a href="{% url 'orders' %}" class="card-link">
+                    <div class="card-header">
+                        <i class="fas fa-shopping-cart"></i>
+                        <h3>Đơn hàng</h3>
+                    </div>
+                    <p class="card-description">Theo dõi đơn hàng, Lệnh sản xuất.</p>
+                </a>
             </div>
             <div class="dashboard-card" data-module="thu_mua">
-                <div class="card-header">
-                    <i class="fas fa-shopping-bag"></i>
-                    <h3>Thu mua từ dân</h3>
-                </div>
-                <p class="card-description">Theo dõi và quản lý và tính toán ra số lượng nguyên vật liệu cần tối thiểu cho một đơn hàng.</p>
+                <a href="{% url 'purchase' %}" class="card-link">
+                    <div class="card-header">
+                        <i class="fas fa-shopping-bag"></i>
+                        <h3>Thu mua từ dân</h3>
+                    </div>
+                    <p class="card-description">Theo dõi và quản lý và tính toán ra số lượng nguyên vật liệu cần tối thiểu cho một đơn hàng.</p>
+                </a>
             </div>
             <div class="dashboard-card" data-module="tra_lai">
-                <div class="card-header">
-                    <i class="fas fa-undo-alt"></i>
-                    <h3>Trừ lùi nguyên liệu</h3>
-                </div>
-                <p class="card-description">Quản lý quy trình trả lại nguyên liệu không đạt chuẩn hoặc dư thừa.</p>
+                <a href="{% url 'rollback' %}" class="card-link">
+                    <div class="card-header">
+                        <i class="fas fa-undo-alt"></i>
+                        <h3>Trừ lùi nguyên liệu</h3>
+                    </div>
+                    <p class="card-description">Quản lý quy trình trả lại nguyên liệu không đạt chuẩn hoặc dư thừa.</p>
+                </a>
             </div>
             <div class="dashboard-card" data-module="bang_ke_wo">
-                <div class="card-header">
-                    <i class="fas fa-chart-line"></i>
-                    <h3>Bảng kê WO</h3>
-                </div>
-                <p class="card-description">Xem và quản lý bảng kê chi tiết cho các đơn hàng công việc.</p>
+                <a href="{% url 'wo_ledger' %}" class="card-link">
+                    <div class="card-header">
+                        <i class="fas fa-chart-line"></i>
+                        <h3>Bảng kê WO</h3>
+                    </div>
+                    <p class="card-description">Xem và quản lý bảng kê chi tiết cho các đơn hàng công việc.</p>
+                </a>
             </div>
             <div class="dashboard-card" data-module="bang_ke_ctc">
-                <div class="card-header">
-                    <i class="fas fa-chart-bar"></i>
-                    <h3>Bảng kê CTC</h3>
-                </div>
-                <p class="card-description">Xem và quản lý bảng kê chi tiết cho các hợp đồng.</p>
+                <a href="{% url 'ctc_ledger' %}" class="card-link">
+                    <div class="card-header">
+                        <i class="fas fa-chart-bar"></i>
+                        <h3>Bảng kê CTC</h3>
+                    </div>
+                    <p class="card-description">Xem và quản lý bảng kê chi tiết cho các hợp đồng.</p>
+                </a>
             </div>
             <div class="dashboard-card" data-module="nguoi">
-                <div class="card-header">
-                    <i class="fas fa-users"></i>
-                    <h3>Quản lý người dùng</h3>
-                </div>
-                <p class="card-description">Quản lý thông tin người mua và bán.</p>
+                <a href="{% url 'users' %}" class="card-link">
+                    <div class="card-header">
+                        <i class="fas fa-users"></i>
+                        <h3>Quản lý người dùng</h3>
+                    </div>
+                    <p class="card-description">Quản lý thông tin người mua và bán.</p>
+                </a>
+            </div>
+            <div class="dashboard-card" data-module="san_pham">
+                <a href="{% url 'products' %}" class="card-link">
+                    <div class="card-header">
+                        <i class="fas fa-box"></i>
+                        <h3>Quản lý Sản phẩm</h3>
+                    </div>
+                    <p class="card-description">Quản lý thông tin về sản phẩm như: tên, tỉ lệ thu hồi, v.v.</p>
+                </a>
             </div>
         </div>
 
@@ -78,4 +99,3 @@
 {% block javascript %}
     <script src="{% static 'js/dashboard.js' %}"></script>
 {% endblock %}
-

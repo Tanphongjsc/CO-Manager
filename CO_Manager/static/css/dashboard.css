@@ -21,6 +21,13 @@
     transform: translateY(-2px); /* Slight lift effect on hover */
 }
 
+.dashboard-card a.card-link {
+    text-decoration: none; /* Removes the underline */
+    color: inherit;       /* Makes the link inherit text color from its parent */
+    display: block;       /* Makes the entire area of the link clickable */
+    height: 100%;         /* Optional: if your cards have a fixed height and you want the link to fill it */
+}
+
 .card-header {
     display: flex;
     align-items: center;

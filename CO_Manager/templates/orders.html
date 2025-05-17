@@ -1,17 +1,61 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Tổng quan - Hệ thống quản lý{% endblock %}
+{% block title %}Quản lý Đơn hàng - Danh sách{% endblock %}
 
 {% block css %}
-    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+<link rel="stylesheet" href="{% static 'css/orders.css' %}">
 {% endblock %}
 
 {% block content %}
+<div id="orders-management" class="module-content">
+    <h2 class="module-title">Quản lý Đơn hàng</h2>
 
+    <div class="actions-bar">
+        <div class="search-container">
+            <input type="text" id="order-search-input" class="form-control" placeholder="Tìm kiếm đơn hàng...">
+            <button id="order-search-btn" class="btn btn-primary">Tìm kiếm</button>
+        </div>
+        <button id="refresh-btn" class="btn btn-info">
+            <i class="fas fa-sync-alt"></i>
+            <span class="btn-text">Đồng bộ từ Cloudify</span>
+            <span class="spinner-border spinner-border-sm ml-2 d-none" id="sync-spinner" role="status" aria-hidden="true"></span>
+        </button>
+    </div>
+
+    <div class="table-container">
+        <table class="standard-table">
+        <thead>
+            <tr>
+            <th>Mã đơn hàng</th>
+            <th>Mã sản xuất</th>
+            <th>Ngày tạo</th>
+            <th>Thao tác</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for order in orders %}
+            <tr>
+            <td>ĐH0000{{ order.id_don_hang }}</td>
+            <td>{{ order.id_lenh_san_xuat }}</td>
+            <td>{{ order.ngay_tao_don_hang|date:"d/m/Y" }}</td>
+            <td>
+                <a href="{% url 'orders_detail' order.id_lenh_san_xuat %}" class="btn btn-sm btn-warning">
+                <i class="fas fa-info-circle"></i> Chi tiết
+                </a>
+            </td>
+            </tr>
+            {% empty %}
+            <tr>
+            <td colspan="4" class="empty-message">Không có đơn hàng nào</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        </table>
+    </div>
+</div>
 {% endblock %}
 
 {% block javascript %}
-    <script src="{% static 'js/dashboard.js' %}"></script>
+<script src="{% static 'js/orders.js' %}"></script>
 {% endblock %}
-
