@@ -3,12 +3,16 @@ from django.views.decorators.http import require_POST
 from django.http import JsonResponse
 from django.utils import timezone
 from django.http import HttpResponse
+from django.db import transaction
 
 from .models import *
 
 from collections import defaultdict
 from io import BytesIO
 import json
+import requests
+import re
+import os
 
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, Border, Side, PatternFill
@@ -35,7 +39,7 @@ def user_management(request):
     return render(request, 'user_management.html', {})
 
 def product_management(request):
-    products = VatTu.objects.all()
+    products = VatTu.objects.all().order_by('id_san_pham')
     context = {
         'products': products,
     }
@@ -94,6 +98,157 @@ def product_update(request):
             'success': False,
             'message': f'Lỗi: {str(e)}'
         }, status=500)
+
+@require_POST
+def product_delete(request):
+    """Để xử lý xóa sản phẩm"""
+    product_id = json.loads(request.body).get('id')
+
+    if not product_id:
+        return JsonResponse({
+            'success': False,
+            'message': 'Không tìm thấy mã sản phẩm!'
+        }, status=404)
+
+    product = get_object_or_404(VatTu, id_san_pham=product_id)
+    product.delete()
+
+    return JsonResponse({
+        'success': True,
+        'message': 'Xóa sản phẩm thành công!'
+    })
+
+
+
+@require_POST
+def products_sync_cloudify(request):
+    """Xử lý đồng bộ hóa dữ liệu sản phẩm từ Cloudify."""
+    try:
+        data_cloudify = products_fetch_data(request)
+    except requests.RequestException as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Lỗi kết nối đến Cloudify: {str(e)}'
+        }, status=500)
+        
+    if data_cloudify:
+        if data_cloudify['length'] == len(data_cloudify['records']):
+
+            # Lấy ra danh sách mã sản phẩm từ Cloudify
+            cloudify_product = {item['MA']: item for item in data_cloudify['records']}
+
+            # Lấy ra danh sách sản phẩm từ database
+            db_products = VatTu.objects.filter(id_san_pham__in=cloudify_product.keys())
+            
+            # Lấy danh sách các mã đã tìm thấy trong database
+            found_product_id = {item.id_san_pham for item in db_products}
+
+            # Tạo danh sách các mã sản phẩm không tìm thấy trong database
+            not_found_product_id = set(cloudify_product.keys()) - found_product_id
+
+            # Update lại những sản phẩm đã tìm thấy
+            for item in db_products:
+                item.ten_sp_chinh = cloudify_product[item.id_san_pham].get('TEN')
+                item.don_vi_tinh = cloudify_product[item.id_san_pham].get('DVT_CHINH_ID')
+                item.loai_sp = cloudify_product[item.id_san_pham].get('TINH_CHAT')
+
+            # Lưu thay đổi vào database   
+        
+            # Thêm mới những sản phẩm không tìm thấy
+            objs = []
+            for id in not_found_product_id:
+                objs.append(
+                    VatTu(
+                        id_san_pham=id,
+                        ten_sp_chinh=cloudify_product[id].get('TEN'),
+                        don_vi_tinh=cloudify_product[id].get('DVT_CHINH_ID'),
+                        loai_sp=cloudify_product[id].get('TINH_CHAT')
+                    )
+                )
+
+            # Dùng transaction để đảm bảo atomicity
+            with transaction.atomic():
+                VatTu.objects.bulk_update(db_products, ['ten_sp_chinh', 'don_vi_tinh', 'loai_sp']) # Cập nhật những sản phẩm đã tìm thấy
+                VatTu.objects.bulk_create(objs) # Thêm mới những sản phẩm không tìm thấy
+
+            return JsonResponse({
+                'success': True,
+                'data': data_cloudify
+            })
+        
+        else:
+            return JsonResponse({
+                'success': False,
+                'message': 'Đồng bộ thiếu dữ liệu!',
+                'data': data_cloudify
+            })
+
+    return JsonResponse({
+        'success': False,
+        'message': 'Không thể đồng bộ hóa dữ liệu từ Cloudify!'
+    }, status=500)
+
+
+def products_fetch_data(request):
+    """Lấy dữ liệu sản phẩm từ Cloudify."""
+
+    # Thông tin login
+    LOGIN_URL = 'https://tanphongjsc.cloudify.vn/web/login'
+    RPC_URL   = 'https://tanphongjsc.cloudify.vn/web/dataset/search_read'
+    EMAIL     = os.getenv('cloudify_user')
+    PASSWORD  = os.getenv('cloudify_password')
+
+    print(EMAIL, PASSWORD)
+    # 1) Khởi tạo session và lấy csrf_token
+    session = requests.Session()
+    r = session.get(LOGIN_URL)
+    csrf = re.search(r'name="csrf_token".*?value="([^"]+)"', r.text).group(1)
+
+    # 2) Đăng nhập
+    session.post(LOGIN_URL, data={
+        'csrf_token': csrf,
+        'login': EMAIL,
+        'password': PASSWORD,
+    })
+
+    # 3) Gọi JSON-RPC
+    payload = {
+        "jsonrpc": "2.0",
+        "method": "call",
+        "params": {
+            "model": "danh.muc.vat.tu.hang.hoa",
+            "domain": [],
+            "fields": ["MA","TEN","DONG_SAN_PHAM","TINH_CHAT","DVT_CHINH_ID"],
+        },
+        "id": int(timezone.now().timestamp() * 1000)
+    }
+
+    headers = {
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+    }
+
+    res = session.post(RPC_URL, headers=headers, json=payload)
+
+    # 4) Xử lý kết quả
+    data = res.json().get('result', [])
+    for item in data['records']:
+        if item['TINH_CHAT'] == '0':
+            item['TINH_CHAT'] = 'Vật tư hàng hóa'
+        elif item['TINH_CHAT'] == '1':
+            item['TINH_CHAT'] = 'Thành phẩm'
+        elif item['TINH_CHAT'] == '2':
+            item['TINH_CHAT'] = 'Dich vụ'
+        elif item['TINH_CHAT'] == '3':
+            item['TINH_CHAT'] = 'Chỉ là diễn giải'
+        elif item['TINH_CHAT'] == '4':
+            item['TINH_CHAT'] = 'Bán thành phẩm'
+        else:
+            item['TINH_CHAT'] = None
+
+        item['DVT_CHINH_ID'] = item['DVT_CHINH_ID'][1] if item['DVT_CHINH_ID'] else None
+
+    return data
 
 
 def orders(request):
@@ -360,7 +515,6 @@ def create_excel_response(order_id, data):
     )
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response
-
 
 def apply_cell_style(cell, font=None, border=None, align=None, fill=None, number_format=None):
     """Áp dụng style cho một ô Excel."""

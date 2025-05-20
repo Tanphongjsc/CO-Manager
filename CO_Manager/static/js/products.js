@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const closeBtn = modal ? modal.querySelector('.close') : null;
     const cancelBtn = document.getElementById('cancel-edit-btn');
     const editButtons = document.querySelectorAll('.edit-btn');
+    const deleteButtons = document.querySelectorAll('.delete-btn');
     const productForm = document.getElementById('edit-product-form');
     
     // Xử lý nút Sửa để mở modal
@@ -157,47 +158,87 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-    
+
     // Xử lý nút đồng bộ từ Cloudify
     const syncBtn = document.getElementById('sync-cloudify-btn');
     const syncSpinner = document.getElementById('sync-spinner');
-    
+
     if (syncBtn) {
-        syncBtn.addEventListener('click', function() {
-            // Hiển thị spinner
-            if (syncSpinner) {
+        syncBtn.addEventListener('click', async function() {
+            try {
+                // Hiển thị spinner và vô hiệu hóa nút
                 syncSpinner.classList.remove('d-none');
-            }
-            
-            // Gọi API đồng bộ
-            fetch('/products/sync-cloudify/', {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': getCsrfToken()
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                // Ẩn spinner
-                if (syncSpinner) {
-                    syncSpinner.classList.add('d-none');
-                }
+                syncBtn.disabled = true;
+                const btnText = syncBtn.querySelector('.btn-text');
+                if (btnText) btnText.textContent = 'Đang đồng bộ...';
                 
+                // Thêm độ trễ nhỏ để đảm bảo spinner được hiển thị
+                await new Promise(resolve => setTimeout(resolve, 50));
+                
+                // Gọi API đồng bộ
+                const response = await fetch('/products/sync-cloudify/', {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': getCsrfToken()
+                    }
+                });
+                
+                const data = await response.json();
+
                 if (data.success) {
                     alert('Đồng bộ dữ liệu thành công!');
                     window.location.reload();
                 } else {
                     alert('Có lỗi xảy ra khi đồng bộ: ' + data.message);
                 }
-            })
-            .catch(error => {
-                // Ẩn spinner
-                if (syncSpinner) {
-                    syncSpinner.classList.add('d-none');
-                }
+            } catch (error) {
                 console.error('Lỗi:', error);
                 alert('Có lỗi xảy ra khi đồng bộ từ Cloudify.');
+            } finally {
+                // Ẩn spinner và kích hoạt lại nút
+                syncSpinner.classList.add('d-none');
+                syncBtn.disabled = false;
+                const btnText = syncBtn.querySelector('.btn-text');
+                if (btnText) btnText.textContent = 'Đồng bộ từ Cloudify';
+            }
+        });
+    }
+
+    // Xử lý nút xóa sản phẩm
+    if (deleteButtons) {
+        deleteButtons.forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                const productId = this.getAttribute('data-id');
+                const row = this.closest('tr');
+                
+                // Hiển thị hộp thoại xác nhận
+                if (confirm('Bạn có chắc chắn muốn xóa sản phẩm này?')) {
+                    // Gửi yêu cầu xóa sản phẩm
+                    fetch('/products/delete/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCsrfToken()
+                        },
+                        body: JSON.stringify({ id: productId })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert('Xóa sản phẩm thành công!');
+                            row.remove(); // Xóa hàng khỏi bảng
+                        } else {
+                            alert('Có lỗi xảy ra khi xóa sản phẩm: ' + data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Lỗi:', error);
+                        alert('Có lỗi xảy ra khi gửi yêu cầu xóa.');
+                    });
+                }
             });
         });
     }
+
 });

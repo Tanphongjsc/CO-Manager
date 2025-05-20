@@ -15,4 +15,6 @@ urlpatterns = [
     path('user/', views.user_management, name='users'),
     path('products/', views.product_management, name='products'),
     path('products/update/', views.product_update, name='update_product'),
+    path('products/delete/', views.product_delete, name='delete_product'),
+    path('products/sync-cloudify/', views.products_sync_cloudify, name='products_sync_cloudify'),
 ]

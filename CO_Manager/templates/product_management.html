@@ -43,14 +43,17 @@
         <tr>
           <td>{{ product.id_san_pham }}</td>
           <td>{{ product.ten_sp_chinh }}</td>
-          <td>{{ product.ten_khac }}</td>
-          <td>{{ product.ma_hs }}</td>
-          <td>{{ product.ty_le_thu_hoi }}</td>
+          <td>{{ product.ten_khac|default_if_none:'' }}</td>
+          <td>{{ product.ma_hs|default_if_none:'' }}</td>
+          <td>{{ product.ty_le_thu_hoi|default_if_none:'' }}</td>
           <td>{{ product.don_vi_tinh }}</td>
           <td>{{ product.loai_sp }}</td>
-          <td>{{ product.ghi_chu }}</td>
+          <td>{{ product.ghi_chu|default_if_none:'' }}</td>
           <td>
-            <button class="btn btn-sm btn-warning edit-btn" data-id="{{ product.id_san_pham }}">Sửa</button>
+            <div class="action-buttons">
+              <button class="btn btn-sm btn-warning edit-btn" data-id="{{ product.id_san_pham }}">Sửa</button>
+              <button class="btn btn-sm btn-danger delete-btn" data-id="{{ product.id_san_pham }}">Xóa</button>
+            </div>
           </td>
         </tr>
         {% endfor %}

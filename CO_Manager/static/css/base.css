@@ -6,10 +6,33 @@
     font-family: Arial, sans-serif;
 }
 
+/* Thêm CSS để xử lý chống nhấp nháy khi load trang */
+html.sidebar-collapsed body .sidebar {
+    width: 60px;
+}
+
+html.sidebar-collapsed body .sidebar .sidebar-header h1 {
+    display: none;
+}
+
+html.sidebar-collapsed body .sidebar .nav-item span {
+    display: none;
+}
+
+html.sidebar-collapsed body .sidebar .nav-item {
+    padding: 14px 0;
+    justify-content: center;
+}
+
+html.sidebar-collapsed body .sidebar .nav-item i {
+    margin-right: 0;
+}
+
 body {
     background-color: #f1f5f9;
     display: flex;
     height: 100vh;
+    overflow: hidden; /* Ngăn chặn scroll khi sidebar chuyển đổi */
 }
 
 /* Sidebar */
@@ -17,27 +40,59 @@ body {
     width: 260px;              /* hơi rộng hơn chút cho thoáng */
     background-color: #ffffff;
     box-shadow: 2px 0 8px rgba(0,0,0,0.08);
+    transition: width 0.3s ease;
+    position: relative;
+    overflow-x: hidden; /* Ngăn chặn nội dung bị tràn ra */
+}
+
+.sidebar.collapsed {
+    width: 60px;
+}
+
+.sidebar-toggle {
+    position: absolute;
+    top: 15px;
+    right: 17px;
+    background-color: #ffffff;
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    cursor: pointer;
+    z-index: 1000;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.15);
 }
 
 .sidebar-header {
     padding: 16px;
     border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
 
 .sidebar-header h1 {
     font-size: 1.25rem;
     font-weight: bold;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.sidebar.collapsed .sidebar-header h1 {
+    display: none;
 }
 
 .sidebar-nav {
     margin-top: 16px;
 }
 
-
 .sidebar-nav a {
     text-decoration: none;
 }
-
 
 .nav-item {
     display: flex;
@@ -47,8 +102,8 @@ body {
     text-decoration: none;
     color: #374151;
     transition: background-color .2s, color .2s;
+    border-radius: 4px;
 }
-  
 
 .nav-item:hover {
     background-color: #e6f0ff;
@@ -63,6 +118,21 @@ body {
     font-size: 1.2rem;
     margin-right: 12px;
     color: #6b7280;
+    min-width: 20px;
+    text-align: center;
+}
+
+.sidebar.collapsed .nav-item span {
+    display: none;
+}
+
+.sidebar.collapsed .nav-item {
+    padding: 14px 0;
+    justify-content: center;
+}
+
+.sidebar.collapsed .nav-item i {
+    margin-right: 0;
 }
 
 /* Main Content */
@@ -70,6 +140,7 @@ body {
     flex: 1;
     overflow-y: auto;
     padding: 24px;
+    transition: margin-left 0.3s ease;
 }
 
 .module-title {
@@ -91,6 +162,9 @@ body {
     cursor: pointer;
     border: none;
     font-size: 0.875rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
 }
 
 .btn-primary {
@@ -98,9 +172,17 @@ body {
     color: white;
 }
 
+.btn-primary:hover {
+    background-color: #1d4ed8;
+}
+
 .btn-secondary {
     background-color: #e2e8f0;
     color: #1f2937;
+}
+
+.btn-secondary:hover {
+    background-color: #cbd5e1;
 }
 
 .view-toggle {
@@ -128,6 +210,14 @@ body {
     border-radius: 4px;
     box-shadow: 0 1px 3px rgba(0,0,0,0.1);
     overflow: hidden;
+    overflow-x: auto;
+}
+
+/* Giữ bảng không bị co quá mức */
+.standard-table {
+    width: 100%;
+    border-collapse: collapse;
+    table-layout: auto; /* hoặc fixed nếu muốn chia đều cột */
 }
 
 table {
@@ -152,15 +242,40 @@ tbody tr {
     background: none;
     border: none;
     cursor: pointer;
+    margin-right: 8px;
+    color: #2563eb;
+    font-size: 0.875rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+}
+
+.action-btn i {
+    font-size: 1rem;
+}
+
+.detail-btn {
+    color: #000000;
+}
+
+.detail-btn:hover {
+    color: #9b9b9b;
 }
 
 .edit-btn {
     color: #2563eb;
-    margin-right: 8px;
+}
+
+.edit-btn:hover {
+    color: #bbcbff;
 }
 
 .delete-btn {
     color: #dc2626;
+}
+
+.delete-btn:hover {
+    color: #ffcfcf;
 }
 
 /* Form */
@@ -212,6 +327,30 @@ tbody tr {
 
 .form-actions button {
     margin-left: 8px;
+}
+
+/* Action buttons container */
+.table-actions {
+    display: flex;
+    gap: 8px;
+}
+
+/* Add New Button */
+.add-new-btn {
+    background-color: #10b981;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.875rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.add-new-btn:hover {
+    background-color: #059669;
 }
 
 /* Related Modules */
@@ -328,5 +467,3 @@ tbody tr {
 .text-red-600.hover\:text-red-900.ml-4:hover {
     color: #991b1b; /* hover:text-red-900 */
 }
-
-
