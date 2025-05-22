@@ -1,17 +1,89 @@
 {% extends 'base.html' %}
 {% load static %}
-
-{% block title %}Tổng quan - Hệ thống quản lý{% endblock %}
+{% block title %}Trừ lùi nguyên liệu{% endblock %}
 
 {% block css %}
-    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+<link rel="stylesheet" href="{% static 'css/rollback.css' %}">
 {% endblock %}
 
 {% block content %}
-
+<div class="page-header">TRỪ LÙI NGUYÊN LIỆU</div>
+<div class="filter-section">
+    <div class="filter-title">Tìm kiếm và lọc</div>
+    <div class="filter-form">
+        <div class="form-group">
+            <label for="ma_don_hang">Mã đơn hàng</label>
+            <select id="ma_don_hang" name="ma_don_hang">
+                <option value="">--Chọn--</option>
+                {% for don_hang in don_hang_list %}
+                <option value="{{ don_hang }}">{{ don_hang }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="form-group">
+            <label for="ma_lenh_sx">Mã lệnh sản xuất</label>
+            <select id="ma_lenh_sx" name="ma_lenh_sx" disabled>
+                <option value="">--Chọn--</option>
+            </select>
+        </div>
+    </div>
+    <div class="button-group">
+        <button id="btnClearFilter" class="btn btn-blue">Xóa lọc</button>
+        <button id="btnFilter" class="btn btn-red">Lọc</button>
+        <button id="btnCreateNew" class="btn btn-green">Tạo mới</button>
+    </div>
+</div>
+<div class="table-section">
+    <div class="table-title">Danh sách bảng kê trừ lùi nguyên liệu</div>
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Mã lệnh sản xuất</th>
+                <th>Tên nguyên liệu</th>
+                <th>Mã HS</th>
+                <th>Đơn vị tính</th>
+                <th>Số lượng mua vào</th>
+                <th>Số lượng sản xuất</th>
+                <th>Tỷ lệ thu hồi</th>
+                <th>Số lượng thành phẩm thu hồi</th>
+                <th>Số lượng thành phẩm xuất</th>
+                <th>Số lượng thành phẩm tồn kho</th>
+                <th>Ghi chú</th>
+                <th>Ngày tạo</th>
+                <th>Trạng thái</th>
+                <th>Thao tác</th>
+            </tr>
+        </thead>
+        <tbody id="tableData">
+            {% for record in records %}
+            <tr>
+                <td>{{ record.ma_lenh_sx }}</td>
+                <td>{{ record.ten_nguyen_lieu }}</td>
+                <td>{{ record.ma_hs|default:'' }}</td>
+                <td>{{ record.don_vi_tinh|default:'kg' }}</td>
+                <td data-numeric="true">{{ record.so_luong_mua_vao|floatformat:2 }}</td>
+                <td data-numeric="true">{{ record.so_luong_san_xuat|floatformat:2 }}</td>
+                <td data-numeric="true">{% if record.ty_le_thu_hoi %}{{ record.ty_le_thu_hoi|floatformat:2 }}%{% else %}0.00%{% endif %}</td>
+                <td data-numeric="true">{{ record.so_luong_thanh_pham_thu_hoi|floatformat:2 }}</td>
+                <td data-numeric="true">{{ record.so_luong_san_pham_xuat|floatformat:2 }}</td>
+                <td data-numeric="true">{{ record.so_luong_thanh_pham_ton_kho|floatformat:2 }}</td>
+                <td>{{ record.ghi_chu }}</td>
+                <td>{{ record.ngay_thang|date:"d/m/Y" }}</td>
+                <td class="{% if record.trang_thai == 'Hoàn thành' %}status-completed{% else %}status-processing{% endif %}">
+                    {{ record.trang_thai }}
+                </td>
+                <td><a href="{% url 'rollback_detail' record.id_bang_ke_tru_lui %}" class="view-link">XEM</a></td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="14" style="text-align: center;">Không có dữ liệu</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 {% endblock %}
 
 {% block javascript %}
-    <script src="{% static 'js/dashboard.js' %}"></script>
+<script src="{% static 'js/rollback.js' %}"></script>
 {% endblock %}
-

@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="vi">
+{% load humanize %}
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bảng kê trừ lùi nguyên liệu</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            font-size: 14px;
+            line-height: 1.5;
+            margin: 0;
+            padding: 20px;
+        }
+        .company-header {
+            margin-bottom: 15px;
+        }
+        .company-header p {
+            margin: 3px 0;
+        }
+        .title {
+            text-align: center;
+            font-size: 18px;
+            font-weight: bold;
+            margin: 23px 0;
+            text-transform: uppercase;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 20px;
+        }
+        table, th, td {
+            border: 1px solid #000;
+        }
+        th, td {
+            padding: 5px;
+            text-align: center;
+            vertical-align: middle;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .note-cell {
+            text-align: left;
+        }
+        .footer {
+            margin-top: 20px;
+        }
+        .left-footer {
+            width: 100%;
+        }
+        .left-footer p:first-child {
+            white-space: nowrap;
+            margin-bottom: 5px;
+        }
+        .left-footer p:nth-child(2) {
+            margin-top: 0;
+            margin-bottom: 10px;
+        }
+        .signature-section {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 10px;
+            padding-right: 50px;
+        }
+        .signature-content {
+            text-align: center;
+        }
+        .clearfix::after {
+            content: "";
+            clear: both;
+            display: table;
+        }
+    </style>
+</head>
+<body>
+    <div class="company-header">
+        <p><strong>Công ty cổ phần Tân Phong</strong></p>
+        <p>Địa chỉ: Thị trấn Hùng Sơn, huyện Lâm Thao, tỉnh Phú Thọ</p>
+        <p>Điện thoại: 02102215277</p>
+        <p>Mã số Doanh nghiệp: 2600 274 542</p>
+    </div>
+
+    <div class="title">BẢNG KÊ TRỪ LÙI NGUYÊN LIỆU THU MUA SẢN XUẤT - {{ record.ten_nguyen_lieu }}</div>
+
+    <table>
+        <thead>
+            <tr>
+                <th rowspan="2">STT</th>
+                <th rowspan="2">Tên Nguyên Liệu</th>
+                <th rowspan="2">Mã HS</th>
+                <th rowspan="2">ĐV tính</th>
+                <th rowspan="2">Số lượng mua vào</th>
+                <th rowspan="2">Số lượng sản xuất</th>
+                <th rowspan="2">Tỷ lệ thu hồi</th>
+                <th rowspan="2">Thành phẩm kho thu hồi</th>
+                <th>Số lượng thành phẩm xuất</th>
+                <th rowspan="2">Số lượng TP còn tồn kho</th>
+                <th rowspan="2">Ghi chú</th>
+            </tr>
+            <tr>
+                <th>{{ record.ngay_thang|date:"d/m/Y" }}</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>1</td>
+                <td>{{ record.ten_nguyen_lieu }}</td>
+                <td>{{ record.ma_hs }}</td>
+                <td>{{ record.don_vi_tinh }}</td>
+                <td>{{ record.so_luong_mua_vao|floatformat:0|intcomma }}</td>
+                <td>{{ record.so_luong_san_xuat|floatformat:0|intcomma }}</td>
+                <td>{{ record.ty_le_thu_hoi|floatformat:0 }}%</td>
+                <td>{{ record.so_luong_thanh_pham_thu_hoi|floatformat:2|intcomma }}</td>
+                <td>{{ record.so_luong_san_pham_xuat|floatformat:2|intcomma }}</td>
+                <td>{{ record.so_luong_thanh_pham_ton_kho|floatformat:2|intcomma }}</td>
+                <td class="note-cell">{{ record.ghi_chu }}</td>
+            </tr>
+            <tr>
+                <td colspan="4" style="text-align: right;"><strong>Tổng cộng:</strong></td>
+                <td>{{ record.so_luong_mua_vao|floatformat:0|intcomma }}</td>
+                <td>{{ record.so_luong_san_xuat|floatformat:0|intcomma }}</td>
+                <td>{{ record.ty_le_thu_hoi|floatformat:0 }}%</td>
+                <td>{{ record.so_luong_thanh_pham_thu_hoi|floatformat:2|intcomma }}</td>
+                <td>{{ record.so_luong_san_pham_xuat|floatformat:2|intcomma }}</td>
+                <td>{{ record.so_luong_thanh_pham_ton_kho|floatformat:2|intcomma }}</td>
+                <td>-</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="footer clearfix">
+        <div class="left-footer">
+            <p>Số lượng TP còn tồn kho: {{ record.so_luong_thanh_pham_ton_kho|floatformat:2|intcomma }} kg ({{ ton_kho_chu }})</p>
+            <p>Chúng tôi cam kết hoàn toàn chịu trách nhiệm trước Pháp luật Việt Nam với các dữ liệu đã khai trên đây</p>
+            <div class="signature-section">
+                <div class="signature-content">
+                    <p>Ngày {{ record.ngay_thang|date:"d" }} tháng {{ record.ngay_thang|date:"m" }} năm {{ record.ngay_thang|date:"Y" }}</p>
+                    <p><strong>Công ty cổ phần Tân Phong</strong></p>
+                </div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

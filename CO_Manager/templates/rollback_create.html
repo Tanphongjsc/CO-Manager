@@ -1,0 +1,65 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block css %}
+<link rel="stylesheet" href="{% static 'css/rollback_create.css' %}">
+{% endblock %}
+
+{% block content %}
+<h2>TẠO MỚI BẢNG KÊ TRỪ LÙI NGUYÊN LIỆU</h2>
+
+<form method="post" id="rollbackForm">
+    {% csrf_token %}
+    <div class="form-group">
+        <label for="ma_don_hang">Mã đơn hàng:</label>
+        <select id="ma_don_hang" name="ma_don_hang">
+            <option value="">-- Chọn đơn hàng --</option>
+            {% for don_hang in don_hang_list %}
+            <option value="{{ don_hang }}">{{ don_hang }}</option>
+            {% endfor %}
+        </select>
+    </div>
+
+    <div class="form-group">
+        <label for="ma_lenh_sx">Mã lệnh sản xuất:</label>
+        <select id="ma_lenh_sx" name="ma_lenh_sx" disabled>
+            <option value="">-- Chọn lệnh sản xuất --</option>
+            <!-- Các lệnh sản xuất sẽ được JS thêm sau -->
+        </select>
+    </div>
+
+    <!-- Bảng dữ liệu nguyên liệu -->
+    <div class="table-container">
+        <table id="nguyenLieuTable">
+            <thead>
+                <tr>
+                    <th>Mã lệnh sản xuất</th>
+                    <th>Tên nguyên liệu</th>
+                    <th>Mã HS</th>
+                    <th>Đơn vị tính</th>
+                    <th>Số lượng mua vào</th>
+                    <th>Số lượng sản xuất</th>
+                    <th>Tỷ lệ thu hồi</th>
+                    <th>Số lượng thành phẩm thu hồi</th>
+                    <th>Số lượng thành phẩm xuất</th>
+                    <th>Số lượng thành phẩm tồn kho</th>
+                    <th>Ghi chú</th>
+                    <th>Ngày tạo</th>
+                </tr>
+            </thead>
+            <tbody>
+                <!-- Dữ liệu sẽ được thêm bằng JavaScript từ API -->
+            </tbody>
+        </table>
+    </div>
+
+    <div class="form-actions">
+        <a href="{% url 'rollback' %}" class="btn btn-cancel">Hủy bỏ</a>
+        <button type="submit" class="btn btn-save">Lưu</button>
+    </div>
+</form>
+{% endblock %}
+
+{% block javascript %}
+<script src="{% static 'js/rollback_create.js' %}"></script>
+{% endblock %}

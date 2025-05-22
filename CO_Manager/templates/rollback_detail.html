@@ -1,0 +1,104 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block css %}
+<link rel="stylesheet" href="{% static 'css/rollback_details.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="form-title">XEM BẢNG KÊ TRỪ LÙI NGUYÊN LIỆU</div>
+
+    <div class="print-page">
+        <div class="btn-group no-print" style="margin-bottom: 20px;">
+        <!-- Ẩn id để dùng trong JS -->
+        <input type="hidden" id="record-id" value="{{ record.id_bang_ke_tru_lui }}">
+
+        <!-- Nút quay lại -->
+        <a href="{% url 'rollback' %}" class="back-btn">
+            <i class="fas fa-arrow-left"></i> Quay lại
+        </a>
+
+        <!-- Nút xuất PDF được sửa để giống nút Excel -->
+        <a href="#" id="btn-export-pdf" class="pdf-btn">
+            <i class="fas fa-file-pdf"></i> Xuất file PDF
+        </a>
+
+        <!-- Nút xuất Excel giữ nguyên -->
+        <a href="{% url 'rollback_export_excel' record.id_bang_ke_tru_lui %}" 
+        class="excel-btn" 
+        target="_blank">
+            <i class="fas fa-file-excel"></i> Xuất file Excel
+        </a>
+    </div>
+
+    <div class="print-header">
+        <p><strong>Công ty cổ phần Tân Phong</strong></p>
+        <p>Địa chỉ: Thị trấn Hùng Sơn, huyện Lâm Thao, tỉnh Phú Thọ</p>
+        <p>Điện thoại: 02102215277</p>
+        <p>Mã số Doanh nghiệp: 2600 274 542</p>
+    </div>
+
+    <div class="page-title">BẢNG KÊ TRỪ LÙI NGUYÊN LIỆU THU MUA SẢN XUẤT - {{ record.ten_nguyen_lieu|default:'' }}</div>
+
+    <table class="print-table">
+        <thead>
+            <tr>
+                <th rowspan="2">STT</th>
+                <th rowspan="2">Tên Nguyên Liệu</th>
+                <th rowspan="2">Mã HS</th>
+                <th rowspan="2">ĐV tính</th>
+                <th rowspan="2">Số lượng mua vào</th>
+                <th rowspan="2">Số lượng sản xuất</th>
+                <th rowspan="2">Tỷ lệ thu hồi</th>
+                <th rowspan="2">Thành phẩm kho thu hồi</th>
+                <th>Số lượng thành phẩm xuất</th>
+                <th rowspan="2">Số lượng TP còn tồn kho</th>
+                <th rowspan="2">Ghi chú</th>
+            </tr>
+            <tr>
+                <th>{{ record.ngay_thang|date:"d/m/Y"|default:'' }}</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td>1</td>
+                <td>{{ record.ten_nguyen_lieu|default:'' }}</td>
+                <td class="hs-code">{{ record.ma_hs|default:'' }}</td>
+                <td>{{ record.don_vi_tinh|default:'' }}</td>
+                <td>{{ record.so_luong_mua_vao|default:'' }}</td>
+                <td>{{ record.so_luong_san_xuat|default:'' }}</td>
+                <td class="percent-value">{{ record.ty_le_thu_hoi|floatformat:2|default:"0.00" }}%</td>
+                <td>{{ record.so_luong_thanh_pham_thu_hoi|default:'' }}</td>
+                <td>{{ record.so_luong_san_pham_xuat|default:'' }}</td>
+                <td>{{ record.so_luong_thanh_pham_ton_kho|default:'' }}</td>
+                <td class="note-cell">{{ record.ghi_chu|default:'' }}</td>
+            </tr>
+            <tr>
+                <td colspan="4" style="text-align: right;"><strong>Tổng cộng:</strong></td>
+                <td>{{ record.so_luong_mua_vao|default:'' }}</td>
+                <td>{{ record.so_luong_san_xuat|default:'' }}</td>
+                <td class="percent-value">{{ record.ty_le_thu_hoi|default:'' }}</td>
+                <td>{{ record.so_luong_thanh_pham_thu_hoi|default:'' }}</td>
+                <td>{{ record.so_luong_san_pham_xuat|default:'' }}</td>
+                <td>{{ record.so_luong_thanh_pham_ton_kho|default:'' }}</td>
+                <td>-</td>
+            </tr>
+        </tbody>
+    </table>
+
+    <div class="print-footer clearfix">
+        <div class="left">
+            <p>Số lượng TP còn tồn kho: {{ record.so_luong_thanh_pham_ton_kho|default:'' }} kg</p>
+            <p>Chúng tôi cam kết hoàn toàn chịu trách nhiệm trước Pháp luật Việt Nam với các dữ liệu đã khai trên đây</p>
+        </div>
+        <div class="right">
+            <p>Ngày {{ record.ngay_thang|date:"d"|default:'' }} tháng {{ record.ngay_thang|date:"m"|default:'' }} năm {{ record.ngay_thang|date:"Y"|default:'' }}</p>
+            <p><strong>Công ty cổ phần Tân Phong</strong></p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascript %}
+<script src="{% static 'js/rollback_details.js' %}"></script>
+{% endblock %}
