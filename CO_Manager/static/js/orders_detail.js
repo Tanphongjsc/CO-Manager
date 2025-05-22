@@ -40,6 +40,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('modal-product-quantity').textContent = productDetails[0].quantity;
                 document.getElementById('modal-product-unit').textContent = productDetails[0].unit;
                 
+                // Lưu trữ số lượng yêu cầu để sử dụng cho dòng tổng cộng
+                const totalQuantity = productDetails[0].quantity;
+                const productUnit = productDetails[0].unit;
+                
                 // Xóa dữ liệu cũ trong bảng nguyên vật liệu
                 const materialsTable = document.getElementById('modal-materials');
                 materialsTable.innerHTML = '';
@@ -72,6 +76,15 @@ document.addEventListener('DOMContentLoaded', function() {
                     `;
                     materialsTable.appendChild(row);
                 });
+                
+                // Thêm dòng tổng cộng
+                const totalRow = document.createElement('tr');
+                totalRow.className = 'total-row';
+                totalRow.innerHTML = `
+                    <td><strong>Tổng cộng</strong></td>
+                    <td><strong>${totalQuantity}</strong></td>
+                `;
+                materialsTable.appendChild(totalRow);
             }
             
             // Hiển thị modal
@@ -121,11 +134,36 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Xử lý nút xuất Excel ---------------------------------------------------------------
     if (exportExcelBtn) {
-        exportExcelBtn.addEventListener('click', function() {
-            const orderId = this.dataset.ordersId;
-            // chuyển hướng trình duyệt đến view export
-            window.location.href = `/orders/${orderId}/export/?format=excel`;
-        });
+        exportExcelBtn.addEventListener('click', async function() {
+            const originalText = this.textContent;
+            
+            try {
+                // Hiển thị loading
+                this.textContent = 'Đang xuất...';
+                this.disabled = true;
+                
+                const orderId = this.dataset.ordersId;
+                const response = await fetch(`/orders/${orderId}/export/?format=excel`);
+                
+                if (!response.ok) throw new Error(`Lỗi server: ${response.status}`);
+                
+                // Thực hiện download
+                window.location.href = `/orders/${orderId}/export/?format=excel`;
+                
+                // Khôi phục button
+                setTimeout(() => {
+                    this.textContent = originalText;
+                    this.disabled = false;
+                }, 2000);
+                
+            } catch (error) {
+                console.error('Lỗi khi xuất Excel:', error);
+                alert('Không thể xuất file Excel. Vui lòng thử lại.');
+                 
+                // Khôi phục button khi có lỗi
+                this.textContent = originalText;
+                this.disabled = false;
+            }
+       });
     }
-
 });

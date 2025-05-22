@@ -35,8 +35,51 @@ def wo_ledger(request):
 def ctc_ledger(request):
     return render(request, 'ctc_management.html', {})
 
-def user_management(request):
-    return render(request, 'user_management.html', {})
+def users_management(request):
+    users = Nguoi.objects.all().order_by('id')
+
+    context = {
+        'users': users,
+    }
+    return render(request, 'user_management.html', context)
+
+
+def users_management(request):
+    users = Nguoi.objects.all().order_by('id')
+
+    context = {
+        'users': users,
+    }
+    return render(request, 'user_management.html', context)
+
+@require_POST
+def users_create(request):
+    users = Nguoi.objects.all().order_by('id')
+
+    context = {
+        'users': users,
+    }
+    return render(request, 'user_management.html', context)
+
+@require_POST
+def users_update(request):
+    users = Nguoi.objects.all().order_by('id')
+
+    context = {
+        'users': users,
+    }
+    return render(request, 'user_management.html', context)
+
+@require_POST
+def users_delete(request):
+    users = Nguoi.objects.all().order_by('id')
+
+    context = {
+        'users': users,
+    }
+    return render(request, 'user_management.html', context)
+
+
 
 def product_management(request):
     products = VatTu.objects.all().order_by('id_san_pham')
@@ -119,12 +162,12 @@ def product_delete(request):
     })
 
 
-
 @require_POST
 def products_sync_cloudify(request):
     """Xử lý đồng bộ hóa dữ liệu sản phẩm từ Cloudify."""
     try:
-        data_cloudify = products_fetch_data(request)
+        data_cloudify, session = fetch_erp_data(model='danh.muc.vat.tu.hang.hoa', endpoint='search_read', fields=["MA","TEN","DONG_SAN_PHAM","TINH_CHAT","LIST_NHOM_VTHH","DVT_CHINH_ID"])
+
     except requests.RequestException as e:
         return JsonResponse({
             'success': False,
@@ -132,6 +175,17 @@ def products_sync_cloudify(request):
         }, status=500)
         
     if data_cloudify:
+        adapter_data = {
+            "0":'Vật tư hàng hóa', 
+            "1":'Thành phẩm', 
+            "2":'Dich vụ', 
+            "3":'Chỉ là diễn giải', 
+            "4":'Bán thành phẩm'
+        }
+        for item in data_cloudify['records']:
+            item['TINH_CHAT'] = adapter_data.get(item['TINH_CHAT'], None)
+            item['DVT_CHINH_ID'] = item['DVT_CHINH_ID'][1] if item['DVT_CHINH_ID'] else None
+
         if data_cloudify['length'] == len(data_cloudify['records']):
 
             # Lấy ra danh sách mã sản phẩm từ Cloudify
@@ -151,8 +205,7 @@ def products_sync_cloudify(request):
                 item.ten_sp_chinh = cloudify_product[item.id_san_pham].get('TEN')
                 item.don_vi_tinh = cloudify_product[item.id_san_pham].get('DVT_CHINH_ID')
                 item.loai_sp = cloudify_product[item.id_san_pham].get('TINH_CHAT')
-
-            # Lưu thay đổi vào database   
+                item.nhom_vthh = cloudify_product[item.id_san_pham].get('LIST_NHOM_VTHH')
         
             # Thêm mới những sản phẩm không tìm thấy
             objs = []
@@ -162,13 +215,14 @@ def products_sync_cloudify(request):
                         id_san_pham=id,
                         ten_sp_chinh=cloudify_product[id].get('TEN'),
                         don_vi_tinh=cloudify_product[id].get('DVT_CHINH_ID'),
-                        loai_sp=cloudify_product[id].get('TINH_CHAT')
+                        loai_sp=cloudify_product[id].get('TINH_CHAT'),
+                        nhom_vthh=cloudify_product[id].get('LIST_NHOM_VTHH')
                     )
                 )
 
             # Dùng transaction để đảm bảo atomicity
             with transaction.atomic():
-                VatTu.objects.bulk_update(db_products, ['ten_sp_chinh', 'don_vi_tinh', 'loai_sp']) # Cập nhật những sản phẩm đã tìm thấy
+                VatTu.objects.bulk_update(db_products, ['ten_sp_chinh', 'don_vi_tinh', 'loai_sp', 'nhom_vthh']) # Cập nhật những sản phẩm đã tìm thấy
                 VatTu.objects.bulk_create(objs) # Thêm mới những sản phẩm không tìm thấy
 
             return JsonResponse({
@@ -189,37 +243,38 @@ def products_sync_cloudify(request):
     }, status=500)
 
 
-def products_fetch_data(request):
-    """Lấy dữ liệu sản phẩm từ Cloudify."""
+def fetch_erp_data(model=None, endpoint=None, params=None, fields=None, session=None):
+    """Hàm lấy dữ liệu từ hệ thống ERP qua API"""
 
-    # Thông tin login
-    LOGIN_URL = 'https://tanphongjsc.cloudify.vn/web/login'
-    RPC_URL   = 'https://tanphongjsc.cloudify.vn/web/dataset/search_read'
-    EMAIL     = os.getenv('cloudify_user')
-    PASSWORD  = os.getenv('cloudify_password')
+    # Cấu hình API
+    BASE_URL = 'https://tanphongjsc.cloudify.vn/web'
+    LOGIN_URL = f'{BASE_URL}/login'
+    RPC_URL = f'{BASE_URL}/dataset/{endpoint}'
+    EMAIL = os.getenv('cloudify_user')
+    PASSWORD = os.getenv('cloudify_password')
 
-    print(EMAIL, PASSWORD)
-    # 1) Khởi tạo session và lấy csrf_token
-    session = requests.Session()
-    r = session.get(LOGIN_URL)
-    csrf = re.search(r'name="csrf_token".*?value="([^"]+)"', r.text).group(1)
+    # Tạo session mới nếu chưa có
+    if not session:
+        session = requests.Session()
+        login_page = session.get(LOGIN_URL)
+        csrf_token = re.search(r'name="csrf_token".*?value="([^"]+)"', login_page.text).group(1)
 
-    # 2) Đăng nhập
-    session.post(LOGIN_URL, data={
-        'csrf_token': csrf,
-        'login': EMAIL,
-        'password': PASSWORD,
-    })
+        # Đăng nhập
+        session.post(LOGIN_URL, data={
+            'csrf_token': csrf_token,
+            'login': EMAIL,
+            'password': PASSWORD,
+        })
 
-    # 3) Gọi JSON-RPC
+    # Gọi JSON-RPC
     payload = {
         "jsonrpc": "2.0",
         "method": "call",
         "params": {
-            "model": "danh.muc.vat.tu.hang.hoa",
-            "domain": [],
-            "fields": ["MA","TEN","DONG_SAN_PHAM","TINH_CHAT","DVT_CHINH_ID"],
-        },
+            "model": model,
+            "fields": fields or [],
+            "domain": []
+        } if params is None else params,
         "id": int(timezone.now().timestamp() * 1000)
     }
 
@@ -228,32 +283,21 @@ def products_fetch_data(request):
         'X-Requested-With': 'XMLHttpRequest',
     }
 
-    res = session.post(RPC_URL, headers=headers, json=payload)
-
-    # 4) Xử lý kết quả
-    data = res.json().get('result', [])
-    for item in data['records']:
-        if item['TINH_CHAT'] == '0':
-            item['TINH_CHAT'] = 'Vật tư hàng hóa'
-        elif item['TINH_CHAT'] == '1':
-            item['TINH_CHAT'] = 'Thành phẩm'
-        elif item['TINH_CHAT'] == '2':
-            item['TINH_CHAT'] = 'Dich vụ'
-        elif item['TINH_CHAT'] == '3':
-            item['TINH_CHAT'] = 'Chỉ là diễn giải'
-        elif item['TINH_CHAT'] == '4':
-            item['TINH_CHAT'] = 'Bán thành phẩm'
-        else:
-            item['TINH_CHAT'] = None
-
-        item['DVT_CHINH_ID'] = item['DVT_CHINH_ID'][1] if item['DVT_CHINH_ID'] else None
-
-    return data
+    response = session.post(RPC_URL, headers=headers, json=payload)
+    data = response.json().get('result', [])
+    
+    return data, session
 
 
 def orders(request):
     # Truy vấn danh sách đơn hàng từ cơ sở dữ liệu
-    orders = LenhSanXuat.objects.all()
+    orders = LenhSanXuat.objects.all().order_by('-id_lenh_san_xuat')
+    
+    for order in orders:
+        if order.id_don_hang:
+            len_id = len(order.id_don_hang)
+            order.id_don_hang = f"ĐH{'0'*(6-len_id)}{int(order.id_don_hang)-1}"
+    
     context = {
         'orders': orders,
     }
@@ -262,7 +306,7 @@ def orders(request):
 
 def orders_detail(request, pk):
     # Truy vấn chi tiết đơn hàng từ cơ sở dữ liệu
-    order_items = CtLenhSanXuat.objects.filter(id_lenh_san_xuat=pk)
+    order_items = CtLenhSanXuat.objects.filter(id_lenh_san_xuat=pk).select_related('id_san_pham', 'id_nguyen_vat_lieu', 'id_lenh_san_xuat')
     if not order_items.exists():
         return render(request, '404.html')
     
@@ -287,12 +331,154 @@ def orders_detail(request, pk):
 
     return render(request, 'orders_detail.html', context)
 
+@require_POST
+def orders_sync_cloudify(request):
+    """Xử lý đồng bộ hóa dữ liệu đơn hàng từ Cloudify."""
+    try:
+        # Lấy danh sách lệnh sản xuất từ ERP
+        production_orders_data, session = fetch_erp_data(model='stock.ex.lenh.san.xuat', endpoint='search_read', fields=['SO_LENH', 'LAP_TU_DON_DAT_HANG_IDS', 'NGAY', 'STOCK_EX_LENH_SAN_XUAT_CHI_TIET_THANH_PHAM_IDS'])
+
+        if not production_orders_data:
+            return JsonResponse({
+                'success': False,
+                'message': 'Không có dữ liệu lệnh sản xuất từ Cloudify!'
+            }, status=404)
+
+        # Chuyển đổi thành dict để dễ truy xuất
+        production_orders = {order['SO_LENH']: order for order in production_orders_data['records']}
+        
+        # Tìm các lệnh sản xuất chưa tồn tại trong database
+        existing_order_ids = set(
+            LenhSanXuat.objects.filter(id_lenh_san_xuat__in=production_orders.keys())
+            .values_list('id_lenh_san_xuat', flat=True)
+        )
+        new_order_ids = set(production_orders.keys()) - existing_order_ids
+
+        if not new_order_ids:
+            return JsonResponse({
+                'success': True,
+                'message': 'Tất cả lệnh sản xuất đã được đồng bộ!'
+            })
+
+        # Lấy thông tin định mức nguyên vật liệu cho các lệnh mới
+        product_norms = []
+        
+        for order_id in new_order_ids:
+            product_ids = production_orders[order_id]['STOCK_EX_LENH_SAN_XUAT_CHI_TIET_THANH_PHAM_IDS']
+            
+            for product_id in product_ids:
+                # Lấy thông tin chi tiết thành phẩm
+                product_params = {
+                    "model": "stock.ex.lenh.san.xuat.chi.tiet.thanh.pham",
+                    "method": "read",
+                    "args": [product_id, ['MA_HANG_ID', 'SO_LUONG', 'STOCK_EX_THANH_PHAM_CHI_TIET_DINH_MUC_XUAT_NVL_IDS']],
+                    "kwargs": {'active_menu': 171},
+                }
+                
+                product_details, session = fetch_erp_data(endpoint='call_kw/stock.ex.lenh.san.xuat.chi.tiet.thanh.pham/read', params=product_params, session=session)
+                
+                if not product_details:
+                    product_details, session = fetch_erp_data(endpoint='call_kw/stock.ex.lenh.san.xuat.chi.tiet.thanh.pham/read', params=product_params,)
+                    
+                product_details = product_details[0]
+                material_ids = product_details['STOCK_EX_THANH_PHAM_CHI_TIET_DINH_MUC_XUAT_NVL_IDS']
+                
+                # Lấy thông tin định mức nguyên vật liệu
+                material_details = []
+                if material_ids:
+                    material_params = {
+                        "model": "stock.ex.thanh.pham.chi.tiet.dinh.muc.xuat.nvl",
+                        "method": 'read',
+                        "args": [material_ids, ['MA_HANG_ID', 'SO_LUONG_NVL']],
+                        "kwargs": {'active_menu': 171},
+                    }
+                    
+                    material_details, session = fetch_erp_data(endpoint='call_kw/stock.ex.thanh.pham.chi.tiet.dinh.muc.xuat.nvl/read', params=material_params, session=session)
+
+                # Lưu thông tin định mức
+                product_norms.append({
+                    'id_lenh_san_xuat': order_id,
+                    'id_san_pham': product_details['MA_HANG_ID'][1],
+                    'so_luong_san_pham': product_details['SO_LUONG'],
+                    'dinh_muc_nvl': {item['MA_HANG_ID'][1]: item['SO_LUONG_NVL'] for item in material_details or []}
+                })
+
+        # Lấy tất cả sản phẩm liên quan
+        all_product_ids = set(
+            [item['id_san_pham'] for item in product_norms] + # ID thành phẩm
+            [key for item in product_norms for key in item['dinh_muc_nvl'].keys()] # ID nguyên vật liệu
+        )
+        
+        all_products = {
+            vt.id_san_pham: vt 
+            for vt in VatTu.objects.filter(id_san_pham__in=all_product_ids)
+        }
+
+        # Tạo các đối tượng lệnh sản xuất
+        lenh_san_xuat_objs = []
+        for order_id in new_order_ids:
+            order_data = production_orders[order_id]
+            lenh_san_xuat_objs.append(
+                LenhSanXuat(
+                    id_lenh_san_xuat=order_id,
+                    id_don_hang=order_data['LAP_TU_DON_DAT_HANG_IDS'][0] if order_data['LAP_TU_DON_DAT_HANG_IDS'] else None,
+                    ngay_tao_don_hang=order_data['NGAY'].split(" ")[0]
+                )
+            )
+
+        # Tạo dict để map order_id với object
+        lenh_san_xuat_dict = {obj.id_lenh_san_xuat: obj for obj in lenh_san_xuat_objs}
+
+        # Tạo các đối tượng chi tiết lệnh sản xuất
+        ct_lenh_san_xuat_objs = []
+        for product in product_norms:
+            if product['id_san_pham'] not in all_products:
+                continue
+                
+            for material_id, material_quantity in product['dinh_muc_nvl'].items():
+                if material_id not in all_products:
+                    continue
+                    
+                ct_lenh_san_xuat_objs.append(
+                    CtLenhSanXuat(
+                        id_lenh_san_xuat=lenh_san_xuat_dict[product['id_lenh_san_xuat']],
+                        id_san_pham=all_products[product['id_san_pham']],
+                        ten_san_pham=all_products[product['id_san_pham']].ten_sp_chinh,
+                        so_luong_san_pham=product['so_luong_san_pham'],
+                        id_nguyen_vat_lieu=all_products[material_id],
+                        so_luong_nguyen_vat_lieu=material_quantity,
+                    )
+                )
+
+        # Lưu vào database với transaction
+        with transaction.atomic():
+            LenhSanXuat.objects.bulk_create(lenh_san_xuat_objs)
+            CtLenhSanXuat.objects.bulk_create(ct_lenh_san_xuat_objs)
+
+        return JsonResponse({
+            'success': True,
+            'message': f'Đồng bộ thành công lệnh sản xuất!',
+            'data_lenh_san_xuat': production_orders,
+            'data_product_norms': product_norms
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Lỗi đồng bộ hóa: {str(e)}'
+        }, status=500)
+
+
 def orders_export(request, pk):
     """Xuất báo cáo tỉ lệ phối trộn theo định dạng PDF hoặc Excel."""
     export_format = request.GET.get('format', '').lower()
     
     # Lấy và tổ chức dữ liệu
-    order_data = get_order_data(pk)
+    try:
+        order_data = get_order_data(pk)
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Dữ liệu thiếu hoặc không hợp lệ: {e}'}, status=400)
+    
     context = {**order_data, 'today': timezone.now()}
     
     if export_format == 'pdf':
@@ -302,7 +488,6 @@ def orders_export(request, pk):
     else:
         return JsonResponse({'success': False, 'message': 'Format không hợp lệ!'}, status=400)
 
-
 def get_order_data(order_id):
     """Lấy và tổ chức dữ liệu lệnh sản xuất."""
     # Lấy chi tiết lệnh sản xuất
@@ -311,7 +496,7 @@ def get_order_data(order_id):
     
     # Xác định danh sách nguyên liệu để làm header
     material_types = sorted({obj.id_nguyen_vat_lieu.ten_khac for obj in order_items})
-    
+
     # Gom nhóm theo sản phẩm
     products_map = {}
     total_quantity = 0
@@ -347,7 +532,6 @@ def get_order_data(order_id):
         'totals': dict(material_totals),
         'total_quantity': total_quantity,
     }
-
 
 def create_excel_response(order_id, data):
     """Tạo file Excel báo cáo tỉ lệ phối trộn."""

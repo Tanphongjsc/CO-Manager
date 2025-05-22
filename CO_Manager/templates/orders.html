@@ -9,7 +9,7 @@
 
 {% block content %}
 <div id="orders-management" class="module-content">
-    <h2 class="module-title">Quản lý Đơn hàng</h2>
+    <h2 class="module-title">Quản lý Đơn hàng - Lệnh sản xuất</h2>
 
     <div class="actions-bar">
         <div class="search-container">
@@ -36,8 +36,8 @@
         <tbody>
             {% for order in orders %}
             <tr>
-            <td>ĐH0000{{ order.id_don_hang }}</td>
-            <td>{{ order.id_lenh_san_xuat }}</td>
+            <td>{{ order.id_don_hang|default_if_none:'' }}</td>
+            <td>{{ order.id_lenh_san_xuat|default_if_none:'' }}</td>
             <td>{{ order.ngay_tao_don_hang|date:"d/m/Y" }}</td>
             <td>
                 <a href="{% url 'orders_detail' order.id_lenh_san_xuat %}" class="btn btn-sm btn-warning">

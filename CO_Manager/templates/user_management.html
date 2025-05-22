@@ -1,60 +1,143 @@
 {% extends 'base.html' %}
-
 {% load static %}
 
-{% block title %}Quản lý người dùng{% endblock %}
+{% block title %}Quản lý Người dùng - Danh sách{% endblock %}
 
-{% block extra_css %}
+{% block css %}
 <link rel="stylesheet" href="{% static 'css/user_management.css' %}">
 {% endblock %}
 
 {% block content %}
-<h1>Quản lý người dùng</h1>
+<div id="user-management" class="module-content">
+  <h2 class="module-title">Quản lý Người dùng</h2>
 
-<div class="action-buttons">
-    <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#addUserModal">
-        Thêm người dùng mới
+  <div class="actions-bar">
+    <div class="search-container">
+      <input type="text" id="user-search-input" class="form-control" placeholder="Tìm kiếm người dùng...">
+      <button id="user-search-btn" class="btn btn-primary">Tìm kiếm</button>
+    </div>
+    <button id="add-user-btn" class="btn btn-success">
+      <i class="fas fa-plus"></i>
+      <span class="btn-text">Thêm mới</span>
     </button>
-</div>
+  </div>
 
-<div class="card">
-    <table>
-        <thead>
-            <tr>
-                <th>ID Người</th>
-                <th>Tên</th>
-                <th>Số CMND/CCCD</th>
-                <th>Ngày cấp CMND/CCCD</th>
-                <th>Địa chỉ</th>
-                <th>Thao tác</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for user in users %}
-            <tr>
-                <td>{{ user.id }}</td>
-                <td>{{ user.name }}</td>
-                <td>{{ user.id_number }}</td>
-                <td>{{ user.id_issue_date }}</td>
-                <td>{{ user.address }}</td>
-                <td>
-                    <button class="btn btn-sm btn-primary edit-user" data-id="{{ user.id }}">Sửa</button>
-                    <button class="btn btn-sm btn-danger delete-user" data-id="{{ user.id }}">Xóa</button>
-                </td>
-            </tr>
-            {% empty %}
-            <tr>
-                <td colspan="6" class="text-center">Không có dữ liệu người dùng</td>
-            </tr>
-            {% endfor %}
-        </tbody>
+  <div class="table-container">
+    <table class="standard-table">
+      <thead>
+        <tr>
+          <th>STT</th>
+          <th>Tên</th>
+          <th>Số CMND/CCCD</th>
+          <th>Ngày cấp CMND/CCCD</th>
+          <th>Địa chỉ</th>
+          <th>Hành động</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for user in users %}
+        <tr>
+          <td>{{ forloop.counter }}</td>
+          <td>{{ user.ten }}</td>
+          <td>{{ user.so_cmnd_cccd }}</td>
+          <td>{{ user.ngay_cap_cmnd_cccd|date:"d/m/Y" }}</td>
+          <td>{{ user.dia_chi }}</td>
+          <td>
+            <div class="action-buttons">
+              <button class="btn btn-sm btn-warning edit-btn" data-id="{{ user.id }}">Sửa</button>
+              <button class="btn btn-sm btn-danger delete-btn" data-id="{{ user.id }}">Xóa</button>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="6" class="text-center">Không có dữ liệu người dùng</td>
+        </tr>
+        {% endfor %}
+      </tbody>
     </table>
+  </div>
 </div>
 
-<!-- Modal thêm người dùng -->
+<!-- Modal Popup Thêm Người dùng -->
+<div id="addUserModal" class="modal">
+    <div class="modal-content">
+        <span class="close">&times;</span>
+        <div class="user-add-content">
+            <h3>Thêm người dùng mới</h3>
+            <form id="add-user-form">
+                {% csrf_token %}
+
+                <div class="form-group">
+                    <label for="add-user-name">Tên:</label>
+                    <input type="text" id="add-user-name" class="form-control" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="add-user-cmnd">Số CMND/CCCD:</label>
+                    <input type="text" id="add-user-cmnd" class="form-control" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="add-user-date">Ngày cấp CMND/CCCD:</label>
+                    <input type="date" id="add-user-date" class="form-control" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="add-user-address">Địa chỉ:</label>
+                    <textarea id="add-user-address" class="form-control" rows="3" required></textarea>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" id="cancel-add-btn" class="btn btn-secondary">Hủy</button>
+                    <button type="submit" id="save-user-btn" class="btn btn-primary">Lưu</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Popup Chỉnh sửa Người dùng -->
+<div id="editUserModal" class="modal">
+    <div class="modal-content">
+        <span class="close">&times;</span>
+        <div class="user-edit-content">
+            <h3>Chỉnh sửa thông tin người dùng</h3>
+            <form id="edit-user-form">
+                {% csrf_token %}
+                <input type="hidden" id="edit-user-id">
+
+                <div class="form-group">
+                    <label for="edit-user-name">Tên:</label>
+                    <input type="text" id="edit-user-name" class="form-control" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="edit-user-cmnd">Số CMND/CCCD:</label>
+                    <input type="text" id="edit-user-cmnd" class="form-control" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="edit-user-date">Ngày cấp CMND/CCCD:</label>
+                    <input type="date" id="edit-user-date" class="form-control" required>
+                </div>
+                
+                <div class="form-group">
+                    <label for="edit-user-address">Địa chỉ:</label>
+                    <textarea id="edit-user-address" class="form-control" rows="3" required></textarea>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" id="cancel-edit-btn" class="btn btn-secondary">Hủy</button>
+                    <button type="submit" id="update-user-btn" class="btn btn-primary">Cập nhật</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
 {% endblock %}
 
-{% block extra_js %}
+{% block javascript %}
 <script src="{% static 'js/user_management.js' %}"></script>
 {% endblock %}

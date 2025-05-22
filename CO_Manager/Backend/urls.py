@@ -7,12 +7,17 @@ urlpatterns = [
     path('orders/', views.orders, name='orders'),
     path('orders/<str:pk>/', views.orders_detail, name='orders_detail'),
     path('orders/<str:pk>/export/', views.orders_export, name='orders_export'),
+    path('orders/sync-cloudify', views.orders_sync_cloudify, name='orders_sync_cloudify'),
 
     path('rollback/', views.rollback, name='rollback'),
     path("purchase/", views.purchase, name="purchase"),
     path("wo/", views.wo_ledger, name="wo_ledger"),
     path("ctc/", views.ctc_ledger, name="ctc_ledger"),
-    path('user/', views.user_management, name='users'),
+    path('users/', views.users_management, name='users'),
+    path('users/create/', views.users_create, name='create_user'),
+    path('users/update/', views.users_update, name='update_user'),
+    path('users/delete/', views.users_delete, name='delete_user'),
+
     path('products/', views.product_management, name='products'),
     path('products/update/', views.product_update, name='update_product'),
     path('products/delete/', views.product_delete, name='delete_product'),
