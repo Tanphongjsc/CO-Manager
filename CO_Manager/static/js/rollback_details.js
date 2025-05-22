@@ -187,21 +187,17 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Format number in words in footer with capitalized first letter
     const formatInventoryInWords = () => {
-        // Find the inventory in the footer
         const inventoryElement = document.querySelector('.print-footer .left p:first-child');
         if (inventoryElement) {
             const text = inventoryElement.textContent;
-            // Get the number value from the text
-            const matches = text.match(/: ([0-9,.]+) kg/);
-            
+            const matches = text.match(/: ([0-9.,]+) kg/);
+
             if (matches && matches[1]) {
-                // Extract and parse the number
-                const numValue = parseInt(matches[1].replace(/[,.]/g, ''));
-                
-                // Get Vietnamese text representation with capitalized first letter
-                const numInWords = numberToVietnameseWords(numValue);
-                
-                // Update the text content
+                const cleaned = matches[1].replace(/,/g, '');
+                const numValue = parseFloat(cleaned);  // Giữ số thập phân
+                const intPart = Math.floor(numValue); // Lấy phần nguyên
+
+                const numInWords = numberToVietnameseWords(intPart);
                 inventoryElement.innerHTML = `Số lượng TP còn tồn kho: ${numValue.toLocaleString('vi-VN')} kg (${numInWords} kg)`;
             }
         }
