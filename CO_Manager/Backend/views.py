@@ -28,12 +28,12 @@ def user_management(request):
 # ==================== HELPER FUNCTIONS ====================
 def _get_vat_tu_info(id_san_pham):
     """
-    Get VatTu information by product ID
+    Get VatTu information by product ID - only for NVL-KHÔ items
     Returns tuple: (vat_tu_object, ty_le_thu_hoi, don_vi_tinh, ten_nguyen_lieu, ma_hs)
     """
     try:
         if id_san_pham:
-            vat_tu = VatTu.objects.get(id_san_pham=id_san_pham)
+            vat_tu = VatTu.objects.get(id_san_pham=id_san_pham, nhom_vthh='NVL - KHÔ')
             return (
                 vat_tu,
                 vat_tu.ty_le_thu_hoi,
@@ -69,12 +69,13 @@ def _calculate_quantities(record, ty_le_thu_hoi):
 
 
 def _get_production_order_output_quantity(record):
-    """Get production order output quantity from CtLenhSanXuat"""
+    """Get production order output quantity from CtLenhSanXuat - only for NVL-KHÔ items"""
     so_luong_san_pham_xuat = record.so_luong_san_pham_xuat
     try:
         ct_lenh_sx = CtLenhSanXuat.objects.filter(
             id_lenh_san_xuat=record.id_lenh_san_xuat,
-            id_nguyen_vat_lieu__id_san_pham=record.id_san_pham
+            id_nguyen_vat_lieu__id_san_pham=record.id_san_pham,
+            id_nguyen_vat_lieu__nhom_vthh='NVL - KHÔ'
         ).first()
         
         if ct_lenh_sx:
@@ -105,12 +106,12 @@ def _format_rollback_record(record):
     Format a single rollback record for display
     Returns formatted dictionary
     """
-    # Get VatTu information
+    # Get VatTu information - only for NVL-KHÔ items
     vat_tu, ty_le_thu_hoi, don_vi_tinh, ten_khac, ma_hs = _get_vat_tu_info(record.id_san_pham)
     
     # Use alternative name from VatTu if available
     ten_nguyen_lieu = ten_khac or record.ten_nguyen_lieu
-    ma_hs = ma_hs or record.id_san_pham if record.id_san_pham else ''
+    ma_hs = ma_hs if ma_hs else ''
     
     # Get production order output quantity
     so_luong_san_pham_xuat = _get_production_order_output_quantity(record)
@@ -161,12 +162,12 @@ def _parse_date(date_string):
 
 
 def _update_vat_tu_recovery_rate(id_san_pham, ty_le_thu_hoi):
-    """Update recovery rate in VatTu table"""
+    """Update recovery rate in VatTu table - only for NVL-KHÔ items"""
     if not id_san_pham or ty_le_thu_hoi <= 0:
         return
     
     try:
-        vat_tu = VatTu.objects.get(id_san_pham=id_san_pham)
+        vat_tu = VatTu.objects.get(id_san_pham=id_san_pham, nhom_vthh='NVL - KHÔ')
         vat_tu.ty_le_thu_hoi = ty_le_thu_hoi
         vat_tu.save()
     except VatTu.DoesNotExist:
@@ -174,14 +175,15 @@ def _update_vat_tu_recovery_rate(id_san_pham, ty_le_thu_hoi):
 
 
 def _update_production_order_detail(lenh_sx, id_san_pham, so_luong_san_pham_xuat):
-    """Update production order detail quantity"""
+    """Update production order detail quantity - only for NVL-KHÔ items"""
     if not id_san_pham:
         return
     
     try:
         ct_lenh_sx = CtLenhSanXuat.objects.filter(
             id_lenh_san_xuat=lenh_sx,
-            id_nguyen_vat_lieu__id_san_pham=id_san_pham
+            id_nguyen_vat_lieu__id_san_pham=id_san_pham,
+            id_nguyen_vat_lieu__nhom_vthh='NVL - KHÔ'
         ).first()
         
         if ct_lenh_sx:
@@ -193,13 +195,15 @@ def _update_production_order_detail(lenh_sx, id_san_pham, so_luong_san_pham_xuat
 
 # ==================== ROLLBACK MAIN VIEWS ====================
 def rollback(request):
-    """Main rollback list view with filtering"""
+    """Main rollback list view with filtering - only show NVL-KHÔ related records"""
     # Get filter parameters
     ma_don_hang = request.GET.get('ma_don_hang')
     ma_lenh_sx = request.GET.get('ma_lenh_sx')
     
-    # Base query with related data
-    records = BangKeTruLuiNguyenLieu.objects.all().select_related('id_lenh_san_xuat')
+    # Base query with related data - filter for NVL-KHÔ items only
+    records = BangKeTruLuiNguyenLieu.objects.filter(
+        id_san_pham__in=VatTu.objects.filter(nhom_vthh='NVL - KHÔ').values_list('id_san_pham', flat=True)
+    ).select_related('id_lenh_san_xuat')
     
     # Apply filters
     if ma_don_hang:
@@ -209,7 +213,25 @@ def rollback(request):
         records = records.filter(id_lenh_san_xuat__id_lenh_san_xuat=ma_lenh_sx)
     
     # Format records for display
-    formatted_records = [_format_rollback_record(record) for record in records]
+    # Gộp bản ghi theo ten_nguyen_lieu
+    record_dict = {}
+
+    for record in records:
+        formatted = _format_rollback_record(record)
+        key = formatted['ten_nguyen_lieu'].strip().lower()
+
+        if key not in record_dict:
+            record_dict[key] = formatted
+        else:
+            # Cộng dồn các trường số
+            record_dict[key]['so_luong_mua_vao'] += formatted['so_luong_mua_vao'] or 0
+            record_dict[key]['so_luong_san_xuat'] += formatted['so_luong_san_xuat'] or 0
+            record_dict[key]['so_luong_thanh_pham_thu_hoi'] += formatted['so_luong_thanh_pham_thu_hoi'] or 0
+            record_dict[key]['so_luong_san_pham_xuat'] += formatted['so_luong_san_pham_xuat'] or 0
+            record_dict[key]['so_luong_thanh_pham_ton_kho'] += formatted['so_luong_thanh_pham_ton_kho'] or 0
+
+    # Dùng danh sách đã gộp
+    formatted_records = list(record_dict.values())
     
     # Get order list for dropdown
     don_hang_list = LenhSanXuat.objects.values_list('id_don_hang', flat=True).distinct()
@@ -223,11 +245,14 @@ def rollback(request):
 
 
 def rollback_detail(request, pk):
-    """Rollback detail view"""
+    """Rollback detail view - only for NVL-KHÔ items"""
     try:
-        record = BangKeTruLuiNguyenLieu.objects.select_related('id_lenh_san_xuat').get(
-            id_bang_ke_tru_lui=pk
-        )
+        # Filter for NVL-KHÔ items only
+        record = BangKeTruLuiNguyenLieu.objects.filter(
+            id_bang_ke_tru_lui=pk,
+            id_san_pham__in=VatTu.objects.filter(nhom_vthh='NVL - KHÔ').values_list('id_san_pham', flat=True)
+        ).select_related('id_lenh_san_xuat').get()
+        
         formatted_record = _format_rollback_record(record)
         context = {'record': formatted_record}
     except BangKeTruLuiNguyenLieu.DoesNotExist:
@@ -237,7 +262,7 @@ def rollback_detail(request, pk):
 
 
 def rollback_create(request):
-    """Create new rollback records"""
+    """Create new rollback records - only for NVL-KHÔ items"""
     don_hang_list = LenhSanXuat.objects.values_list('id_don_hang', flat=True).distinct()
     
     if request.method == 'GET':
@@ -279,10 +304,19 @@ def rollback_create(request):
             'don_hang_list': don_hang_list
         })
     
-    # Process each material
+    # Process each material - only NVL-KHÔ items
     created_records = []
     for i in range(len(form_data['ten_nguyen_lieu'])):
         try:
+            # Check if the product is NVL-KHÔ before processing
+            id_san_pham = form_data['id_san_pham'][i] if i < len(form_data['id_san_pham']) else None
+            if id_san_pham:
+                try:
+                    VatTu.objects.get(id_san_pham=id_san_pham, nhom_vthh='NVL - KHÔ')
+                except VatTu.DoesNotExist:
+                    # Skip this record if it's not NVL-KHÔ
+                    continue
+            
             record_data = _process_single_material_record(form_data, i, lenh_sx)
             if record_data:
                 bangke_tru_lui = BangKeTruLuiNguyenLieu(**record_data)
@@ -290,7 +324,6 @@ def rollback_create(request):
                 created_records.append(bangke_tru_lui)
                 
                 # Update related data
-                id_san_pham = record_data.get('id_san_pham')
                 ty_le_thu_hoi = _safe_float_conversion(
                     form_data['ty_le_thu_hoi'][i] if i < len(form_data['ty_le_thu_hoi']) else None
                 )
@@ -310,7 +343,7 @@ def rollback_create(request):
     
     if not created_records:
         return render(request, 'rollback_create.html', {
-            'error': 'Không thể tạo bảng kê trừ lùi. Vui lòng kiểm tra lại dữ liệu.',
+            'error': 'Không thể tạo bảng kê trừ lùi. Vui lòng kiểm tra lại dữ liệu hoặc đảm bảo có ít nhất một nguyên liệu thuộc nhóm NVL - KHÔ.',
             'don_hang_list': don_hang_list
         })
     
@@ -318,7 +351,7 @@ def rollback_create(request):
 
 
 def _process_single_material_record(form_data, index, lenh_sx):
-    """Process a single material record from form data"""
+    """Process a single material record from form data - only for NVL-KHÔ items"""
     i = index
     
     # Get basic data
@@ -326,7 +359,7 @@ def _process_single_material_record(form_data, index, lenh_sx):
     ten_nguyen_lieu = form_data['ten_nguyen_lieu'][i]
     ma_hs = form_data['ma_hs'][i] if i < len(form_data['ma_hs']) else ''
     
-    # Get ma_hs from VatTu if not provided
+    # Get ma_hs from VatTu if not provided - only for NVL-KHÔ items
     if not ma_hs and id_san_pham:
         _, _, _, _, ma_hs = _get_vat_tu_info(id_san_pham)
     
@@ -405,7 +438,7 @@ def get_lenh_san_xuat(request):
 
 @require_GET
 def get_lenh_san_xuat_detail(request):
-    """API endpoint to get production order details"""
+    """API endpoint to get production order details - only for NVL-KHÔ items, gộp theo tên_khac"""
     ma_lenh_sx = request.GET.get('ma_lenh_sx')
     
     if not ma_lenh_sx:
@@ -416,42 +449,55 @@ def get_lenh_san_xuat_detail(request):
     
     try:
         lenh_sx = LenhSanXuat.objects.get(id_lenh_san_xuat=ma_lenh_sx)
-        ct_lenh_sx = CtLenhSanXuat.objects.filter(id_lenh_san_xuat=lenh_sx)
-        
-        # Format detail data
-        ct_lenh_sx_data = []
+
+        ct_lenh_sx = CtLenhSanXuat.objects.filter(
+            id_lenh_san_xuat=lenh_sx,
+            id_nguyen_vat_lieu__nhom_vthh='NVL - KHÔ'
+        )
+
+        # Gộp theo tên_khac (tên nguyên liệu)
+        nguyen_lieu_dict = {}
+
         for item in ct_lenh_sx:
             vat_tu = item.id_nguyen_vat_lieu
-            if not vat_tu and item.id_san_pham:
-                try:
-                    vat_tu = VatTu.objects.get(id_san_pham=item.id_san_pham)
-                except VatTu.DoesNotExist:
-                    vat_tu = None
-            
-            if not vat_tu:
+
+            if not vat_tu or vat_tu.nhom_vthh != 'NVL - KHÔ':
                 continue
-            
+
             ten_nguyen_lieu = vat_tu.ten_khac or vat_tu.ten_sp_chinh
-            
-            ct_lenh_sx_data.append({
-                'id_ct_lenh_san_xuat': item.id_ct_lenh_san_xuat,
-                'ten_nguyen_lieu': ten_nguyen_lieu,
-                'ma_hs': vat_tu.ma_hs,
-                'don_vi_tinh': vat_tu.don_vi_tinh or 'kg',
-                'ty_le_thu_hoi': vat_tu.ty_le_thu_hoi or 0.0,
-                'so_luong_nguyen_vat_lieu': item.so_luong_nguyen_vat_lieu or 0,
-                'so_luong_san_pham': item.so_luong_san_pham or 0,
-                'id_san_pham': vat_tu.id_san_pham,
-            })
-        
+            if not ten_nguyen_lieu:
+                continue
+
+            key = ten_nguyen_lieu.strip().lower()
+
+            if key not in nguyen_lieu_dict:
+                nguyen_lieu_dict[key] = {
+                    'id_ct_lenh_san_xuat': item.id_ct_lenh_san_xuat,
+                    'ten_nguyen_lieu': ten_nguyen_lieu,
+                    'ma_hs': vat_tu.ma_hs or '',
+                    'don_vi_tinh': vat_tu.don_vi_tinh or 'kg',
+                    'ty_le_thu_hoi': vat_tu.ty_le_thu_hoi,
+                    'so_luong_nguyen_vat_lieu': item.so_luong_nguyen_vat_lieu or 0,
+                    'so_luong_san_pham': item.so_luong_san_pham or 0,
+                    'id_san_pham': vat_tu.id_san_pham,
+                }
+            else:
+                # Cộng dồn số lượng
+                nguyen_lieu_dict[key]['so_luong_nguyen_vat_lieu'] += item.so_luong_nguyen_vat_lieu or 0
+                nguyen_lieu_dict[key]['so_luong_san_pham'] += item.so_luong_san_pham or 0
+
+                # Cập nhật tỷ lệ thu hồi nếu ban đầu chưa có
+                if nguyen_lieu_dict[key]['ty_le_thu_hoi'] is None and vat_tu.ty_le_thu_hoi is not None:
+                    nguyen_lieu_dict[key]['ty_le_thu_hoi'] = vat_tu.ty_le_thu_hoi
+
         return JsonResponse({
             'status': 'success',
             'ma_don_hang': lenh_sx.id_don_hang,
             'ma_lenh_sx': lenh_sx.id_lenh_san_xuat,
             'ngay_tao': lenh_sx.ngay_tao_don_hang.strftime('%Y-%m-%d') if lenh_sx.ngay_tao_don_hang else None,
-            'chi_tiet': ct_lenh_sx_data
+            'chi_tiet': list(nguyen_lieu_dict.values())
         })
-        
+
     except LenhSanXuat.DoesNotExist:
         return JsonResponse({
             'status': 'error',
@@ -462,11 +508,14 @@ def get_lenh_san_xuat_detail(request):
 # ==================== EXPORT FUNCTIONS ====================
 @require_GET
 def rollback_export_pdf(request, pk):
-    """Render rollback record as HTML for PDF printing (AJAX)"""
-    record = get_object_or_404(
-        BangKeTruLuiNguyenLieu.objects.select_related('id_lenh_san_xuat'), 
-        id_bang_ke_tru_lui=pk
-    )
+    """Render rollback record as HTML for PDF printing (AJAX) - only for NVL-KHÔ items"""
+    try:
+        record = BangKeTruLuiNguyenLieu.objects.filter(
+            id_bang_ke_tru_lui=pk,
+            id_san_pham__in=VatTu.objects.filter(nhom_vthh='NVL - KHÔ').values_list('id_san_pham', flat=True)
+        ).select_related('id_lenh_san_xuat').get()
+    except BangKeTruLuiNguyenLieu.DoesNotExist:
+        return HttpResponse("Không tìm thấy bảng kê trừ lùi hoặc sản phẩm không thuộc nhóm NVL - KHÔ", status=404)
 
     formatted_record = _format_rollback_record(record)
 
@@ -486,11 +535,14 @@ def rollback_export_pdf(request, pk):
 
 @require_GET
 def rollback_export_excel(request, pk):
-    """Export a rollback record to Excel"""
-    record = get_object_or_404(
-        BangKeTruLuiNguyenLieu.objects.select_related('id_lenh_san_xuat'), 
-        id_bang_ke_tru_lui=pk
-    )
+    """Export a rollback record to Excel - only for NVL-KHÔ items"""
+    try:
+        record = BangKeTruLuiNguyenLieu.objects.filter(
+            id_bang_ke_tru_lui=pk,
+            id_san_pham__in=VatTu.objects.filter(nhom_vthh='NVL - KHÔ').values_list('id_san_pham', flat=True)
+        ).select_related('id_lenh_san_xuat').get()
+    except BangKeTruLuiNguyenLieu.DoesNotExist:
+        return HttpResponse("Không tìm thấy bảng kê trừ lùi hoặc sản phẩm không thuộc nhóm NVL - KHÔ", status=404)
     
     # Generate Excel file
     excel_file = generate_excel(data=None, record=record)
