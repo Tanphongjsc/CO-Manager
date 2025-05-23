@@ -161,3 +161,31 @@
 .data-table td.number-cell {
     text-align: right;
 }
+.btn-edit {
+    background-color: #28a745;
+    color: white;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+    margin-right: 5px;
+    font-size: 12px;
+    transition: background-color 0.3s;
+}
+
+.btn-edit:hover {
+    background-color: #218838;
+}
+
+/* Style cho input khi đang chỉnh sửa */
+.data-table input[type="number"]:not(:disabled) {
+    border: 1px solid #007bff !important;
+    background: white !important;
+    box-shadow: 0 0 3px rgba(0, 123, 255, 0.3);
+}
+
+.data-table input[type="number"]:disabled {
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}

@@ -2,7 +2,9 @@ from django.shortcuts import render, get_object_or_404, redirect
 from .models import BangKeTruLuiNguyenLieu, LenhSanXuat, CtLenhSanXuat, VatTu
 from django.views.decorators.http import require_GET, require_POST
 from django.http import JsonResponse, HttpResponse
+from django.views.decorators.csrf import csrf_exempt
 from datetime import datetime, date
+import json
 from .pdf_utils import convert_number_to_vietnamese_words, generate_excel
 
 # Các view đã có
@@ -419,7 +421,52 @@ def _process_single_material_record(form_data, index, lenh_sx):
         'trang_thai': trang_thai,
         'ghi_chu': ghi_chu
     }
+# ==================== ROLLBACK UPDATE VIEW ====================
+@csrf_exempt
+@require_POST
+def rollback_update(request, pk):
+    """
+    API để cập nhật số lượng mua vào và sản xuất,
+    các giá trị tự tính như thu hồi, tồn kho, trạng thái được cập nhật tự động.
+    """
+    try:
+        record = BangKeTruLuiNguyenLieu.objects.get(pk=pk)
+        data = json.loads(request.body)
 
+        # Nhập số lượng mới từ người dùng
+        so_luong_mua_vao = float(data.get('so_luong_mua_vao', 0))
+        so_luong_san_xuat = float(data.get('so_luong_san_xuat', 0))
+
+        # Lấy tỷ lệ thu hồi từ bảng nguyên vật liệu
+        try:
+            vat_tu = VatTu.objects.get(id_san_pham=record.id_san_pham, nhom_vthh='NVL - KHÔ')
+            ty_le_thu_hoi = vat_tu.ty_le_thu_hoi or 0
+        except VatTu.DoesNotExist:
+            ty_le_thu_hoi = 0
+
+        # Tính lại dữ liệu
+        thanh_pham_thu_hoi = so_luong_san_xuat * ty_le_thu_hoi
+        so_luong_san_pham_xuat = record.so_luong_san_pham_xuat or 0
+        so_luong_thanh_pham_ton_kho = thanh_pham_thu_hoi - so_luong_san_pham_xuat
+
+        # Xác định trạng thái
+        if so_luong_mua_vao > 0 and so_luong_san_xuat > 0 and thanh_pham_thu_hoi >= 0:
+            trang_thai = "Hoàn thành"
+        else:
+            trang_thai = "Đang xử lý"
+
+        # Cập nhật bản ghi
+        record.so_luong_mua_vao = so_luong_mua_vao
+        record.so_luong_san_xuat = so_luong_san_xuat
+        record.thanh_pham_thu_hoi = thanh_pham_thu_hoi
+        record.so_luong_thanh_pham_ton_kho = so_luong_thanh_pham_ton_kho
+        record.trang_thai = trang_thai
+
+        record.save()
+
+        return JsonResponse({'status': 'success'})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)})
 
 # ==================== API ENDPOINTS ====================
 @require_GET

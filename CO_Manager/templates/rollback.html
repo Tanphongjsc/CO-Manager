@@ -61,8 +61,22 @@
                 <td>{{ record.ten_nguyen_lieu }}</td>
                 <td>{{ record.ma_hs|default:'' }}</td>
                 <td>{{ record.don_vi_tinh|default:'kg' }}</td>
-                <td data-numeric="true">{{ record.so_luong_mua_vao|floatformat:2 }}</td>
-                <td data-numeric="true">{{ record.so_luong_san_xuat|floatformat:2 }}</td>
+                <td data-numeric="true">
+                    <input type="number" 
+                        name="so_luong_mua_vao" 
+                        value="{{ record.so_luong_mua_vao|floatformat:2|default:0 }}" 
+                        step="0.01" 
+                        disabled 
+                        style="width: 100%; border: none; text-align: right; background: transparent;">
+                </td>
+                <td data-numeric="true">
+                    <input type="number" 
+                        name="so_luong_san_xuat" 
+                        value="{{ record.so_luong_san_xuat|floatformat:2|default:0 }}" 
+                        step="0.01" 
+                        disabled 
+                        style="width: 100%; border: none; text-align: right; background: transparent;">
+                </td>
                 <td data-numeric="true">{% if record.ty_le_thu_hoi %}{{ record.ty_le_thu_hoi|floatformat:2 }}%{% else %}0.00%{% endif %}</td>
                 <td data-numeric="true">{{ record.so_luong_thanh_pham_thu_hoi|floatformat:2 }}</td>
                 <td data-numeric="true">{{ record.so_luong_san_pham_xuat|floatformat:2 }}</td>
@@ -72,7 +86,10 @@
                 <td class="{% if record.trang_thai == 'Hoàn thành' %}status-completed{% else %}status-processing{% endif %}">
                     {{ record.trang_thai }}
                 </td>
-                <td><a href="{% url 'rollback_detail' record.id_bang_ke_tru_lui %}" class="view-link">XEM</a></td>
+                <td>
+                    <button class="btn-edit" data-id="{{ record.id_bang_ke_tru_lui }}" style="background: #28a745; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; margin-right: 5px;">SỬA</button>
+                    <a href="{% url 'rollback_detail' record.id_bang_ke_tru_lui %}" class="view-link">XEM</a>
+                </td>
             </tr>
             {% empty %}
             <tr>

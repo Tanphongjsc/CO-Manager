@@ -175,9 +175,87 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
-    
+    // Xử lý nút Sửa/Lưu trong bảng
+    function initEditButtons() {
+        document.querySelectorAll('.btn-edit').forEach(button => {
+            button.addEventListener('click', function() {
+                const row = this.closest('tr');
+                const isEditing = this.textContent === 'Lưu';
+
+                const muaInput = row.querySelector('input[name="so_luong_mua_vao"]');
+                const sxInput = row.querySelector('input[name="so_luong_san_xuat"]');
+
+                if (isEditing) {
+                    // Lưu dữ liệu
+                    const id = this.dataset.id;
+                    const soLuongMuaVao = parseFloat(muaInput.value) || 0;
+                    const soLuongSanXuat = parseFloat(sxInput.value) || 0;
+
+                    // Disable inputs và hiển thị loading
+                    muaInput.disabled = true;
+                    sxInput.disabled = true;
+                    this.textContent = 'Đang lưu...';
+                    this.disabled = true;
+
+                    fetch(`/api/rollback/update/${id}/`, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCsrfToken(),
+                        },
+                        body: JSON.stringify({
+                            so_luong_mua_vao: soLuongMuaVao,
+                            so_luong_san_xuat: soLuongSanXuat,
+                        })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            alert('Lưu thành công');
+                            // Reload trang để cập nhật các giá trị tính toán
+                            location.reload();
+                        } else {
+                            alert('Lỗi: ' + (data.message || 'Không thể lưu dữ liệu'));
+                            // Khôi phục trạng thái chỉnh sửa
+                            muaInput.disabled = false;
+                            sxInput.disabled = false;
+                            this.textContent = 'Lưu';
+                            this.disabled = false;
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Lỗi kết nối: ' + error.message);
+                        // Khôi phục trạng thái chỉnh sửa
+                        muaInput.disabled = false;
+                        sxInput.disabled = false;
+                        this.textContent = 'Lưu';
+                        this.disabled = false;
+                    });
+                } else {
+                    // Chuyển sang chế độ chỉnh sửa
+                    muaInput.disabled = false;
+                    sxInput.disabled = false;
+                    muaInput.style.border = '1px solid #ccc';
+                    muaInput.style.background = 'white';
+                    sxInput.style.border = '1px solid #ccc';
+                    sxInput.style.background = 'white';
+                    this.textContent = 'Lưu';
+                    this.style.background = '#dc3545'; // Đổi màu thành đỏ khi ở chế độ lưu
+                }
+            });
+        });
+    }
+
+    function getCsrfToken() {
+        const name = 'csrftoken';
+        const cookie = document.cookie.split(';').find(c => c.trim().startsWith(name + '='));
+        return cookie ? decodeURIComponent(cookie.split('=')[1]) : '';
+    }
     // Initialize form values from URL
     initializeFormFromUrl();
+
+    initEditButtons();
     
     // Format numeric values in table
     formatNumericValues();
