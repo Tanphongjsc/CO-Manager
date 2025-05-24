@@ -43,7 +43,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 const userCmnd = row.cells[2].textContent.trim();
                 const userDate = row.cells[3].textContent.trim();
                 const userAddress = row.cells[4].textContent.trim();
-                
+                const userRole = row.cells[5].textContent.trim();
+
+                // Ánh xạ giá trị hiển thị sang giá trị 'value' của dropdown
+                let userRoleValue = '';
+                if (userRole === 'Người mua') {
+                    userRoleValue = 'buyer';
+                } else if (userRole === 'Người bán') {
+                    userRoleValue = 'seller';
+                }
+
                 // Chuyển đổi định dạng ngày từ DD/MM/YYYY sang YYYY-MM-DD
                 let formattedDate = '';
                 if (userDate && userDate !== '') {
@@ -53,13 +62,14 @@ document.addEventListener('DOMContentLoaded', function() {
                         formattedDate = `${dateParts[2]}-${dateParts[1].padStart(2, '0')}-${dateParts[0].padStart(2, '0')}`;
                     }
                 }
-                
+
                 // Điền thông tin vào form trong modal
                 document.getElementById('edit-user-id').value = userId;
                 document.getElementById('edit-user-name').value = userName;
                 document.getElementById('edit-user-cmnd').value = userCmnd;
                 document.getElementById('edit-user-date').value = formattedDate;
                 document.getElementById('edit-user-address').value = userAddress;
+                document.getElementById('edit-user-role').value = userRoleValue;
                 
                 // Hiển thị modal
                 if (editModal) {
@@ -79,7 +89,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 name: document.getElementById('add-user-name').value,
                 cmnd: document.getElementById('add-user-cmnd').value,
                 date: document.getElementById('add-user-date').value,
-                address: document.getElementById('add-user-address').value
+                address: document.getElementById('add-user-address').value,
+                role: document.getElementById('add-user-role').value
             };
             
             // Gửi dữ liệu lên server bằng AJAX
@@ -126,7 +137,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 name: document.getElementById('edit-user-name').value,
                 cmnd: document.getElementById('edit-user-cmnd').value,
                 date: document.getElementById('edit-user-date').value,
-                address: document.getElementById('edit-user-address').value
+                address: document.getElementById('edit-user-address').value,
+                role: document.getElementById('edit-user-role').value
             };
             
             // Gửi dữ liệu lên server bằng AJAX

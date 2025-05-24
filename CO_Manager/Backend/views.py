@@ -45,6 +45,7 @@ def users_management(request):
 
 
 def users_management(request):
+    """API endpoint để lấy danh sách người dùng."""
     users = Nguoi.objects.all().order_by('id')
 
     context = {
@@ -54,31 +55,91 @@ def users_management(request):
 
 @require_POST
 def users_create(request):
-    users = Nguoi.objects.all().order_by('id')
+    """API endpoint để tạo người dùng mới."""
+    try:
+        data = json.loads(request.body)
 
-    context = {
-        'users': users,
-    }
-    return render(request, 'user_management.html', context)
+        # Chuẩn hóa dữ liệu Vai trò
+        if data.get('role') == "buyer":
+            data['role'] = 'Người mua'
+        elif data.get('role') == "seller":
+            data['role'] = 'Người bán'
+        else:
+            data['role'] = None
+
+        user = Nguoi.objects.create(
+            ten=data.get('name'),
+            so_cmnd_cccd=data.get('cmnd'),
+            ngay_cap_cmnd_cccd=data.get('date'),
+            dia_chi=data.get('address'),
+            vai_tro=data.get('role'),
+        )
+        return JsonResponse({
+            'success': True,
+            'message': 'Tạo người dùng thành công!'
+        })
+    
+    except:
+        return JsonResponse({
+            'success': False,
+            'message': 'Dữ liệu không hợp lệ!'
+        })
 
 @require_POST
 def users_update(request):
-    users = Nguoi.objects.all().order_by('id')
+    """API endpoint để cập nhật thông tin người dùng."""
+    try:
+        data = json.loads(request.body)
+        user_id = data.get('id')
 
-    context = {
-        'users': users,
-    }
-    return render(request, 'user_management.html', context)
+        user = get_object_or_404(Nguoi, id=user_id)
+
+        user.ten = data.get('name', user.ten)
+        user.so_cmnd_cccd = data.get('cmnd', user.so_cmnd_cccd)
+        user.ngay_cap_cmnd_cccd = data.get('date', user.ngay_cap_cmnd_cccd)
+        user.dia_chi = data.get('address', user.dia_chi)
+
+        # Xử lý với trường Vai Trò
+        if data.get('role') == "buyer":
+            user.vai_tro = 'Người mua'
+        elif data.get('role') == "seller":
+            user.vai_tro = 'Người bán'
+        else:
+            user.vai_tro = None
+
+        user.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Cập nhật người dùng thành công!'
+        })
+    
+    except:
+        return JsonResponse({
+            'success': False,
+            'message': 'Dữ liệu không hợp lệ!'
+        }, status=400)
+
 
 @require_POST
 def users_delete(request):
-    users = Nguoi.objects.all().order_by('id')
+    """API endpoint để xóa người dùng."""
+    data = json.loads(request.body)
 
-    context = {
-        'users': users,
-    }
-    return render(request, 'user_management.html', context)
+    user_id = data.get('id')
+    if not user_id:
+        return JsonResponse({
+            'success': False,
+            'message': 'Không tìm thấy mã người dùng!'
+        }, status=404)
+    
+    user = get_object_or_404(Nguoi, id=user_id)
+    user.delete()
 
+    return JsonResponse({
+        'success': True,
+        'message': 'Xóa người dùng thành công!'
+    })
 
 
 def product_management(request):
@@ -123,18 +184,6 @@ def product_update(request):
             'success': True,
             'message': 'Cập nhật sản phẩm thành công!'
         })
-        
-    except VatTu.DoesNotExist:
-        return JsonResponse({
-            'success': False,
-            'message': 'Không tìm thấy sản phẩm!'
-        }, status=404)
-        
-    except json.JSONDecodeError:
-        return JsonResponse({
-            'success': False,
-            'message': 'Dữ liệu không hợp lệ!'
-        }, status=400)
         
     except Exception as e:
         return JsonResponse({

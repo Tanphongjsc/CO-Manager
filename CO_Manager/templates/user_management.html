@@ -31,6 +31,7 @@
           <th>Số CMND/CCCD</th>
           <th>Ngày cấp CMND/CCCD</th>
           <th>Địa chỉ</th>
+          <th>Vai trò</th>
           <th>Hành động</th>
         </tr>
       </thead>
@@ -42,6 +43,7 @@
           <td>{{ user.so_cmnd_cccd }}</td>
           <td>{{ user.ngay_cap_cmnd_cccd|date:"d/m/Y" }}</td>
           <td>{{ user.dia_chi }}</td>
+          <td>{{ user.vai_tro }}</td>
           <td>
             <div class="action-buttons">
               <button class="btn btn-sm btn-warning edit-btn" data-id="{{ user.id }}">Sửa</button>
@@ -87,7 +89,16 @@
                     <label for="add-user-address">Địa chỉ:</label>
                     <textarea id="add-user-address" class="form-control" rows="3" required></textarea>
                 </div>
-                
+
+                <div class="form-group">
+                    <label for="add-user-role">Vai trò:</label>
+                    <select id="add-user-role" class="form-control" required>
+                        <option value="">-- Chọn vai trò --</option>
+                        <option value="seller">Người bán</option>
+                        <option value="buyer">Người mua</option>
+                    </select>
+                </div>
+
                 <div class="form-actions">
                     <button type="button" id="cancel-add-btn" class="btn btn-secondary">Hủy</button>
                     <button type="submit" id="save-user-btn" class="btn btn-primary">Lưu</button>
@@ -126,7 +137,16 @@
                     <label for="edit-user-address">Địa chỉ:</label>
                     <textarea id="edit-user-address" class="form-control" rows="3" required></textarea>
                 </div>
-                
+
+                <div class="form-group">
+                    <label for="edit-user-role">Vai trò:</label>
+                    <select id="edit-user-role" class="form-control" required>
+                        <option value="">-- Chọn vai trò --</option>
+                        <option value="seller">Người bán</option>
+                        <option value="buyer">Người mua</option>
+                    </select>
+                </div>
+
                 <div class="form-actions">
                     <button type="button" id="cancel-edit-btn" class="btn btn-secondary">Hủy</button>
                     <button type="submit" id="update-user-btn" class="btn btn-primary">Cập nhật</button>
