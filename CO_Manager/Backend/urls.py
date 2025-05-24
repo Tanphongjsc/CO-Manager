@@ -16,8 +16,11 @@ urlpatterns = [
     path('api/rollback/update/<int:pk>/', views.rollback_update, name='rollback_update_api'),
     path('rollback/<int:pk>/export/pdf/', views.rollback_export_pdf, name='rollback_export_pdf'),
     path('rollback/<int:pk>/export/excel/', views.rollback_export_excel, name='rollback_export_excel'),
-
+    
     # API URLs
     path('api/get_lenh_san_xuat/', views.get_lenh_san_xuat, name='get_lenh_san_xuat'),
+    path('api/get_lenh_san_xuat_all/', views.get_lenh_san_xuat_all, name='get_lenh_san_xuat_all'),
     path('api/get_lenh_san_xuat_detail/', views.get_lenh_san_xuat_detail, name='get_lenh_san_xuat_detail'),
+    path('api/check_rollback_exist/', views.check_rollback_exist, name='check_rollback_exist'),
+    path('api/rollback/delete/<int:pk>/', views.rollback_delete, name='rollback_delete'),
 ]

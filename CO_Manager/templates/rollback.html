@@ -87,8 +87,9 @@
                     {{ record.trang_thai }}
                 </td>
                 <td>
-                    <button class="btn-edit" data-id="{{ record.id_bang_ke_tru_lui }}" style="background: #28a745; color: white; border: none; padding: 4px 8px; border-radius: 3px; cursor: pointer; margin-right: 5px;">SỬA</button>
-                    <a href="{% url 'rollback_detail' record.id_bang_ke_tru_lui %}" class="view-link">XEM</a>
+                    <button class="btn-edit" data-id="{{ record.id_bang_ke_tru_lui }}" style="margin-right: 5px;">SỬA</button>
+                    <a href="{% url 'rollback_detail' record.id_bang_ke_tru_lui %}" class="view-link" style="margin-right: 5px;">XEM</a>
+                    <button class="btn-delete" data-id="{{ record.id_bang_ke_tru_lui }}">XÓA</button>
                 </td>
             </tr>
             {% empty %}

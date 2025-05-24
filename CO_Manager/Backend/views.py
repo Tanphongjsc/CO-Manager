@@ -1,6 +1,6 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from .models import BangKeTruLuiNguyenLieu, LenhSanXuat, CtLenhSanXuat, VatTu
-from django.views.decorators.http import require_GET, require_POST
+from django.views.decorators.http import require_GET, require_POST, require_http_methods
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from datetime import datetime, date
@@ -421,6 +421,7 @@ def _process_single_material_record(form_data, index, lenh_sx):
         'trang_thai': trang_thai,
         'ghi_chu': ghi_chu
     }
+
 # ==================== ROLLBACK UPDATE VIEW ====================
 @csrf_exempt
 @require_POST
@@ -468,19 +469,86 @@ def rollback_update(request, pk):
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)})
 
+# ==================== ROLLBACK DELETE VIEW ====================
+@csrf_exempt
+@require_http_methods(["DELETE"])
+def rollback_delete(request, pk):
+    """
+    API để xóa bảng kê trừ lùi nguyên liệu
+    """
+    try:
+        record = BangKeTruLuiNguyenLieu.objects.filter(
+            id_bang_ke_tru_lui=pk,
+            id_san_pham__in=VatTu.objects.filter(nhom_vthh='NVL - KHÔ').values_list('id_san_pham', flat=True)
+        ).get()
+        
+        # Lưu thông tin để log
+        ten_nguyen_lieu = record.ten_nguyen_lieu
+        ma_lenh_sx = record.id_lenh_san_xuat.id_lenh_san_xuat
+        
+        # Xóa record
+        record.delete()
+        
+        print(f"Đã xóa bảng kê trừ lùi: {ten_nguyen_lieu} - Lệnh SX: {ma_lenh_sx}")
+        
+        return JsonResponse({
+            'status': 'success',
+            'message': f'Đã xóa bảng kê "{ten_nguyen_lieu}" thành công'
+        })
+        
+    except BangKeTruLuiNguyenLieu.DoesNotExist:
+        return JsonResponse({
+            'status': 'error', 
+            'message': 'Không tìm thấy bảng kê hoặc sản phẩm không thuộc nhóm NVL - KHÔ'
+        })
+    except Exception as e:
+        print(f"Error deleting rollback record {pk}: {e}")
+        return JsonResponse({
+            'status': 'error', 
+            'message': f'Lỗi khi xóa: {str(e)}'
+        })
+
 # ==================== API ENDPOINTS ====================
 @require_GET
+def get_lenh_san_xuat_all(request):
+    """API trả về toàn bộ lệnh sản xuất theo mã đơn hàng (dùng cho filter rollback)"""
+    ma_don_hang = request.GET.get('ma_don_hang')
+    
+    if not ma_don_hang:
+        return JsonResponse({'lenh_sx_list': []})
+
+    lenh_sx_list = LenhSanXuat.objects.filter(
+        id_don_hang=ma_don_hang
+    ).values_list('id_lenh_san_xuat', flat=True)
+    
+    return JsonResponse({'lenh_sx_list': list(lenh_sx_list)})
+
+@require_GET
 def get_lenh_san_xuat(request):
-    """API endpoint to get production orders by order code"""
+    """API endpoint to get production orders by order code - exclude orders with existing rollback records"""
     ma_don_hang = request.GET.get('ma_don_hang')
     
     if ma_don_hang:
-        lenh_sx_list = LenhSanXuat.objects.filter(
+        # Lấy tất cả lệnh sản xuất theo đơn hàng
+        all_lenh_sx = LenhSanXuat.objects.filter(
             id_don_hang=ma_don_hang
         ).values_list('id_lenh_san_xuat', flat=True)
-        return JsonResponse({'lenh_sx_list': list(lenh_sx_list)})
+        
+        # Lấy danh sách lệnh sản xuất đã có bảng kê trừ lùi (chỉ NVL-KHÔ)
+        existing_lenh_sx = BangKeTruLuiNguyenLieu.objects.filter(
+            id_lenh_san_xuat__id_don_hang=ma_don_hang,
+            id_san_pham__in=VatTu.objects.filter(nhom_vthh='NVL - KHÔ').values_list('id_san_pham', flat=True)
+        ).values_list('id_lenh_san_xuat__id_lenh_san_xuat', flat=True).distinct()
+        
+        # Lọc ra các lệnh sản xuất chưa có bảng kê
+        available_lenh_sx = [lenh for lenh in all_lenh_sx if lenh not in existing_lenh_sx]
+        
+        return JsonResponse({
+            'lenh_sx_list': list(available_lenh_sx),
+            'existing_lenh_sx': list(existing_lenh_sx)  # Trả về để có thể hiển thị thông báo nếu cần
+        })
     
-    return JsonResponse({'lenh_sx_list': []})
+    return JsonResponse({'lenh_sx_list': [], 'existing_lenh_sx': []})
 
 
 @require_GET
@@ -493,6 +561,8 @@ def get_lenh_san_xuat_detail(request):
             'status': 'error',
             'message': 'Vui lòng cung cấp mã lệnh sản xuất'
         })
+    
+    # BỎ PHẦN KIỂM TRA TỒN TẠI - để API này chỉ trả về chi tiết
     
     try:
         lenh_sx = LenhSanXuat.objects.get(id_lenh_san_xuat=ma_lenh_sx)
@@ -550,7 +620,28 @@ def get_lenh_san_xuat_detail(request):
             'status': 'error',
             'message': f'Không tìm thấy lệnh sản xuất với mã: {ma_lenh_sx}'
         })
-
+    
+@require_GET
+def check_rollback_exist(request):
+    """API endpoint to check if rollback records exist for a production order - only for NVL-KHÔ items"""
+    ma_lenh_sx = request.GET.get('ma_lenh_sx')
+    
+    if not ma_lenh_sx:
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Vui lòng cung cấp mã lệnh sản xuất'
+        })
+    
+    # Kiểm tra xem lệnh sản xuất đã có bảng kê trừ lùi chưa - chỉ NVL-KHÔ
+    existing_rollback = BangKeTruLuiNguyenLieu.objects.filter(
+        id_lenh_san_xuat__id_lenh_san_xuat=ma_lenh_sx,
+        id_san_pham__in=VatTu.objects.filter(nhom_vthh='NVL - KHÔ').values_list('id_san_pham', flat=True)
+    ).exists()
+    
+    return JsonResponse({
+        'exists': existing_rollback,
+        'message': f'Lệnh sản xuất {ma_lenh_sx} đã có bảng kê trừ lùi. Vui lòng xóa các bảng kê hiện tại trước khi tạo mới.' if existing_rollback else ''
+    })
 
 # ==================== EXPORT FUNCTIONS ====================
 @require_GET

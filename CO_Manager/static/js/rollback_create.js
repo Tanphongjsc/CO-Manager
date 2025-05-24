@@ -73,23 +73,42 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (!maLenhSX) return;
 
-        fetch(`/api/get_lenh_san_xuat_detail/?ma_lenh_sx=${maLenhSX}`)
+        // BƯỚC 1: Kiểm tra xem lệnh này đã có bảng kê chưa
+        fetch(`/api/check_rollback_exist/?ma_lenh_sx=${maLenhSX}`)
             .then(response => {
                 if (!response.ok) throw new Error(`Lỗi: ${response.status}`);
                 return response.json();
             })
             .then(data => {
-                if (data.status === 'success' && Array.isArray(data.chi_tiet)) {
-                    data.chi_tiet.forEach(item => {
-                        addRow(maLenhSX, item);
-                    });
-                } else {
-                    alert('Không có dữ liệu chi tiết cho lệnh sản xuất này.');
+                if (data.exists) {
+                    alert(data.message || 'Lệnh sản xuất này đã có bảng kê trừ lùi. Vui lòng xóa hết bảng kê cũ trước khi tạo mới.');
+                    productionSelect.value = ''; // Reset lại lựa chọn
+                    return;
                 }
+
+                // BƯỚC 2: Nếu không tồn tại, load chi tiết nguyên liệu
+                fetch(`/api/get_lenh_san_xuat_detail/?ma_lenh_sx=${maLenhSX}`)
+                    .then(response => {
+                        if (!response.ok) throw new Error(`Lỗi: ${response.status}`);
+                        return response.json();
+                    })
+                    .then(data => {
+                        if (data.status === 'success' && Array.isArray(data.chi_tiet)) {
+                            data.chi_tiet.forEach(item => {
+                                addRow(maLenhSX, item);
+                            });
+                        } else {
+                            alert(data.message || 'Không có dữ liệu chi tiết cho lệnh sản xuất này.');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Lỗi khi lấy chi tiết lệnh sản xuất:', error);
+                        alert('Lỗi khi tải chi tiết sản phẩm.');
+                    });
             })
             .catch(error => {
-                console.error('Lỗi khi lấy chi tiết lệnh sản xuất:', error);
-                alert('Lỗi khi tải chi tiết sản phẩm.');
+                console.error('Lỗi kiểm tra tồn tại:', error);
+                alert('Không thể kiểm tra trạng thái lệnh sản xuất.');
             });
     });
 

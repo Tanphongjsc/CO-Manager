@@ -32,7 +32,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             // Tạo URL có timestamp để tránh cache
             const timestamp = new Date().getTime();
-            const url = `/api/get_lenh_san_xuat/?ma_don_hang=${encodeURIComponent(this.value)}&_=${timestamp}`;
+            const url = `/api/get_lenh_san_xuat_all/?ma_don_hang=${encodeURIComponent(this.value)}&_=${timestamp}`;
             
             console.log('Gửi request đến URL:', url);
 
@@ -246,6 +246,52 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
     }
+    // XỬ LÝ NÚT XÓA
+    function initDeleteButtons() {
+        document.querySelectorAll('.btn-delete').forEach(button => {
+            button.addEventListener('click', function() {
+                const id = this.dataset.id;
+                const tenNguyenLieu = this.dataset.name;
+                
+                if (confirm(`Bạn có chắc chắn muốn xóa bảng kê "${tenNguyenLieu}"?`)) {
+                    // Disable button và hiển thị loading
+                    this.textContent = 'Đang xóa...';
+                    this.disabled = true;
+                    this.style.background = '#6c757d';
+
+                    fetch(`/api/rollback/delete/${id}/`, {
+                        method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCsrfToken(),
+                        }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            alert('Xóa thành công');
+                            // Reload trang để cập nhật danh sách
+                            location.reload();
+                        } else {
+                            alert('Lỗi: ' + (data.message || 'Không thể xóa dữ liệu'));
+                            // Khôi phục trạng thái nút
+                            this.textContent = 'XÓA';
+                            this.disabled = false;
+                            this.style.background = '#dc3545';
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error:', error);
+                        alert('Lỗi kết nối: ' + error.message);
+                        // Khôi phục trạng thái nút
+                        this.textContent = 'XÓA';
+                        this.disabled = false;
+                        this.style.background = '#dc3545';
+                    });
+                }
+            });
+        });
+    }
 
     function getCsrfToken() {
         const name = 'csrftoken';
@@ -256,7 +302,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initializeFormFromUrl();
 
     initEditButtons();
-    
+    initDeleteButtons();
     // Format numeric values in table
     formatNumericValues();
 });
