@@ -1,2 +1,4 @@
 env
 .env
+CO_Manager\Backend\__pycache__
+.vscode
