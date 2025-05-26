@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BẢNG TỈ LỆ PHỐI TRỘN</title>
+  {% load static %}
+  <link rel="stylesheet" href="{% static 'css/print.css' %}" media="print">
+  <style>
+    body { 
+      font-family: "Times New Roman", Times, serif;
+      margin: 20px;
+      color: #000;
+      font-size: 14px;
+    }
+    
+    .company-info {
+      margin-bottom: 15px;
+      text-align: left;
+    }
+    .company-info div {
+      margin: 3px 0;
+    }
+    .company-name {
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    .print-title {
+      text-align: center;
+      font-weight: bold;
+      margin: 20px 0;
+      font-size: 16px;
+      text-transform: uppercase;
+    }
+
+    .print-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 15px;
+    }
+    .print-table th, 
+    .print-table td {
+      border: 0.5px solid #000 !important;
+      padding: 6px;
+      text-align: center;
+      vertical-align: middle;
+      font-size: 14px;
+    }
+    .print-table thead th {
+      background-color: #f9f9f9;
+      font-weight: bold;
+    }
+
+    .total-row td {
+      font-weight: bold;
+    }
+
+    .print-footer {
+      margin-top: 30px;
+      font-size: 14px;
+    }
+
+    .signature {
+      text-align: right;
+      margin-top: 80px;
+    }
+    .signature-content {
+      display: inline-block;
+      text-align: center;
+    }
+    .stamp-signature {
+        position: relative;
+        display: block;
+        margin: 20px auto 10px;
+        width: 200px;
+    }
+
+    /* Ẩn nút in khi in */
+    @media print {
+      .no-print { 
+        display: none !important; 
+      }
+      .print-table th,
+      .print-table td {
+        border: 0.05pt solid #000 !important;
+        padding: 3pt !important;
+      }
+    }
+
+    /* Style nút in */
+    .print-button {
+      text-align: center;
+      margin: 30px 0;
+    }
+    button {
+      padding: 10px 30px;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="company-info">
+    <div class="company-name">CÔNG TY CỔ PHẦN TÂN PHONG</div>
+    <div>Địa chỉ: Thị Trấn Hùng Sơn, Huyện Lâm Thao, Tỉnh Phú Thọ</div>
+    <div>Điện thoại: 0210 221 5277</div>
+    <div>Mã số thuế: 2600274542</div>
+  </div>
+
+  <div class="print-title">BẢNG TỈ LỆ PHỐI TRỘN CÁC MẶT HÀNG CHÈ</div>
+
+  <table class="print-table">
+    <thead>
+      <tr>
+        <th rowspan="2">STT</th>
+        <th rowspan="2">Tên Hàng Hoá</th>
+        <th rowspan="2">Mã HS</th>
+        <th rowspan="2">Số lượng</th>
+        <th colspan="{{ material_types|length }}">Thành phần</th>
+        <th rowspan="2">Tổng</th>
+      </tr>
+      <tr>
+        {% for vl in material_types %}
+          <th>{{ vl|capfirst }}</th>
+        {% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for item in order_items %}
+      <tr>
+        <td>{{ forloop.counter }}</td>
+        <td style="text-align: left; width: 35%">{{ item.ten_san_pham }}</td>
+        <td>{{ item.id_san_pham.ma_hs }}</td>
+        <td>{{ item.so_luong_san_pham|floatformat:0 }}</td>
+        
+        {% for material_type in material_types %}
+          <td>
+            {% for key, value in item.materials.items %}
+              {% if key == material_type %}
+                {{ value|default_if_none:''|floatformat:0 }}
+              {% endif %}
+            {% endfor %}
+          </td>
+        {% endfor %}
+
+
+        <td>{{ item.so_luong_san_pham|floatformat:0 }}</td>
+      </tr>
+      {% endfor %}
+
+      <tr class="total-row">
+        <td colspan="3">Tổng cộng</td>
+        <td>{{ total_quantity|floatformat:0 }}</td>
+        
+
+        {% for material_type in material_types %}
+          <td>
+            {% for key, value in totals.items %}
+              {% if key == material_type %}
+                {{ value|floatformat:0 }}
+              {% endif %}
+            {% endfor %}
+          </td>
+        {% endfor %}
+        </td>
+        
+        <td>{{ total_quantity|floatformat:0 }}</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="print-footer">
+    <p>Công ty cam kết số liệu, thông tin khai báo trên là đúng và chịu trách nhiệm trước pháp luật về thông tin, số liệu đã khai.</p>
+    
+    <div class="signature">
+      <div class="signature-content">
+        <p>Ngày {{ today|date:"d" }} tháng {{ today|date:"m" }} năm {{ today|date:"Y" }}</p>
+        <p style="margin: 40px 0 20px">NGƯỜI ĐẠI DIỆN THEO PHÁP LUẬT</p>
+        <p>(Ký, đóng dấu, ghi rõ họ tên)</p>
+        <img src="https://kflhmmvetkhuqntuamqt.supabase.co/storage/v1/object/sign/anhchuky/chuky.jpg?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InN0b3JhZ2UtdXJsLXNpZ25pbmcta2V5X2VmMDUzMzhlLWFkNGUtNDExOC1hOWMyLWZhMzM3ZDRkZjVlMCJ9.eyJ1cmwiOiJhbmhjaHVreS9jaHVreS5qcGciLCJpYXQiOjE3NDcwMjEyNjYsImV4cCI6MzMyMzgyMTI2Nn0.eD_DIvcnSxPA3ZuPWFzLHD7V_-DINdTTwOvdkOEjfVs" alt="Dấu và chữ ký công ty" class="stamp-signature" />
+      </div>
+    </div>
+  </div>
+
+  <div class="no-print print-button">
+    <button onclick="window.print()">IN BẢNG KÊ</button>
+  </div>
+</body>
+</html>
