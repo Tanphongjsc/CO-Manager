@@ -116,6 +116,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function addRow(maLenhSX, item) {
         const row = document.createElement('tr');
         const tyLePhanTram = (item.ty_le_thu_hoi * 100).toFixed(2);
+        const soLuongXuat = parseFloat(item.so_luong_nguyen_vat_lieu || 0).toFixed(2);
 
         row.innerHTML = `
             <td>${maLenhSX}</td>
@@ -129,7 +130,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <td><input type="number" name="so_luong_san_xuat[]" class="so-luong-sx" step="0.01" min="0" required></td>
             <td>${tyLePhanTram}%<input type="hidden" name="ty_le_thu_hoi[]" value="${item.ty_le_thu_hoi}"></td>
             <td><input type="number" name="sl_thanh_pham_thu_hoi[]" class="sl-thanh-pham-thu-hoi" readonly></td>
-            <td>${item.so_luong_nguyen_vat_lieu || 0}<input type="hidden" name="so_luong_san_pham_xuat[]" value="${item.so_luong_nguyen_vat_lieu || 0}"></td>
+            <td>${soLuongXuat}<input type="hidden" name="so_luong_san_pham_xuat[]" value="${soLuongXuat}"></td>
             <td><input type="number" name="sl_thanh_pham_ton_kho[]" class="sl-thanh-pham-ton-kho" readonly></td>
             <td><input type="text" name="ghi_chu[]"></td>
             <td><input type="date" name="ngay_tao[]" value="${getCurrentDate()}" required></td>

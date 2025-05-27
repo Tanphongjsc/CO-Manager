@@ -202,10 +202,7 @@ def rollback(request):
     ma_don_hang = request.GET.get('ma_don_hang')
     ma_lenh_sx = request.GET.get('ma_lenh_sx')
     
-    # Base query with related data - filter for NVL-KHÔ items only
-    records = BangKeTruLuiNguyenLieu.objects.filter(
-        id_san_pham__in=VatTu.objects.filter(nhom_vthh='NVL - KHÔ').values_list('id_san_pham', flat=True)
-    ).select_related('id_lenh_san_xuat')
+    records = BangKeTruLuiNguyenLieu.objects.select_related('id_lenh_san_xuat').all()
     
     # Apply filters
     if ma_don_hang:
@@ -232,11 +229,7 @@ def rollback_detail(request, pk):
     """Rollback detail view - only for NVL-KHÔ items"""
     try:
         # Filter for NVL-KHÔ items only
-        record = BangKeTruLuiNguyenLieu.objects.filter(
-            id_bang_ke_tru_lui=pk,
-            id_san_pham__in=VatTu.objects.filter(nhom_vthh='NVL - KHÔ').values_list('id_san_pham', flat=True)
-        ).select_related('id_lenh_san_xuat').get()
-        
+        record = BangKeTruLuiNguyenLieu.objects.select_related('id_lenh_san_xuat').get(pk=pk)
         formatted_record = _format_rollback_record(record)
         context = {'record': formatted_record}
     except BangKeTruLuiNguyenLieu.DoesNotExist:
@@ -459,11 +452,7 @@ def rollback_delete(request, pk):
     API để xóa bảng kê trừ lùi nguyên liệu
     """
     try:
-        record = BangKeTruLuiNguyenLieu.objects.filter(
-            id_bang_ke_tru_lui=pk,
-            id_san_pham__in=VatTu.objects.filter(nhom_vthh='NVL - KHÔ').values_list('id_san_pham', flat=True)
-        ).get()
-        
+        record = BangKeTruLuiNguyenLieu.objects.get(pk=pk)
         # Lưu thông tin để log
         ten_nguyen_lieu = record.ten_nguyen_lieu
         ma_lenh_sx = record.id_lenh_san_xuat.id_lenh_san_xuat
