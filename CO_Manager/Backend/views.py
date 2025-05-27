@@ -924,10 +924,7 @@ def rollback(request):
     ma_don_hang = request.GET.get('ma_don_hang')
     ma_lenh_sx = request.GET.get('ma_lenh_sx')
     
-    # Base query with related data - filter for NVL-KHÔ items only
-    records = BangKeTruLuiNguyenLieu.objects.filter(
-        id_san_pham__in=VatTu.objects.filter(nhom_vthh='NVL - KHÔ').values_list('id_san_pham', flat=True)
-    ).select_related('id_lenh_san_xuat')
+    records = BangKeTruLuiNguyenLieu.objects.select_related('id_lenh_san_xuat').all()
     
     # Apply filters
     if ma_don_hang:
@@ -937,25 +934,7 @@ def rollback(request):
         records = records.filter(id_lenh_san_xuat__id_lenh_san_xuat=ma_lenh_sx)
     
     # Format records for display
-    # Gộp bản ghi theo ten_nguyen_lieu
-    record_dict = {}
-
-    for record in records:
-        formatted = _format_rollback_record(record)
-        key = formatted['ten_nguyen_lieu'].strip().lower()
-
-        if key not in record_dict:
-            record_dict[key] = formatted
-        else:
-            # Cộng dồn các trường số
-            record_dict[key]['so_luong_mua_vao'] += formatted['so_luong_mua_vao'] or 0
-            record_dict[key]['so_luong_san_xuat'] += formatted['so_luong_san_xuat'] or 0
-            record_dict[key]['so_luong_thanh_pham_thu_hoi'] += formatted['so_luong_thanh_pham_thu_hoi'] or 0
-            record_dict[key]['so_luong_san_pham_xuat'] += formatted['so_luong_san_pham_xuat'] or 0
-            record_dict[key]['so_luong_thanh_pham_ton_kho'] += formatted['so_luong_thanh_pham_ton_kho'] or 0
-
-    # Dùng danh sách đã gộp
-    formatted_records = list(record_dict.values())
+    formatted_records = [_format_rollback_record(record) for record in records]
     
     # Get order list for dropdown
     don_hang_list = LenhSanXuat.objects.values_list('id_don_hang', flat=True).distinct()
@@ -972,11 +951,7 @@ def rollback_detail(request, pk):
     """Rollback detail view - only for NVL-KHÔ items"""
     try:
         # Filter for NVL-KHÔ items only
-        record = BangKeTruLuiNguyenLieu.objects.filter(
-            id_bang_ke_tru_lui=pk,
-            id_san_pham__in=VatTu.objects.filter(nhom_vthh='NVL - KHÔ').values_list('id_san_pham', flat=True)
-        ).select_related('id_lenh_san_xuat').get()
-        
+        record = BangKeTruLuiNguyenLieu.objects.select_related('id_lenh_san_xuat').get(pk=pk)
         formatted_record = _format_rollback_record(record)
         context = {'record': formatted_record}
     except BangKeTruLuiNguyenLieu.DoesNotExist:
@@ -1199,10 +1174,7 @@ def rollback_delete(request, pk):
     API để xóa bảng kê trừ lùi nguyên liệu
     """
     try:
-        record = BangKeTruLuiNguyenLieu.objects.filter(
-            id_bang_ke_tru_lui=pk,
-            id_san_pham__in=VatTu.objects.filter(nhom_vthh='NVL - KHÔ').values_list('id_san_pham', flat=True)
-        ).get()
+        record = BangKeTruLuiNguyenLieu.objects.get(pk=pk)
         
         # Lưu thông tin để log
         ten_nguyen_lieu = record.ten_nguyen_lieu
@@ -1284,7 +1256,6 @@ def get_lenh_san_xuat_detail(request):
             'message': 'Vui lòng cung cấp mã lệnh sản xuất'
         })
     
-    # BỎ PHẦN KIỂM TRA TỒN TẠI - để API này chỉ trả về chi tiết
     
     try:
         lenh_sx = LenhSanXuat.objects.get(id_lenh_san_xuat=ma_lenh_sx)

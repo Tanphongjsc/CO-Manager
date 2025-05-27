@@ -209,3 +209,9 @@
     background-color: #6c757d;
     cursor: not-allowed;
 }
+.table-wrapper {
+    max-height: 700px;
+    overflow-y: auto;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
