@@ -215,25 +215,7 @@ def rollback(request):
         records = records.filter(id_lenh_san_xuat__id_lenh_san_xuat=ma_lenh_sx)
     
     # Format records for display
-    # Gộp bản ghi theo ten_nguyen_lieu
-    record_dict = {}
-
-    for record in records:
-        formatted = _format_rollback_record(record)
-        key = formatted['ten_nguyen_lieu'].strip().lower()
-
-        if key not in record_dict:
-            record_dict[key] = formatted
-        else:
-            # Cộng dồn các trường số
-            record_dict[key]['so_luong_mua_vao'] += formatted['so_luong_mua_vao'] or 0
-            record_dict[key]['so_luong_san_xuat'] += formatted['so_luong_san_xuat'] or 0
-            record_dict[key]['so_luong_thanh_pham_thu_hoi'] += formatted['so_luong_thanh_pham_thu_hoi'] or 0
-            record_dict[key]['so_luong_san_pham_xuat'] += formatted['so_luong_san_pham_xuat'] or 0
-            record_dict[key]['so_luong_thanh_pham_ton_kho'] += formatted['so_luong_thanh_pham_ton_kho'] or 0
-
-    # Dùng danh sách đã gộp
-    formatted_records = list(record_dict.values())
+    formatted_records = [_format_rollback_record(record) for record in records]
     
     # Get order list for dropdown
     don_hang_list = LenhSanXuat.objects.values_list('id_don_hang', flat=True).distinct()
