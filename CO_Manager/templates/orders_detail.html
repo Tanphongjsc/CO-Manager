@@ -12,7 +12,9 @@
   <h2 class="module-title">Chi tiết Đơn hàng #{{ orders.0.id_lenh_san_xuat.id_lenh_san_xuat }}</h2>
 
   <div class="form-actions">
-    <button onclick="window.history.back()" class="btn btn-secondary">Quay lại</button>
+    <button onclick="window.history.back()" class="btn btn-secondary">
+      <i class="fas fa-arrow-left"></i>Quay lại
+    </button>
     <button id="export-pdf" class="btn btn-primary" data-orders-id="{{orders.0.id_lenh_san_xuat.id_lenh_san_xuat}}">Xuất PDF</button>
     <button id="export-excel" class="btn btn-primary" data-orders-id="{{orders.0.id_lenh_san_xuat.id_lenh_san_xuat}}">Xuất Excel</button>
   </div>

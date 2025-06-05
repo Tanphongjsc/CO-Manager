@@ -1,4 +1,4 @@
-/* orders.css - styles đơn giản giống product.css */
+/* orders.css */
 .module-title {
   margin-bottom: 20px;
 }
@@ -93,3 +93,40 @@
     display: none;
 }
 
+
+/* --- CSS CHO NÚT BẤM --- */
+/* Style chung cho các nút, bao gồm cả thẻ <a> được dùng như nút */
+.btn, a.btn {
+  display: inline-flex; /* Quan trọng: để icon và text canh hàng */
+  align-items: center;   /* Quan trọng: canh giữa icon và text theo chiều dọc */
+  justify-content: center;
+  padding: 6px 12px;   /* Padding cho nút .btn (lớn hơn .btn-sm) */
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-align: center;
+  vertical-align: middle;
+  cursor: pointer;
+  user-select: none;
+  border: 1px solid transparent;
+  border-radius: 0.25rem; /* Bo góc nhẹ */
+  text-decoration: none !important; /* Quan trọng: Bỏ gạch chân cho thẻ <a> */
+  white-space: nowrap;
+  transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.btn:hover, a.btn:hover {
+  text-decoration: none !important; /* Đảm bảo không có gạch chân khi hover */
+}
+
+/* Icon bên trong nút */
+.btn .fas, .btn .far, .btn .fa { /* Áp dụng cho các loại icon FontAwesome */
+  margin-right: 0.1em; /* Khoảng cách giữa icon và chữ */
+  line-height: 1; /* Đảm bảo icon không làm thay đổi chiều cao dòng */
+}
+
+/* Nút nhỏ hơn (.btn-sm) */
+a.btn-sm {
+  padding: 4px 8px;
+  font-size: 0.8rem;
+  border-radius: 0.2rem;
+}

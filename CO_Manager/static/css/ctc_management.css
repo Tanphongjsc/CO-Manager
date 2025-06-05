@@ -1,0 +1,627 @@
+/* === Optimized CTC Management CSS === */
+
+/* --- Module Title --- */
+.module-title {
+  margin-bottom: 20px;
+  font-size: 1.75rem;
+  color: #333;
+}
+
+/* --- Actions Bar --- */
+.actions-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.search-container {
+  display: flex;
+  gap: 20px;
+  flex-grow: 1;
+  min-width: 250px;
+  align-items: flex-end;
+}
+
+.search-filter-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.search-filter-item > label {
+  font-weight: bold;
+  margin-bottom: 6px;
+  font-size: 0.9rem;
+  color: #333;
+}
+
+.filter-controls {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.filter-controls select.form-control {
+  flex-grow: 1;
+  width: 300px;
+  max-width: 350px;
+}
+
+/* --- Buttons --- */
+.btn, a.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  cursor: pointer;
+  border: 1px solid transparent;
+  border-radius: 0.25rem;
+  text-decoration: none !important;
+  white-space: nowrap;
+  transition: all 0.15s ease-in-out;
+}
+
+.btn:hover, a.btn:hover {
+  text-decoration: none !important;
+}
+
+.btn .fas, .btn .far, .btn .fa {
+  margin-right: 0.4em;
+  line-height: 1;
+}
+
+.btn-sm, a.btn-sm {
+  padding: 4px 8px;
+  font-size: 0.8rem;
+  border-radius: 0.2rem;
+}
+
+#ctc-filter-btn,
+#ctc-clear-filter-btn,
+#add-ctc-btn {
+  padding: 8px 15px;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.9rem;
+}
+
+#add-ctc-btn { 
+  margin-left: auto;
+}
+
+/* Action buttons inside main table rows */
+.standard-table .action-buttons {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: 5px;
+  justify-content: flex-start;
+}
+
+/* --- Modal --- */
+#ctcModal { /* This modal is now only for View/Edit */
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 1000;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  overflow-y: auto;
+}
+
+#ctcModal.active {
+  display: flex;
+}
+
+#ctcModal .modal-content {
+  background: #fefefe;
+  border-radius: 0.5rem;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+  width: 90%;
+  max-width: 95vw;
+  max-height: 92vh;
+  display: flex;
+  flex-direction: column;
+  padding: 20px 25px;
+  position: relative;
+  animation: fadeIn 0.3s;
+}
+
+#ctcModal .modal-header {
+  padding-bottom: 15px;
+  border-bottom: 1px solid #e9ecef;
+  margin-bottom: 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+#ctcModal .modal-header h3 {
+  margin: 0;
+  font-size: 1.5rem;
+  color: #333;
+}
+
+#ctcModal .modal-actions {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+/* Form bên trong Modal */
+#ctcModal #ctcForm { /* Target specific form within modal */
+  flex-grow: 1;
+  overflow-y: auto;
+  padding-right: 10px;
+  margin-right: -10px;
+}
+
+#ctcModal .modal-footer {
+  padding-top: 15px;
+  border-top: 1px solid #e9ecef;
+  margin-top: 20px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-shrink: 0;
+}
+
+#ctcModal .modal-footer .btn {
+  font-size: 0.9em;
+  padding: 8px 15px;
+}
+
+/* --- Section Titles --- */
+.section-title {
+  margin: 30px 0 15px 0;
+  font-size: 1.3em;
+  color: #0056b3;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 5px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+#ctcModal h5.section-title, /* Keep for modal's section titles */
+#ctc-create h5.section-title { /* Apply to new create page's section titles */
+  margin: 25px 0 15px 0;
+  font-size: 1.15em;
+  color: #1e293b;
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.count-badge {
+  background-color: #007bff;
+  color: white;
+  padding: 3px 8px;
+  border-radius: 12px;
+  font-size: 0.8em;
+  margin-left: 10px;
+}
+
+/* --- Info Items in Modal / Create Form --- */
+#ctcModal .info-item-standalone,
+#ctc-create .info-item-standalone {
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+}
+
+#ctcModal .info-item-standalone label,
+#ctc-create .info-item-standalone label {
+  font-weight: 500; 
+  color: #64748b; 
+  font-size: 14px; 
+  margin-bottom: 5px;
+}
+
+#ctcModal .info-item-standalone select.form-control,
+#ctc-create .info-item-standalone select.form-control {
+  width: 100%;
+}
+
+/* --- Detail Info Grid (used by both) --- */
+.detail-info-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 15px 20px;
+  margin-bottom: 20px;
+}
+
+.detail-info-grid .info-item {
+  background: #f8fafc;
+  padding: 15px;
+  border-radius: 8px;
+  border: 1px solid #e2e8f0;
+  display: flex;
+  flex-direction: column;
+}
+
+.detail-info-grid .info-item label {
+  font-weight: 500;
+  color: #64748b;
+  font-size: 14px;
+  margin-bottom: 5px;
+}
+
+.detail-info-grid .info-item input,
+.detail-info-grid .info-item select { /* Add select for create form */
+  width: 100%;
+  padding: 8px 12px;
+  border: 2px solid #e2e8f0;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: all 0.2s;
+  box-sizing: border-box;
+}
+
+.detail-info-grid .info-item input[readonly] {
+  background-color: #e2e8f0;
+  cursor: default;
+}
+
+.detail-info-grid .info-item input:focus,
+.detail-info-grid .info-item select:focus { /* Add select for focus */
+  outline: none;
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+/* === STYLES CHO VIEW/EDIT MODE TRONG MODAL FORM === */
+/* Edit mode styles */
+#ctcForm.edit-mode .form-control,
+#ctcForm.edit-mode .form-control-sm,
+.ctc-create-form .form-control, /* Apply to create form */
+.ctc-create-form .form-control-sm { /* Apply to create form */
+  border: 1px solid #ced4da;
+  background-color: #fff;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  transition: all 0.2s;
+  box-sizing: border-box;
+  pointer-events: auto;
+  opacity: 1;
+}
+
+#ctcForm.edit-mode select.form-control,
+.ctc-create-form select.form-control { /* Apply to create form */
+  appearance: auto;
+}
+
+#ctcForm.edit-mode input:focus,
+.ctc-create-form input:focus { /* Apply to create form */
+  outline: none; 
+  border-color: #667eea;
+  box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+}
+
+#ctcForm.edit-mode .material-table td input,
+#ctcForm.edit-mode .material-table td select,
+#ctcForm.edit-mode .material-table td textarea,
+.ctc-create-form .material-table td input, /* Apply to create form */
+.ctc-create-form .material-table td select, /* Apply to create form */
+.ctc-create-form .material-table td textarea { /* Apply to create form */
+  min-width: 100px; /* Hoặc 150px */
+  max-width: 100%;  /* Để không bị tràn ngoài */
+}
+
+
+/* View mode styles (Only for #ctcForm, not ctc-create-form) */
+#ctcForm.view-mode .form-control,
+#ctcForm.view-mode select.form-control,
+#ctcForm.view-mode textarea.form-control {
+  border-color: transparent !important;
+  background-color: transparent !important;
+  padding-left: 0 !important;
+  padding-right: 0 !important;
+  box-shadow: none !important;
+  cursor: default !important;
+  color: #212529 !important;
+  opacity: 1 !important;
+  pointer-events: none;
+}
+
+#ctcForm.view-mode select.form-control {
+  -webkit-appearance: none; 
+  -moz-appearance: none; 
+  appearance: none;
+}
+
+#ctcForm.view-mode input[type="date"]::-webkit-calendar-picker-indicator { 
+  display: none; 
+}
+
+/* Hide/show elements based on mode */
+#ctcForm.view-mode .action-buttons-cell,
+#ctcForm.view-mode #addMaterialRowBtnContainer,
+#ctcForm.view-mode .delete-material-btn {
+  display: none !important;
+}
+
+#ctcForm.edit-mode .action-buttons-cell { 
+  display: table-cell !important; 
+}
+
+#ctcForm.edit-mode #addMaterialRowBtnContainer { 
+  display: block !important; 
+}
+
+#ctcForm.edit-mode .delete-material-btn { 
+  display: inline-flex !important; 
+}
+
+/* --- Material Table (Used by both) --- */
+.material-table-container {
+  max-height: 400px;
+  overflow: auto;
+  margin-bottom: 15px;
+  border: 1px solid #e0e0e0;
+  border-radius: 5px;
+  box-shadow: inset 0 0 5px rgba(0,0,0,0.05);
+}
+
+.material-table {
+  width: 100%;
+  min-width: 1200px;
+  table-layout: auto;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.material-table th, 
+.material-table td {
+  border: 1px solid #dee2e6;
+  padding: 0.5rem;
+  text-align: left;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.material-table th {
+  background-color: #f8fafc;
+  font-weight: 600;
+  color: #475569;
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+
+/* Column widths */
+#ctcModal .material-table th:nth-child(2), /* Specific for modal */
+#ctc-create .material-table th:nth-child(2) { /* Specific for create form */
+  min-width: 200px; 
+}
+#ctcModal .material-table th:nth-child(3),
+#ctc-create .material-table th:nth-child(3) {
+  min-width: 100px; 
+}
+#ctcModal .material-table th:nth-child(4),
+#ctc-create .material-table th:nth-child(4) {
+  min-width: 130px; 
+}
+#ctcModal .material-table th:nth-child(9),
+#ctcModal .material-table td:nth-child(9) {
+  min-width: 180px; /* Bạn có thể điều chỉnh giá trị này nếu muốn rộng hơn hoặc hẹp hơn */
+}
+
+
+.material-table td input,
+.material-table td select,
+.material-table td textarea {
+  border: none;
+  background-color: transparent;
+  padding: 0;
+  color: inherit;
+  cursor: default;
+  appearance: none;
+}
+
+.material-table .action-buttons-cell {
+  white-space: nowrap;
+  text-align: center;
+}
+
+.material-table .action-buttons-cell .btn {
+  margin-left: 5px;
+}
+
+.add-material-row {
+  text-align: right;
+  margin-top: 15px;
+}
+
+/* Form actions for create page */
+.ctc-create-form .form-actions {
+    margin-top: 30px;
+    padding-top: 20px;
+    border-top: 1px solid #e2e8f0;
+    display: flex;
+    justify-content: flex-end;
+    gap: 15px;
+}
+.ctc-create-form .form-actions .btn {
+    padding: 10px 20px;
+    font-size: 1rem;
+}
+
+/* Add top-level styling for the create form to mimic modal content */
+#ctc-create .ctc-create-form {
+    background: #fefefe;
+    border-radius: 0.5rem;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    padding: 20px 25px; /* Consistent with modal-content padding */
+    margin-bottom: 20px; /* Add some space below the form */
+}
+
+
+/* --- MAIN STANDARD TABLE --- */
+.table-container { 
+  overflow-x: auto; 
+}
+
+.standard-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
+}
+
+.standard-table thead th {
+  background-color: #f8f9fa;
+  color: #495057;
+  padding: 10px 12px;
+  text-align: left;
+  font-weight: 600;
+  border-bottom: 2px solid #dee2e6;
+  white-space: nowrap;
+}
+
+.standard-table tbody td {
+  padding: 10px 12px;
+  border-bottom: 1px solid #e9ecef;
+  vertical-align: middle;
+}
+
+.standard-table tbody tr:nth-child(even) { 
+  background-color: #fdfdfd; 
+}
+
+.standard-table tbody tr:hover { 
+  background-color: #f1f5f9; 
+}
+
+.standard-table .text-center { 
+  text-align: center; 
+}
+
+.standard-table .text-right { 
+  text-align: right; 
+}
+
+.standard-table .empty-message { 
+  padding: 20px; 
+  color: #6c757d; 
+  text-align: center; 
+}
+
+.standard-table .empty-message .fas { 
+  margin-right: 0.5rem; 
+}
+
+/* --- Responsive Design --- */
+@media (max-width: 768px) {
+  .actions-bar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .search-container {
+    width: 100%;
+  }
+  
+  .filter-controls {
+    flex-direction: column; 
+    align-items: stretch;
+    width: 100%;
+  }
+  
+  .filter-controls select.form-control {
+    width: 100%; 
+    max-width: none;
+  }
+  
+  .filter-controls button {
+    width: 100%; 
+    margin-left: 0; 
+    margin-top: 5px;
+  }
+  
+  #add-ctc-btn { 
+    width: 100%; 
+    margin-left: 0; 
+    margin-top: 10px; 
+  }
+  
+  #ctcModal .modal-content {
+    width: 95%;
+    padding: 15px;
+    max-height: 85vh;
+  }
+  
+  #ctcModal .modal-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  
+  #ctcModal .modal-actions {
+    width: 100%;
+    justify-content: flex-start;
+    margin-top: 10px;
+  }
+  
+  .detail-info-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .material-table {
+    min-width: auto;
+  }
+  
+  .material-table th, 
+  .material-table td {
+    font-size: 0.8em;
+    padding: 6px;
+    white-space: normal;
+  }
+  
+  .material-table td input,
+  .material-table td select,
+  .material-table td textarea {
+    font-size: 1em;
+  }
+  
+  .standard-table .btn-sm {
+    font-size: 12px;
+    padding: 4px 8px;
+  }
+  
+  .standard-table .action-buttons {
+    justify-content: center;
+  }
+
+  .ctc-create-form .form-actions {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .ctc-create-form .form-actions .btn {
+    width: 100%;
+  }
+
+  #ctc-create .ctc-create-form {
+      padding: 15px; /* Adjust padding for smaller screens */
+  }
+}
+
+@keyframes fadeIn {
+  from { 
+    opacity: 0; 
+    transform: scale(0.95);
+  }
+  to { 
+    opacity: 1; 
+    transform: scale(1); 
+  }
+}

@@ -1,3 +1,5 @@
+{% load humanize %}
+
 <!DOCTYPE html>
 <html lang="vi">
 <head>
@@ -9,9 +11,10 @@
   <style>
     body { 
       font-family: "Times New Roman", Times, serif;
-      margin: 20px;
+      margin: 15px;
       color: #000;
       font-size: 14px;
+      line-height: 1.2;
     }
     
     .company-info {
@@ -29,7 +32,7 @@
     .print-title {
       text-align: center;
       font-weight: bold;
-      margin: 20px 0;
+      margin: 5px 0 20px 0;
       font-size: 16px;
       text-transform: uppercase;
     }
@@ -37,7 +40,7 @@
     .print-table {
       width: 100%;
       border-collapse: collapse;
-      margin-bottom: 15px;
+      margin-bottom: 10px;
     }
     .print-table th, 
     .print-table td {
@@ -57,23 +60,48 @@
     }
 
     .print-footer {
-      margin-top: 30px;
+      margin-top: 10px;
       font-size: 14px;
+      line-height: 1.3;
+    }
+
+    .print-footer p {
+      margin: 8px 0;
     }
 
     .signature {
       text-align: right;
-      margin-top: 80px;
+      margin-top: 15px;
     }
     .signature-content {
       display: inline-block;
       text-align: center;
+      line-height: 1.2;
     }
+    
+    .signature-content p {
+      margin: 5px 0;
+    }
+    
+    .signature-content .date-line {
+      margin-bottom: 8px;
+    }
+    
+    .signature-content .title-line {
+      margin: 15px 0 5px 0;
+      font-weight: bold;
+    }
+    
+    .signature-content .instruction-line {
+      margin: 5px 0 8px 0;
+      font-size: 13px;
+    }
+
     .stamp-signature {
         position: relative;
         display: block;
-        margin: 20px auto 10px;
-        width: 200px;
+        margin: 8px auto 0;
+        width: 150px;
     }
 
     /* Ẩn nút in khi in */
@@ -85,6 +113,23 @@
       .print-table td {
         border: 0.05pt solid #000 !important;
         padding: 3pt !important;
+      }
+      
+      .print-footer {
+        margin-top: 8px;
+      }
+      
+      .signature {
+        margin-top: 8px;
+      }
+      
+      .signature-content .title-line {
+        margin: 8px 0 3px 0;
+      }
+      
+      .stamp-signature {
+        margin: 5px auto 0;
+        width: 180px;
       }
     }
 
@@ -136,40 +181,37 @@
         <td>{{ forloop.counter }}</td>
         <td style="text-align: left; width: 35%">{{ item.ten_san_pham }}</td>
         <td>{{ item.id_san_pham.ma_hs }}</td>
-        <td>{{ item.so_luong_san_pham|floatformat:0 }}</td>
+        <td>{{ item.so_luong_san_pham|floatformat:0|intcomma }}</td>
         
         {% for material_type in material_types %}
           <td>
             {% for key, value in item.materials.items %}
               {% if key == material_type %}
-                {{ value|default_if_none:''|floatformat:0 }}
+                {{ value|default_if_none:''|floatformat:0|intcomma }}
               {% endif %}
             {% endfor %}
           </td>
         {% endfor %}
 
-
-        <td>{{ item.so_luong_san_pham|floatformat:0 }}</td>
+        <td>{{ item.so_luong_san_pham|floatformat:0|intcomma }}</td>
       </tr>
       {% endfor %}
 
       <tr class="total-row">
         <td colspan="3">Tổng cộng</td>
-        <td>{{ total_quantity|floatformat:0 }}</td>
+        <td>{{ total_quantity|floatformat:0|intcomma }}</td>
         
-
         {% for material_type in material_types %}
           <td>
             {% for key, value in totals.items %}
               {% if key == material_type %}
-                {{ value|floatformat:0 }}
+                {{ value|floatformat:0|intcomma }}
               {% endif %}
             {% endfor %}
           </td>
         {% endfor %}
-        </td>
         
-        <td>{{ total_quantity|floatformat:0 }}</td>
+        <td>{{ total_quantity|floatformat:0|intcomma }}</td>
       </tr>
     </tbody>
   </table>
@@ -179,9 +221,9 @@
     
     <div class="signature">
       <div class="signature-content">
-        <p>Ngày {{ today|date:"d" }} tháng {{ today|date:"m" }} năm {{ today|date:"Y" }}</p>
-        <p style="margin: 40px 0 20px">NGƯỜI ĐẠI DIỆN THEO PHÁP LUẬT</p>
-        <p>(Ký, đóng dấu, ghi rõ họ tên)</p>
+        <p class="date-line">Ngày {{ today|date:"d" }} tháng {{ today|date:"m" }} năm {{ today|date:"Y" }}</p>
+        <p class="title-line">NGƯỜI ĐẠI DIỆN THEO PHÁP LUẬT</p>
+        <p class="instruction-line">(Ký, đóng dấu, ghi rõ họ tên)</p>
         <img src="https://kflhmmvetkhuqntuamqt.supabase.co/storage/v1/object/sign/anhchuky/chuky.jpg?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InN0b3JhZ2UtdXJsLXNpZ25pbmcta2V5X2VmMDUzMzhlLWFkNGUtNDExOC1hOWMyLWZhMzM3ZDRkZjVlMCJ9.eyJ1cmwiOiJhbmhjaHVreS9jaHVreS5qcGciLCJpYXQiOjE3NDcwMjEyNjYsImV4cCI6MzMyMzgyMTI2Nn0.eD_DIvcnSxPA3ZuPWFzLHD7V_-DINdTTwOvdkOEjfVs" alt="Dấu và chữ ký công ty" class="stamp-signature" />
       </div>
     </div>

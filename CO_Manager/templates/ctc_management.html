@@ -1,17 +1,205 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load humanize %}
 
-{% block title %}Tổng quan - Hệ thống quản lý{% endblock %}
+{% block title %}Bảng kê CTC - Hệ thống quản lý{% endblock %}
 
 {% block css %}
-    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+    <link rel="stylesheet" href="{% static 'css/ctc_management.css' %}">
 {% endblock %}
 
 {% block content %}
+<div id="ctc-management" class="module-content">
+    <h2 class="module-title">Bảng kê Chứng từ khấu trừ thuế TNCN (CTC)</h2>
+
+    <div class="actions-bar">
+        <div class="search-container">
+            <div class="search-filter-item">
+                <label for="ctc-ma-lenh-sx-select">Mã lệnh sản xuất:</label>
+                <div class="filter-controls">
+                    <select id="ctc-ma-lenh-sx-select" class="form-control">
+                        <option value="">-- Tất cả lệnh sản xuất --</option>
+                        {% for lxs in lenh_san_xuat_options.values %}
+                            <option value="{{ lxs }}">{{ lxs }}</option>
+                        {% endfor %}
+                    </select>
+                    <button id="ctc-filter-btn" class="btn btn-primary">
+                        <i class="fas fa-filter"></i>
+                        <span class="btn-text">Lọc</span>
+                    </button>
+                    <button id="ctc-clear-filter-btn" class="btn btn-secondary">
+                        <i class="fas fa-times"></i>
+                        <span class="btn-text">Xóa lọc</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+        <a href="{% url 'ctc_create' %}" id="add-ctc-btn" class="btn btn-primary">
+            <i class="fas fa-plus"></i>
+            <span class="btn-text">Thêm mới CTC</span>
+        </a>
+    </div>
+
+    <div class="table-container">
+        <table class="standard-table">
+            <thead>
+                <tr>
+                    <th>ID Bảng Kê</th>
+                    <th>ID Lệnh Sản Xuất</th>
+                    <th>ID Sản Phẩm</th>
+                    <th>Số Tờ Khai HQ</th>
+                    <th>Số Lượng</th>
+                    <th>Trị Giá FOB</th>
+                    <th>Thao tác</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ctc_item in ctc_list %}
+                <tr>
+                    <td>{{ ctc_item.id_bang_ke_ctc }}</td>
+                    <td>{{ ctc_item.id_lenh_san_xuat_id|default_if_none:'' }}</td>
+                    <td>{{ ctc_item.id_san_pham.ten_khac|default_if_none:'' }}</td>
+                    <td>{{ ctc_item.so_to_hai_quan|default_if_none:'' }}</td>
+                    <td>{{ ctc_item.so_luong|intcomma }}</td>
+                    <td>{{ ctc_item.tri_gia_fob|default_if_none:''|intcomma }}</td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="btn btn-sm btn-warning detail-btn" data-id="{{ ctc_item.id_bang_ke_ctc }}">
+                                <i class="fas fa-eye"></i> Xem
+                            </button>
+                            <button class="btn btn-sm btn-warning edit-btn" data-id="{{ ctc_item.id_bang_ke_ctc }}">
+                                <i class="fas fa-edit"></i> Sửa
+                            </button>
+                            <button class="btn btn-sm btn-danger delete-btn" data-id="{{ ctc_item.id_bang_ke_ctc }}">
+                                <i class="fas fa-trash"></i> Xóa
+                            </button>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" class="empty-message">Không có bản ghi CTC nào.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+{# Modal #}
+<div id="ctcModal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3 id="modalTitle"></h3>
+            <div class="modal-actions">
+                <button id="exportExcelBtn" class="btn btn-success" style="display: none;"><i class="fas fa-file-excel"></i> Xuất Excel</button>
+                <button id="exportPdfBtn" class="btn btn-danger" style="display: none;"><i class="fas fa-file-pdf"></i> Xuất PDF</button>
+                <button id="toggleEditBtn" type="button" class="btn btn-warning" style="display: none;"><i class="fas fa-edit"></i> Sửa</button>
+                <button id="cancelEditBtn" type="button" class="btn btn-secondary" style="display: none;"><i class="fas fa-times"></i> Hủy</button>
+            </div>
+        </div>
+
+        {# Form sẽ được thêm class 'view-mode' hoặc 'edit-mode' bởi JS #}
+        <form id="ctcForm">
+            <h5 class="section-title"><i class="fas fa-clipboard-list"></i> Thông tin chung CTC</h5>
+            
+            <div class="info-item-standalone">
+                <label for="modal_id_lenh_san_xuat">ID Lệnh Sản Xuất:</label>
+                <select id="modal_id_lenh_san_xuat" name="id_lenh_san_xuat" class="form-control">
+                    <option value="">-- Chọn lệnh sản xuất --</option>
+                    {% for lxs_option in lenh_san_xuat_options %}
+                         <option value="{{ lxs_option.id }}">{{ lxs_option.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="detail-info-grid">
+                <div class="info-item">
+                    <label for="modal_id_san_pham">Tên hàng hóa (Sản phẩm):</label>
+                    <select id="modal_id_san_pham" name="id_san_pham" class="form-control">
+                        <option value="">-- Chọn hàng hóa --</option>
+                        {# Options được JS thêm vào #}
+                    </select>
+                </div>
+                <div class="info-item">
+                    <label for="modal_ma_hs">Mã số hàng hóa:</label>
+                    <input type="text" id="modal_ma_hs" name="ma_hs" class="form-control" readonly>
+                </div>
+                <div class="info-item">
+                    <label for="modal_so_luong">Số lượng:</label>
+                    <input type="number" step="any" id="modal_so_luong" name="so_luong" class="form-control">
+                </div>
+                <div class="info-item">
+                    <label for="modal_don_vi_tinh">Đơn vị tính:</label>
+                    <input type="text" id="modal_don_vi_tinh" name="don_vi_tinh" class="form-control" readonly>
+                </div>
+                <div class="info-item">
+                    <label for="modal_tri_gia_fob">Trị giá (FOB):</label>
+                    <input type="number" step="any" id="modal_tri_gia_fob" name="tri_gia_fob" class="form-control">
+                </div>
+                <div class="info-item">
+                    <label for="modal_so_to_hai_quan">Số Tờ Khai HQ:</label>
+                    <input type="text" id="modal_so_to_hai_quan" name="so_to_hai_quan" class="form-control">
+                </div>
+            </div>
+
+            <h5 class="section-title"><i class="fas fa-cogs"></i> Chi tiết nguyên liệu <span id="materialCount" class="count-badge"></span></h5>
+            <div class="material-table-container">
+                <table id="materialTable" class="material-table">
+                    <thead>
+                        <tr>
+                            <th>STT</th>
+                            <th>Tên nguyên liệu</th>
+                            <th>Mã HS</th>
+                            <th>Đơn giá</th>
+                            <th>Định mức SP hao hụt</th>
+                            <th>Thành tiền (có XX)</th>
+                            <th>Thành tiền (không XX)</th>
+                            <th>Nước XX</th>
+                            <th>Ngày kê BTM</th>
+                            <th>Số bản KB</th>
+                            <th>Ngày bảng kê WO</th>
+                            <th>Ghi chú</th>
+                            <th class="action-buttons-cell">Thao tác</th> 
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr id="emptyMaterialRow" class="empty-row">
+                            <td colspan="13" class="empty-message text-center">
+                                <i class="fas fa-inbox"></i> Không có chi tiết nguyên liệu nào.
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div id="addMaterialRowBtnContainer" class="add-material-row">
+                <button type="button" id="addMaterialRowBtn" class="btn btn-info">
+                    <i class="fas fa-plus"></i> Thêm Nguyên liệu
+                </button>
+            </div>
+        </form>
+
+        <div class="modal-footer">
+            <button id="saveCCTCBtn" type="submit" form="ctcForm" class="btn btn-primary"><i class="fas fa-save"></i> Lưu</button>
+            <button id="closeModalBtn" type="button" class="btn btn-secondary"><i class="fas fa-times"></i> Đóng</button>
+        </div>
+    </div>
+</div>
+
+{# Data Islands for JavaScript (Giữ nguyên) #}
+<script id="lenh-san-xuat-data" type="application/json">
+    {
+        {% for i, item in lenh_san_xuat_options.items %}
+            "{{ i }}": "{{ item }}"{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    }
+</script>
+<script id="product-data" type="application/json">
+    {{ orders|safe }}
+</script>
 
 {% endblock %}
 
 {% block javascript %}
-    <script src="{% static 'js/dashboard.js' %}"></script>
+    <script src="{% static 'js/ctc_management.js' %}"></script>
 {% endblock %}
-

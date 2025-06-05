@@ -11,7 +11,12 @@ urlpatterns = [
 
     path("purchase/", views.purchase, name="purchase"),
     path("wo/", views.wo_ledger, name="wo_ledger"),
+
     path("ctc/", views.ctc_ledger, name="ctc_ledger"),
+    path("ctc/<str:pk>/", views.ctc_detail, name="ctc_detail"),
+    path("ctc/<str:pk>/export/", views.ctc_export, name="ctc_export"),
+    path("ctc/<str:pk>/update", views.ctc_update, name="ctc_update"),
+
     path('users/', views.users_management, name='users'),
     path('users/create/', views.users_create, name='create_user'),
     path('users/update/', views.users_update, name='update_user'),
@@ -36,4 +41,9 @@ urlpatterns = [
     path('api/get_lenh_san_xuat_detail/', views.get_lenh_san_xuat_detail, name='get_lenh_san_xuat_detail'),
     path('api/check_rollback_exist/', views.check_rollback_exist, name='check_rollback_exist'),
     path('api/rollback/delete/<int:pk>/', views.rollback_delete, name='rollback_delete'),
+
+    path('api/get_data_for_ctc_create/', views.get_data_for_ctc_create, name='get_data_for_ctc_create'),
+    path("api/ctc/create/", views.ctc_create, name="ctc_create"),
+    path("api/ctc/<str:pk>/delete/", views.ctc_delete, name="ctc_delete"),
+    
 ]

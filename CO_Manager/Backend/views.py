@@ -4,6 +4,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.http import JsonResponse, HttpResponse
 from django.utils import timezone
 from django.db import transaction
+from django.forms.models import model_to_dict
 
 from .models import *
 
@@ -33,8 +34,520 @@ def purchase(request):
 def wo_ledger(request):
     return render(request, 'wo_management.html', {})
 
+
 def ctc_ledger(request):
-    return render(request, 'ctc_management.html', {})
+    """Trang quản lý CTC (Chi tiết công việc)"""
+    
+    # Lấy danh sách CTC với select_related để giảm query
+    ctc = BangKeCtc.objects.select_related('id_lenh_san_xuat', 'id_san_pham').order_by('id_bang_ke_ctc')
+    
+
+    # Lấy chi tiết lệnh sản xuất với prefetch_related để tối ưu query
+    ct_lenh_sx = CtLenhSanXuat.objects.all().select_related('id_lenh_san_xuat', 'id_san_pham', 'id_nguyen_vat_lieu')
+
+    # Lấy danh sách lệnh sản xuất duy nhất và sắp xếp theo thứ tự
+    lenh_san_xuat_options = dict(enumerate(
+        sorted(set(item.id_lenh_san_xuat.id_lenh_san_xuat for item in ct_lenh_sx), reverse=True)
+    ))
+
+    orders = {}
+    
+    # Xây dựng orders dictionary với logic tối ưu
+    for item in ct_lenh_sx:
+        lenh_id = item.id_lenh_san_xuat.id_lenh_san_xuat
+        san_pham_id = item.id_san_pham.id_san_pham
+        
+        # Sử dụng setdefault để khởi tạo nested dictionary một cách ngắn gọn
+        if lenh_id not in orders:
+            orders[lenh_id] = {}
+            
+        if san_pham_id not in orders[lenh_id]:
+            orders[lenh_id][san_pham_id] = {
+                "san_pham": model_to_dict(item.id_san_pham),
+                "so_luong_san_pham": item.so_luong_san_pham,
+                "nguyen_vat_lieu": {}
+            }
+        
+        # Thêm nguyên vat liệu nếu tồn tại
+        if item.id_nguyen_vat_lieu:
+            nvl_id = item.id_nguyen_vat_lieu.id_san_pham
+            dict_nvl = model_to_dict(item.id_nguyen_vat_lieu)
+            dict_nvl["so_luong_nguyen_vat_lieu"] = item.so_luong_nguyen_vat_lieu
+            orders[lenh_id][san_pham_id]["nguyen_vat_lieu"][nvl_id] = dict_nvl
+    
+    # Chuyển đổi sang list format bằng dictionary comprehension
+    orders_list = {
+        lenh_id: list(products.values()) 
+        for lenh_id, products in orders.items()
+    }
+    
+    context = {
+        'ctc_list': ctc,
+        "lenh_san_xuat_options": lenh_san_xuat_options,
+        "orders": json.dumps(orders_list, ensure_ascii=False)  # Thêm ensure_ascii=False cho tiếng Việt
+    }
+    
+    return render(request, 'ctc_management.html', context)
+
+
+
+def ctc_detail(request, pk):
+    """Trang chi tiết CTC"""
+
+    chi_tiet_ctc = CtBangKeCtc.objects.filter(id_bang_ke_ctc=pk).select_related('id_bang_ke_ctc','id_bang_ke_ctc__id_san_pham')
+    if not chi_tiet_ctc.exists():
+        return JsonResponse({'success': False, 'message': 'Không tìm thấy dữ liệu'}, status=404)
+    
+    # Lấy thông tin bảng kê chính từ record đầu tiên
+    ctc = chi_tiet_ctc[0].id_bang_ke_ctc
+    
+    # Lấy thông tin nguyên vật liệu một lần
+    id_nvl = [item.id_san_pham for item in chi_tiet_ctc]
+    nguyen_vat_lieu = {
+        item.id_san_pham: item 
+        for item in VatTu.objects.filter(id_san_pham__in=id_nvl).only('id_san_pham', 'ma_hs')
+    }
+    
+    # Chuẩn bị dữ liệu response
+    ctc_data = {
+        'id_bang_ke_ctc': ctc.id_bang_ke_ctc,
+        'id_lenh_san_xuat_id': ctc.id_lenh_san_xuat_id,
+        'id_san_pham_actual_id': ctc.id_san_pham.id_san_pham if ctc.id_san_pham else None,
+        'id_san_pham': {
+            'id_san_pham': ctc.id_san_pham.id_san_pham,
+            'ten_khac': ctc.id_san_pham.ten_khac,
+            'ma_hs': ctc.id_san_pham.ma_hs,
+            'don_vi_tinh': ctc.id_san_pham.don_vi_tinh
+        } if ctc.id_san_pham else None,
+        'so_to_hai_quan': ctc.so_to_hai_quan,
+        'so_luong': ctc.so_luong,
+        'tri_gia_fob': ctc.tri_gia_fob,
+        'chi_tiet_nguyen_lieu': [
+            {
+                'id': ct.id_ct_bang_ke_ctc,
+                'ten_nguyen_lieu': ct.ten_nguyen_lieu,
+                'ma_hs': nguyen_vat_lieu.get(ct.id_san_pham, {}).ma_hs,
+                'don_vi_tinh': nguyen_vat_lieu.get(ct.id_san_pham, {}).don_vi_tinh,
+                'don_gia': ct.don_gia,
+                'dinh_muc_san_pham_hao_hut': ct.dinh_muc_san_pham_hao_hut,
+                'thanh_tien_co_xuat_xu_field': ct.thanh_tien_co_xuat_xu_field,
+                'thanh_tien_khong_xuat_xu_field': ct.thanh_tien_khong_xuat_xu_field,
+                'nuoc_xuat_xu': ct.nuoc_xuat_xu,
+                'ngay_ke_bang_thu_mua': ct.ngay_ke_bang_thu_mua,
+                'so_ban_khai_bao': ct.so_ban_khai_bao,
+                'ngay_bang_ke_wo': ct.ngay_bang_ke_wo,
+                'ghi_chu': ct.ghi_chu,
+            }
+            for ct in chi_tiet_ctc
+        ]
+    }
+    
+    if request == None:
+        return ctc_data
+    
+    return JsonResponse({'success': True, 'ctc_data': ctc_data})
+
+@require_POST
+def ctc_create(request):
+    try:
+        data = json.loads(request.body)
+        
+        # Lấy các đối tương lệnh sản xuất, sản phẩm tương ứng
+        lenh_san_xuat = get_object_or_404(LenhSanXuat, id_lenh_san_xuat=data['id_lenh_san_xuat_id'])
+        san_pham = get_object_or_404(VatTu, id_san_pham=data['id_san_pham_id'])
+        
+        # Tạo mới bảng kê CTC
+        with transaction.atomic():
+            ctc_object = BangKeCtc.objects.create(
+                id_lenh_san_xuat=lenh_san_xuat,
+                id_san_pham=san_pham,
+                so_to_hai_quan=data['so_to_hai_quan'],
+                so_luong=data['so_luong'],
+                tri_gia_fob=data['tri_gia_fob']
+            )
+            
+            # Tạo mới hoàng loạt Chi tiết bảng kê CTC
+            chi_tiet_nguyen_lieu = data.get('chi_tiet_nguyen_lieu', [])
+            if chi_tiet_nguyen_lieu:
+                ct_ctc_objs = [
+                    CtBangKeCtc(
+                        id_bang_ke_ctc=ctc_object,
+                        id_san_pham=item['id_nguyen_lieu'],
+                        ten_nguyen_lieu=item['ten_nguyen_lieu'],
+                        don_gia=item['don_gia'],
+                        dinh_muc_san_pham_hao_hut=item['dinh_muc_san_pham_hao_hut'],
+                        thanh_tien_co_xuat_xu_field=item['thanh_tien_co_xuat_xu_field'],
+                        thanh_tien_khong_xuat_xu_field=item['thanh_tien_khong_xuat_xu_field'],
+                        nuoc_xuat_xu=item['nuoc_xuat_xu'],
+                        ngay_ke_bang_thu_mua=item['ngay_ke_bang_thu_mua'],
+                        so_ban_khai_bao=item['so_ban_khai_bao'],
+                        ngay_bang_ke_wo= item['ngay_bang_ke_wo'] if item['ngay_bang_ke_wo'] else None,
+                        ghi_chu=item['ghi_chu']
+                    )
+                    for item in chi_tiet_nguyen_lieu
+                ]
+                CtBangKeCtc.objects.bulk_create(ct_ctc_objs)
+        
+        return JsonResponse({
+            'success': True,
+            'message': 'Tạo mới chứng từ CTC thành công!',
+        })
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Invalid JSON data, {e}'}, status=400)
+    
+def ctc_update(request, pk):
+    pass
+
+def ctc_delete(request, pk):
+    """Xóa bảng kê CTC"""
+
+    if pk:
+        ctc = get_object_or_404(BangKeCtc, id_bang_ke_ctc=pk)
+        ctc.delete()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Xóa bảng kê CTC thành công!'
+        })
+    
+    return JsonResponse({
+        'success': False,
+        'message': 'Không tìm thấy mã bảng kê CTC!'
+    })
+
+
+def ctc_export(request, pk):
+    """Xuất báo cáo tỉ lệ phối trộn theo định dạng PDF hoặc Excel """
+
+    format = request.GET.get('format', '').lower()
+    response_data = ctc_detail(request=None, pk=pk)
+
+    if format == 'pdf':
+        return render(request, 'form/bang_ke_ctc_pdf.html', {'data': response_data})
+    elif format == 'excel':
+        return create_bang_ke_ctc_excel_response(response_data)
+    else:
+        return JsonResponse({'success': False, 'message': 'Format không hợp lệ!'}, status=400)
+
+def create_bang_ke_ctc_excel_response(data):
+    """Tạo file Excel báo cáo bảng kê khai hàng hoá xuất khẩu đặt tiêu chí CTC."""
+    wb = Workbook()
+    ws = wb.active
+    
+    # Thiết lập styles cho Excel
+    styles = {
+        'border': Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin')),
+        'thick_border': Border(left=Side(style='thick'), right=Side(style='thick'), top=Side(style='thick'), bottom=Side(style='thick')),
+        'fill_header': PatternFill(start_color="F9F9F9", end_color="F9F9F9", fill_type="solid"),
+        'base_font': Font(name='Times New Roman', size=11),
+        'bold_font': Font(name='Times New Roman', size=11, bold=True),
+        'title_font': Font(name='Times New Roman', size=14, bold=True),
+        'info_font': Font(name='Times New Roman', size=10),
+        'center': Alignment(horizontal='center', vertical='center', wrap_text=True),
+        'left': Alignment(horizontal='left', vertical='center', wrap_text=True),
+        'right': Alignment(horizontal='right', vertical='center')
+    }
+    
+    # ===== PHẦN 1: TIÊU ĐỀ =====
+    # Phụ lục V
+    cell = ws.cell(row=1, column=1, value="Phụ lục V")
+    apply_cell_style(cell, font=styles['bold_font'], align=styles['center'])
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=13)
+    
+    # Tiêu đề chính
+    title = "BẢNG KÊ KHAI HÀNG HOÁ XUẤT KHẨU ĐẶT TIÊU CHÍ \"CTC\""
+    cell = ws.cell(row=3, column=1, value=title)
+    apply_cell_style(cell, font=styles['title_font'], align=styles['center'])
+    ws.merge_cells(start_row=3, start_column=1, end_row=3, end_column=13)
+    
+    # ===== PHẦN 2: THÔNG TIN THƯƠNG NHÂN (Không có viền và màu nền) =====
+    info_start_row = 5
+    
+    # Thông tin bên trái - các dòng liền kề
+    left_info_data = [
+        ("Tên Thương Nhân:", "Công ty cổ phần Tân Phong"),
+        ("Mã số thuế:", "2600274542"),
+        ("Tờ khai Hải quan xuất khẩu số:", data.get('so_to_hai_quan', ''))
+    ]
+    
+    for i, (label, value) in enumerate(left_info_data):
+        current_row = info_start_row + i  # Các dòng liền kề
+        
+        # Label (không có border và background)
+        cell = ws.cell(row=current_row, column=1, value=label)
+        apply_cell_style(cell, font=styles['bold_font'], align=styles['left'])
+        ws.merge_cells(start_row=current_row, start_column=1, end_row=current_row, end_column=2)
+        
+        # Value (không có border)
+        cell = ws.cell(row=current_row, column=3, value=value)
+        apply_cell_style(cell, font=styles['base_font'], align=styles['left'])
+        ws.merge_cells(start_row=current_row, start_column=3, end_row=current_row, end_column=6)
+    
+    # Thông tin bên phải - các dòng liền kề
+    
+    # Xử lý safe attribute access
+    print(data.get('id_san_pham', {}))
+
+    ten_khac = data.get('id_san_pham', {}).get('ten_khac', '')
+    ma_hs = data.get('id_san_pham', {}).get("ma_hs", '')
+    don_vi_tinh = getattr(data.get('id_san_pham', {}), 'don_vi_tinh', '')
+    
+    right_info_data = [
+        ("Tiêu chí áp dụng:", "CC"),
+        ("Tên hàng hoá:", ten_khac),
+        ("Mã số của hàng hoá (6 số):", ma_hs),
+        ("Số lượng:", f"{data.get('so_luong', 0):,.0f} {don_vi_tinh}"),
+        ("Trị giá (FOB):", f"{data.get('tri_gia_fob', 0)}")
+    ]
+    
+    for i, (label, value) in enumerate(right_info_data):
+        current_row = info_start_row + i  # Các dòng liền kề
+        
+        # Label (không có border và background)
+        cell = ws.cell(row=current_row, column=8, value=label)
+        apply_cell_style(cell, font=styles['bold_font'], align=styles['left'])
+        ws.merge_cells(start_row=current_row, start_column=8, end_row=current_row, end_column=9)
+        
+        # Value (không có border)
+        cell = ws.cell(row=current_row, column=10, value=value)
+        apply_cell_style(cell, font=styles['base_font'], align=styles['left'])
+        ws.merge_cells(start_row=current_row, start_column=10, end_row=current_row, end_column=13)
+    
+    # ===== PHẦN 3: BẢNG DỮ LIỆU (Giữ nguyên viền và màu) =====
+    table_start_row = info_start_row + 5  # Giảm khoảng cách
+    
+    # Header dòng 1: Tiêu đề chính
+    headers_main = [
+        ("STT", 1, 1, 1, 1),
+        ("Tên Nguyên Liệu", 1, 1, 2, 2),
+        ("Mã HS", 1, 1, 3, 3),
+        ("Đơn vị tính", 1, 1, 4, 4),
+        ("Định mức sản phẩm hao hụt", 1, 1, 5, 5),
+        ("Nhu cầu nguyên liệu sử dụng cho lô hàng", 1, 1, 6, 8),
+        ("Nước xuất xứ", 1, 1, 9, 9),
+        ("Tờ khai hải quan nhập khẩu/Hoá đơn trị giá tăng", 1, 1, 10, 11),
+        ("C/O ưu đãi nhập khẩu bản khai của nhà sản xuất nhà cung cấp nguyên liệu trong nước", 1, 1, 12, 13)
+    ]
+    
+    for text, start_row_offset, end_row_offset, start_col, end_col in headers_main:
+        cell = ws.cell(row=table_start_row, column=start_col, value=text)
+        apply_cell_style(cell, font=styles['bold_font'], border=styles['border'], 
+                        align=styles['center'], fill=styles['fill_header'])
+        if start_col != end_col:
+            ws.merge_cells(start_row=table_start_row, start_column=start_col,
+                          end_row=table_start_row, end_column=end_col)
+    
+    # Header dòng 2: Sub headers
+    sub_headers = [
+        ("Đơn giá", 6),
+        ("Có xuất xứ", 7),
+        ("Không có xuất xứ", 8),
+        ("Số", 10),
+        ("Ngày", 11),
+        ("Số", 12),
+        ("Ngày", 13)
+    ]
+    
+    for text, col in sub_headers:
+        cell = ws.cell(row=table_start_row + 1, column=col, value=text)
+        apply_cell_style(cell, font=styles['bold_font'], border=styles['border'], 
+                        align=styles['center'], fill=styles['fill_header'])
+    
+    # Header dòng 3: Số thứ tự cột
+    column_numbers = ["(1)", "(2)", "(3)", "(4)", "(5)", "(6)", "(7)", "(8)", "(9)", "(10)", "(11)", "(12)", "(13)"]
+    for i, num in enumerate(column_numbers, 1):
+        cell = ws.cell(row=table_start_row + 2, column=i, value=num)
+        apply_cell_style(cell, font=styles['info_font'], border=styles['border'], 
+                        align=styles['center'], fill=styles['fill_header'])
+    
+    # Merge cells cho các cột không có sub-header
+    merge_ranges = [
+        (table_start_row, table_start_row + 1, 1, 1),  # STT
+        (table_start_row, table_start_row + 1, 2, 2),  # Tên Nguyên Liệu
+        (table_start_row, table_start_row + 1, 3, 3),  # Mã HS
+        (table_start_row, table_start_row + 1, 4, 4),  # Đơn vị tính
+        (table_start_row, table_start_row + 1, 5, 5),  # Định mức
+        (table_start_row, table_start_row + 1, 9, 9),  # Nước xuất xứ
+    ]
+    
+    for start_row, end_row, start_col, end_col in merge_ranges:
+        ws.merge_cells(start_row=start_row, start_column=start_col,
+                      end_row=end_row, end_column=end_col)
+    
+    # Tăng chiều cao cho header
+    for row in range(table_start_row, table_start_row + 3):
+        ws.row_dimensions[row].height = 30
+    
+    # ===== PHẦN 4: DỮ LIỆU NGUYÊN LIỆU =====
+    data_start_row = table_start_row + 3
+    chi_tiet_nguyen_lieu = data.get('chi_tiet_nguyen_lieu', [])
+    
+    for row_idx, material in enumerate(chi_tiet_nguyen_lieu):
+        current_row = data_start_row + row_idx
+        
+        row_data = [
+            (1, row_idx + 1, '#,##0'),
+            (2, material.get('ten_nguyen_lieu', ''), None),
+            (3, material.get('ma_hs', ''), None),
+            (4, material.get('don_vi_tinh', ''), None),
+            (5, material.get('dinh_muc_san_pham_hao_hut', 0), '#,##0'),
+            (6, material.get('don_gia', 0), '#,##0'),
+            (7, material.get('thanh_tien_co_xuat_xu_field', 0), '#,##0'),
+            (8, material.get('thanh_tien_khong_xuat_xu_field', 0), '#,##0'),
+            (9, material.get('nuoc_xuat_xu', ''), None),
+            (10, "Bảng kê thu mua", None),
+            (11, material.get('ngay_ke_bang_thu_mua', ''), None),
+            (12, material.get('so_ban_khai_bao', ''), None),
+            (13, '', None)
+        ]
+        
+        # Xử lý ngày bản khai
+        ngay_bang_ke_wo = material.get('ngay_bang_ke_wo', '')
+        if ngay_bang_ke_wo:
+            try:
+                if hasattr(ngay_bang_ke_wo, 'strftime'):
+                    row_data[12] = (13, ngay_bang_ke_wo.strftime('%d/%m/%Y'), None)
+                else:
+                    row_data[12] = (13, str(ngay_bang_ke_wo), None)
+            except:
+                row_data[12] = (13, '', None)
+        
+        # Áp dụng dữ liệu và styling (giữ nguyên border cho bảng)
+        for col, value, number_format in row_data:
+            cell = ws.cell(row=current_row, column=col, value=value)
+            
+            # Căn lề và styling
+            if col == 2:  # Tên nguyên liệu
+                align = styles['left']
+            elif col in [5, 6, 7, 8]:  # Các cột số liệu
+                align = styles['right']
+            else:
+                align = styles['center']
+            
+            apply_cell_style(cell, font=styles['base_font'], border=styles['border'], 
+                           align=align, number_format=number_format)
+    
+    # ===== PHẦN 5: KẾT LUẬN VÀ CAM KẾT (Không có viền) =====
+    footer_row = data_start_row + len(chi_tiet_nguyen_lieu)  # Giảm khoảng cách
+    
+    # Kết luận (không có border và background)
+    cell = ws.cell(row=footer_row, column=1, value="Kết luận: hàng hoá đáp ứng tiêu chí \"CC\"")
+    apply_cell_style(cell, font=styles['bold_font'], align=styles['left'])
+    ws.merge_cells(start_row=footer_row, start_column=1, end_row=footer_row, end_column=13)
+    
+    # Cam kết (liền kề, không có border)
+    commitment = "Công ty cam kết số liệu, thông tin khai báo trên là đúng và chịu trách nhiệm trước pháp luật về thông tin, số liệu đã khai."
+    cell = ws.cell(row=footer_row + 1, column=1, value=commitment)
+    apply_cell_style(cell, font=styles['base_font'], align=styles['left'])
+    ws.merge_cells(start_row=footer_row + 1, start_column=1, end_row=footer_row + 1, end_column=13)
+    
+    # ===== PHẦN 6: CHỮ KÝ (Không có viền) =====
+    sig_row = footer_row + 2  # Giảm khoảng cách
+    
+    # Xử lý ngày tháng
+    try:
+        current_date = data.get('current_date')
+        if current_date is None:
+            from datetime import datetime
+            current_date = datetime.now()
+        elif isinstance(current_date, str):
+            from datetime import datetime
+            current_date = datetime.strptime(current_date, '%Y-%m-%d')
+    except:
+        from datetime import datetime
+        current_date = datetime.now()
+    
+    # Ngày tháng (không có border)
+    date_str = f"Ngày {current_date.day} tháng {current_date.month} năm {current_date.year}"
+    cell = ws.cell(row=sig_row, column=9, value=date_str)
+    apply_cell_style(cell, font=styles['base_font'], align=styles['center'])
+    ws.merge_cells(start_row=sig_row, start_column=9, end_row=sig_row, end_column=13)
+    
+    # Người đại diện (liền kề, không có border)
+    cell = ws.cell(row=sig_row + 1, column=9, value="NGƯỜI ĐẠI DIỆN THEO PHÁP LUẬT")
+    apply_cell_style(cell, font=styles['bold_font'], align=styles['center'])
+    ws.merge_cells(start_row=sig_row + 1, start_column=9, end_row=sig_row + 1, end_column=13)
+    
+    # Hướng dẫn ký (cách 3 dòng để có chỗ ký)
+    ws.merge_cells(start_row=sig_row + 2, start_column=9, end_row=sig_row + 2, end_column=13)
+    cell = ws.cell(row=sig_row + 2, column=9, value="(Ký, đóng dấu, ghi rõ họ tên)")
+    apply_cell_style(cell, font=styles['base_font'], align=styles['center'])
+    
+    # ===== PHẦN 7: GHI CHÚ (Không có viền) =====
+    note_row = sig_row + 7  # Giảm khoảng cách
+    
+    # Tiêu đề ghi chú
+    ws.merge_cells(start_row=note_row, start_column=1, end_row=note_row, end_column=2)     # Hợp nhất ô từ cột 1 đến cột 2 tại dòng note_row
+    cell = ws.cell(row=note_row, column=1, value="Ghi chú:")     # Gán giá trị cho ô đầu tiên của vùng hợp nhất
+    apply_cell_style(cell, font=styles['bold_font'], align=styles['left'])
+    
+    # Nội dung ghi chú (liền kề)
+    note_text = ("Thương nhân nộp bản in Tờ khai hải quan nhập khẩu và bản sao các chứng từ "
+                "(có dấu sao y bản chính): Hoá đơn trị giá tăng, C/O ưu đãi nhập khẩu bản khai "
+                "của nhà sản xuất/ nhà cung cấp nguyên liệu trong nước để đối chiếu với thông tin "
+                "kê khai từ cột (9) đến cột (13)")
+    cell = ws.cell(row=note_row + 1, column=1, value=note_text)
+    apply_cell_style(cell, font=styles['info_font'], align=styles['left'])
+    ws.merge_cells(start_row=note_row + 1, start_column=1, end_row=note_row + 1, end_column=13)
+    
+    # ===== PHẦN 8: ĐIỀU CHỈNH CHIỀU RỘNG CỘT =====
+    # Điều chỉnh chiều rộng cột để cân đối hơn
+    for column in ws.columns:
+        max_length = 0
+        column_letter = get_column_letter(column[0].column)
+        
+        for cell in column[10:12+len(chi_tiet_nguyen_lieu)]:  # Chỉ kiểm tra các dòng header và một vài dòng đầu tiên
+            try:
+                cell_length = len(str(cell.value)) if cell.value else 0
+                if cell_length > max_length:
+                    max_length = cell_length
+            except:
+                pass
+        
+        ws.column_dimensions[column_letter].width = max_length + 3
+    
+    ws.row_dimensions[note_row + 1].height = 35
+    
+    # ===== TẠO RESPONSE =====
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    
+    # Tạo tên file
+    so_to_hai_quan = data.get('so_to_hai_quan', 'Unknown')
+    today = current_date.strftime('%Y-%m-%d')
+    filename = f"Bang_Ke_CTC_{so_to_hai_quan}_{today}.xlsx"
+    
+    response = HttpResponse(
+        output.getvalue(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response
+
+
+def get_data_for_ctc_create(request):
+    """Lấy dữ liệu fill vào bảng khi tạo mới bảng kê ctc"""
+    
+    data = json.loads(request.body)
+    id_lenh_san_xuat = data.get('id_lenh_san_xuat')
+
+    id_lenh_san_xuat = '101031'
+    bang_ke_thu_mua = BangKeThuMuaTuDan.objects.filter(id_lenh_san_xuat = id_lenh_san_xuat).values()
+    bang_ke_wo = BangKeWo.objects.filter(id_lenh_san_xuat = id_lenh_san_xuat).values()
+
+    data = {
+        "bang_ke_thu_mua": {item['id_san_pham']: item['ngay_lap_giay_to'] for item in list(bang_ke_thu_mua)},
+        "bang_ke_wo": {item['id_san_pham']: item['ngay'] for item in list(bang_ke_wo)}
+    }
+
+    return JsonResponse({
+        'success': True,
+        'data': data,
+    })
+
+    
 
 def users_management(request):
     """API endpoint để lấy danh sách người dùng."""
@@ -350,7 +863,7 @@ def orders_detail(request, pk):
     order_items = CtLenhSanXuat.objects.filter(id_lenh_san_xuat=pk).select_related('id_san_pham', 'id_nguyen_vat_lieu', 'id_lenh_san_xuat')
     if not order_items.exists():
         return render(request, '404.html')
-    
+
     # Lấy ra danh sách id_san_pham unique
     unique_products = {}
     for item in order_items:
@@ -525,7 +1038,7 @@ def orders_export(request, pk):
     if export_format == 'pdf':
         return render(request, 'form/ti_le_dau_tron_pdf.html', context)
     elif export_format == 'excel':
-        return create_excel_response(pk, context)
+        return create_ti_le_dau_tron_excel_response(pk, context)
     else:
         return JsonResponse({'success': False, 'message': 'Format không hợp lệ!'}, status=400)
 
@@ -574,7 +1087,7 @@ def get_order_data(order_id):
         'total_quantity': total_quantity,
     }
 
-def create_excel_response(order_id, data):
+def create_ti_le_dau_tron_excel_response(order_id, data):
     """Tạo file Excel báo cáo tỉ lệ phối trộn."""
     wb = Workbook()
     ws = wb.active
@@ -718,7 +1231,7 @@ def create_excel_response(order_id, data):
         max_length = 0
         column_letter = get_column_letter(column[0].column)
         
-        for cell in column[6:11]:  # Chỉ kiểm tra các dòng header và một vài dòng đầu tiên
+        for cell in column[6:6+len(order_items)]:  # Chỉ kiểm tra các dòng header và một vài dòng đầu tiên
             try:
                 cell_length = len(str(cell.value)) if cell.value else 0
                 if cell_length > max_length:

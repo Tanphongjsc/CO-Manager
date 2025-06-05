@@ -15,10 +15,15 @@ class BangKeCtc(models.Model):
     id_bang_ke_ctc = models.BigAutoField(primary_key=True)
     id_lenh_san_xuat = models.ForeignKey('LenhSanXuat', models.DO_NOTHING, db_column='id_lenh_san_xuat')
     id_anh = models.BigIntegerField(blank=True, null=True)
+    so_to_hai_quan = models.CharField(blank=True, null=True)
+    id_san_pham = models.ForeignKey('VatTu', models.DO_NOTHING, db_column='id_san_pham', blank=True, null=True)
+    so_luong = models.FloatField(blank=True, null=True)
+    tri_gia_fob = models.FloatField(blank=True, null=True)
 
     class Meta:
         managed = False
         db_table = 'BANG_KE_CTC'
+
 
 
 class BangKeThuMuaTuDan(models.Model):
@@ -30,6 +35,7 @@ class BangKeThuMuaTuDan(models.Model):
     class Meta:
         managed = False
         db_table = 'BANG_KE_THU_MUA_TU_DAN'
+
 
 
 class BangKeTruLuiNguyenLieu(models.Model):
@@ -82,7 +88,7 @@ class CtBangKeCtc(models.Model):
     thanh_tien_co_xuat_xu_field = models.FloatField(db_column='thanh_tien (co_xuat_xu)', blank=True, null=True)  # Field renamed to remove unsuitable characters. Field renamed because it ended with '_'.
     thanh_tien_khong_xuat_xu_field = models.FloatField(db_column='thanh_tien(khong_xuat_xu)', blank=True, null=True)  # Field renamed to remove unsuitable characters. Field renamed because it ended with '_'.
     nuoc_xuat_xu = models.CharField(blank=True, null=True)
-    ngay_ke_bang_thu_mua = models.DateField(blank=True, null=True)
+    ngay_ke_bang_thu_mua = models.CharField(blank=True, null=True)
     so_ban_khai_bao = models.CharField(blank=True, null=True)
     ngay_bang_ke_wo = models.DateField(blank=True, null=True)
     ghi_chu = models.TextField(blank=True, null=True)

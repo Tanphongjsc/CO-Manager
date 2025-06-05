@@ -40,8 +40,8 @@
             <td>{{ order.id_lenh_san_xuat|default_if_none:'' }}</td>
             <td>{{ order.ngay_tao_don_hang|date:"d/m/Y" }}</td>
             <td>
-                <a href="{% url 'orders_detail' order.id_lenh_san_xuat %}" class="btn btn-sm btn-warning">
-                <i class="fas fa-info-circle"></i> Chi tiết
+                <a href="{% url 'orders_detail' order.id_lenh_san_xuat %}" class="btn btn-sm btn-warning detail-btn">
+                    <i class="fas fa-eye"></i> Chi tiết
                 </a>
             </td>
             </tr>
