@@ -195,9 +195,96 @@ def ctc_create(request):
         
     except Exception as e:
         return JsonResponse({'success': False, 'message': f'Invalid JSON data, {e}'}, status=400)
-    
+
+
+@transaction.atomic
 def ctc_update(request, pk):
-    pass
+    """Cập nhật bảng kê CTC với logic rõ ràng, dễ hiểu."""
+    try:
+        data_update = json.loads(request.body)
+        
+        # === CẬP NHẬT THÔNG TIN CHÍNH ===
+        ctc = get_object_or_404(BangKeCtc, id_bang_ke_ctc=pk)
+        
+        fields_to_update_main = [
+            'id_lenh_san_xuat_id', 'id_san_pham_id', 'so_to_hai_quan', 
+            'so_luong', 'tri_gia_fob'
+        ]
+        for field in fields_to_update_main:
+            if field in data_update:
+                setattr(ctc, field, data_update[field]) # setattr(object, name, value) tương đương với object.name = value
+        ctc.save()
+
+        # === XỬ LÝ DỮ LIỆU CHI TIẾT ===
+        chi_tiet_items_request = data_update.get('chi_tiet_nguyen_lieu', [])
+        
+        existing_details_map = {          # Lấy tất cả các bản ghi chi tiết hiện có trong CSDL để so sánh
+            item.id_ct_bang_ke_ctc: item 
+            for item in CtBangKeCtc.objects.filter(id_bang_ke_ctc=ctc)
+        }
+
+        # Chuẩn bị các danh sách để thực hiện thao tác hàng loạt (bulk operations)
+        items_to_create = []
+        items_to_update = []
+
+        incoming_ids = set()         # Dùng `set` để lưu các ID được gửi lên, giúp xác định các ID cần xóa sau này
+
+        # Hàm nội bộ giúp chuyển đổi chuỗi ngày tháng an toàn
+        def parse_date_safely(date_string):
+            if isinstance(date_string, str) and date_string:
+                return date.fromisoformat(date_string.split('T')[0])
+            return None
+
+        # Phân loại từng mục trong dữ liệu gửi lên vào danh sách Cập nhật hoặc Tạo mới
+        for item_data in chi_tiet_items_request:
+            item_id = item_data.get('id')
+            
+            # Chuẩn bị một dictionary chứa dữ liệu đã được làm sạch và ánh xạ đúng tên trường model
+            prepared_data = {
+                'id_san_pham': item_data.get('id_nguyen_lieu'),
+                'ten_nguyen_lieu': item_data.get('ten_nguyen_lieu'),
+                'don_gia': item_data.get('don_gia'),
+                'dinh_muc_san_pham_hao_hut': item_data.get('dinh_muc_san_pham_hao_hut'),
+                'thanh_tien_co_xuat_xu_field': item_data.get('thanh_tien_co_xuat_xu_field'),
+                'thanh_tien_khong_xuat_xu_field': item_data.get('thanh_tien_khong_xuat_xu_field'),
+                'nuoc_xuat_xu': item_data.get('nuoc_xuat_xu'),
+                'ngay_ke_bang_thu_mua': item_data.get('ngay_ke_bang_thu_mua'),
+                'so_ban_khai_bao': item_data.get('so_ban_khai_bao'),
+                'ngay_bang_ke_wo': parse_date_safely(item_data.get('ngay_bang_ke_wo')),
+                'ghi_chu': item_data.get('ghi_chu')
+            }
+            
+            if item_id and item_id in existing_details_map:
+                # ----- TRƯỜNG HỢP 1: CẬP NHẬT -----   Nếu có ID và ID này tồn tại trong CSDL -> Cập nhật
+                incoming_ids.add(item_id)
+                db_item = existing_details_map[item_id]
+                for field, value in prepared_data.items():
+                    setattr(db_item, field, value)
+                items_to_update.append(db_item)
+            elif not item_id:
+                # ----- TRƯỜNG HỢP 2: TẠO MỚI -----    Nếu không có ID -> Tạo mới
+                prepared_data['id_bang_ke_ctc'] = ctc
+                items_to_create.append(CtBangKeCtc(**prepared_data))
+        
+        # === BƯỚC 3: XÓA CÁC MỤC KHÔNG CÒN TỒN TẠI ===
+        ids_to_delete = set(existing_details_map.keys()) - incoming_ids
+        if ids_to_delete:
+            CtBangKeCtc.objects.filter(id_ct_bang_ke_ctc__in=ids_to_delete).delete()
+
+        # === BƯỚC 4: THỰC THI THAO TÁC VỚI CSDL ===
+        if items_to_update:
+            # Tự động lấy danh sách các trường cần cập nhật
+            update_fields = list(prepared_data.keys()) 
+            CtBangKeCtc.objects.bulk_update(items_to_update, update_fields)
+            
+        if items_to_create:
+            CtBangKeCtc.objects.bulk_create(items_to_create)
+
+        return JsonResponse({'success': True, 'message': 'Cập nhật bảng kê CTC thành công!'})
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Đã xảy ra lỗi: {e}'}, status=500)
+
 
 def ctc_delete(request, pk):
     """Xóa bảng kê CTC"""
@@ -287,8 +374,6 @@ def create_bang_ke_ctc_excel_response(data):
     # Thông tin bên phải - các dòng liền kề
     
     # Xử lý safe attribute access
-    print(data.get('id_san_pham', {}))
-
     ten_khac = data.get('id_san_pham', {}).get('ten_khac', '')
     ma_hs = data.get('id_san_pham', {}).get("ma_hs", '')
     don_vi_tinh = getattr(data.get('id_san_pham', {}), 'don_vi_tinh', '')
