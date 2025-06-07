@@ -223,7 +223,7 @@ def ctc_update(request, pk):
             for item in CtBangKeCtc.objects.filter(id_bang_ke_ctc=ctc)
         }
 
-        # Chuẩn bị các danh sách để thực hiện thao tác hàng loạt (bulk operations)
+        # Chuẩn bị các danh sách để thực hiện thao tác hàng loạt
         items_to_create = []
         items_to_update = []
 
@@ -255,23 +255,23 @@ def ctc_update(request, pk):
             }
             
             if item_id and item_id in existing_details_map:
-                # ----- TRƯỜNG HỢP 1: CẬP NHẬT -----   Nếu có ID và ID này tồn tại trong CSDL -> Cập nhật
+                # ----- TH1: CẬP NHẬT -----   Nếu có ID và ID này tồn tại trong CSDL -> Cập nhật
                 incoming_ids.add(item_id)
                 db_item = existing_details_map[item_id]
                 for field, value in prepared_data.items():
                     setattr(db_item, field, value)
                 items_to_update.append(db_item)
             elif not item_id:
-                # ----- TRƯỜNG HỢP 2: TẠO MỚI -----    Nếu không có ID -> Tạo mới
+                # ----- TH2: TẠO MỚI -----    Nếu không có ID -> Tạo mới
                 prepared_data['id_bang_ke_ctc'] = ctc
                 items_to_create.append(CtBangKeCtc(**prepared_data))
         
-        # === BƯỚC 3: XÓA CÁC MỤC KHÔNG CÒN TỒN TẠI ===
+        # === XÓA CÁC MỤC KHÔNG CÒN TỒN TẠI ===
         ids_to_delete = set(existing_details_map.keys()) - incoming_ids
         if ids_to_delete:
             CtBangKeCtc.objects.filter(id_ct_bang_ke_ctc__in=ids_to_delete).delete()
 
-        # === BƯỚC 4: THỰC THI THAO TÁC VỚI CSDL ===
+        # === THỰC THI THAO TÁC VỚI CSDL ===
         if items_to_update:
             # Tự động lấy danh sách các trường cần cập nhật
             update_fields = list(prepared_data.keys()) 

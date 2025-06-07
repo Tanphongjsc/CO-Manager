@@ -1,5 +1,4 @@
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Khai báo các phần tử DOM và biến trạng thái
     const getElem = id => document.getElementById(id);
     const querySel = selector => document.querySelector(selector);
 
@@ -36,13 +35,12 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     let lenhSanXuatData = {};
-    let productData = {}; // Dữ liệu sản phẩm và nguyên liệu tương ứng
-    let materialData = []; // Danh sách toàn bộ nguyên liệu có sẵn
-    let currentCtcId = null; // ID của CTC đang xem/sửa
-    let isEditMode = false; // Trạng thái form (xem/sửa)
-    let ctcCreateApiData = null; // Dữ liệu từ API khi tạo/sửa CTC (ngày BTM, WO theo LSX)
+    let productData = {};
+    let materialData = [];
+    let currentCtcId = null;
+    let isEditMode = false;
+    let ctcCreateApiData = null;
 
-    // --- 2. CÁC HÀM TIỆN ÍCH ---
     const formatDateForInput = (dateString) => {
         if (!dateString) return '';
         try {
@@ -61,7 +59,23 @@ document.addEventListener('DOMContentLoaded', () => {
         return (typeof value === 'string' && !isNaN(num) && isFinite(value)) ? num : value;
     };
 
-    // --- 3. TRUY CẬP DỮ LIỆU ---
+    // Hàm định dạng số
+    const formatNumber = (value, decimalPlaces = 0) => {
+        if (value === null || value === undefined || isNaN(value)) {
+            return '';
+        }
+        const num = parseFloat(value);
+        if (isNaN(num)) {
+            return '';
+        }
+
+        // Thay đổi 'vi-VN' thành 'en-US' để sử dụng dấu phẩy cho hàng nghìn và dấu chấm cho thập phân
+        return new Intl.NumberFormat('en-US', {
+            minimumFractionDigits: decimalPlaces,
+            maximumFractionDigits: decimalPlaces,
+        }).format(num);
+    };
+
     const initializeData = () => {
         const parseJsonData = (id, defaultValue) => {
             try {
@@ -93,7 +107,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const fetchCtcCreateData = async (lenhSxId) => {
-        ctcCreateApiData = { bang_ke_thu_mua: {}, bang_ke_wo: {} }; // Reset trước khi fetch
+        ctcCreateApiData = { bang_ke_thu_mua: {}, bang_ke_wo: {} };
         if (!lenhSxId) return;
 
         try {
@@ -114,7 +128,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // --- 4. QUẢN LÝ UI BẢNG NGUYÊN LIỆU ---
     const updateMaterialTableDisplay = () => {
         if (!materialTableBody) return;
         const rowCount = materialTableBody.querySelectorAll('tr:not(#emptyMaterialRow)').length;
@@ -134,7 +147,6 @@ document.addEventListener('DOMContentLoaded', () => {
         updateMaterialTableDisplay();
     };
 
-    // --- 5. TẠO DROPDOWN ---
     const generateMaterialOptionsHtml = (materialsToUse, selectedValue, globalMaterialDataSource) => {
         let options = '<option value="">-- Chọn nguyên liệu --</option>';
         const effectiveMaterials = (materialsToUse && materialsToUse.length > 0) ? materialsToUse : globalMaterialDataSource;
@@ -144,16 +156,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const name = material.ten_khac || material.ten_sp_chinh || material.name || material.ten_nguyen_lieu;
             const id = material.id_san_pham || material.id;
             const maHs = material.ma_hs || '';
-            // Sử dụng ID để so sánh thay vì tên để đảm bảo tính chính xác
-            const isSelected = selectedValue && id && (selectedValue === id.toString()); 
+            const isSelected = selectedValue && id && (selectedValue === id.toString());
             if (isSelected) foundMatch = true;
             options += `<option value="${id || ''}" data-name="${name}" data-mahs="${maHs}" ${isSelected ? 'selected' : ''}>${name} (${maHs})</option>`;
         });
-        // Nếu selectedValue không phải là ID, có thể đây là tên cũ. Cần xử lý để không mất dữ liệu cũ.
-        // Tuy nhiên, việc lưu trữ và so sánh theo ID là tốt nhất.
-        // Tạm thời giữ lại logic này nếu selectedValue là tên, nhưng khuyến nghị chuyển sang ID
         if (selectedValue && !foundMatch && typeof selectedValue === 'string') {
-             // Thử tìm theo tên trong trường hợp dữ liệu cũ lưu tên thay vì ID
              const materialByName = effectiveMaterials.find(m => (m.ten_khac || m.ten_sp_chinh || m.name || m.ten_nguyen_lieu)?.toLowerCase() === selectedValue.toLowerCase());
              if (materialByName) {
                  options += `<option value="${materialByName.id_san_pham || materialByName.id}" data-name="${selectedValue}" data-mahs="${materialByName.ma_hs || ''}" selected>${selectedValue}</option>`;
@@ -208,13 +215,11 @@ document.addEventListener('DOMContentLoaded', () => {
         const selectedProductId = fields.id_san_pham?.value;
         const availableMaterials = selectedProductId ? getMaterialsForProductFromProductData(selectedProductId) : [];
         materialTableBody.querySelectorAll('.material-select').forEach(select => {
-            // Lấy ID nguyên liệu đang được chọn để tái chọn sau khi cập nhật options
-            const currentSelectedMaterialId = select.value; 
+            const currentSelectedMaterialId = select.value;
             select.innerHTML = generateMaterialOptionsHtml(availableMaterials, currentSelectedMaterialId, materialData);
         });
     };
 
-    // --- 6. QUẢN LÝ MODAL ---
     const openModal = () => {
         if (modal) {
             modal.style.setProperty('display', 'flex', 'important');
@@ -295,10 +300,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const inputState = editable ? '' : 'disabled';
         const defaults = editable ? { nuoc_xuat_xu: 'Việt Nam', so_ban_khai_bao: 'Phụ lục II' } : {};
         
-        // Cố gắng lấy ID nguyên liệu nếu có, nếu không thì dùng tên để tạo dropdown
         const selectedMaterialForDropdown = material.id_nguyen_lieu || material.ten_nguyen_lieu;
         const maHs = getValue(material.ma_hs);
-        const ngayKeBTM = getValue(material.ngay_ke_bang_thu_mua); // Không cần set default ''
+        const ngayKeBTM = getValue(material.ngay_ke_bang_thu_mua);
         const ngayKeWO = formatDateForInput(material.ngay_bang_ke_wo);
         const nuocXx = getValue(material.nuoc_xuat_xu, defaults.nuoc_xuat_xu);
         const soKb = getValue(material.so_ban_khai_bao, defaults.so_ban_khai_bao);
@@ -311,10 +315,10 @@ document.addEventListener('DOMContentLoaded', () => {
             <td class="text-center">${index + 1}</td>
             <td>${materialDropdownHtml}</td>
             <td><input type="text" class="form-control form-control-sm" value="${maHs}" name="material_${index}_ma_hs" readonly ${inputState}></td>
-            <td><input type="number" step="any" class="form-control form-control-sm material-don-gia" value="${getValue(material.don_gia)}" name="material_${index}_don_gia" ${inputState}></td>
-            <td><input type="number" step="any" class="form-control form-control-sm material-dinh-muc" value="${getValue(material.dinh_muc_san_pham_hao_hut)}" name="material_${index}_dinh_muc" ${inputState}></td>
-            <td><input type="number" step="any" class="form-control form-control-sm material-thanh-tien" value="${getValue(material.thanh_tien_co_xuat_xu_field)}" name="material_${index}_tt_co_xx" ${inputState}></td>
-            <td><input type="number" step="any" class="form-control form-control-sm material-thanh-tien" value="${getValue(material.thanh_tien_khong_xuat_xu_field)}" name="material_${index}_tt_khong_xx" ${inputState}></td>
+            <td><input type="${editable ? 'number' : 'text'}" step="any" class="form-control form-control-sm material-don-gia" value="${editable ? getValue(material.don_gia) : formatNumber(getValue(material.don_gia), 2)}" name="material_${index}_don_gia" ${inputState}></td>
+            <td><input type="${editable ? 'number' : 'text'}" step="any" class="form-control form-control-sm material-dinh-muc" value="${editable ? getValue(material.dinh_muc_san_pham_hao_hut) : formatNumber(getValue(material.dinh_muc_san_pham_hao_hut), 4)}" name="material_${index}_dinh_muc" ${inputState}></td>
+            <td><input type="${editable ? 'number' : 'text'}" step="any" class="form-control form-control-sm material-thanh-tien" value="${editable ? getValue(material.thanh_tien_co_xuat_xu_field) : formatNumber(getValue(material.thanh_tien_co_xuat_xu_field), 2)}" name="material_${index}_tt_co_xx" ${inputState}></td>
+            <td><input type="${editable ? 'number' : 'text'}" step="any" class="form-control form-control-sm material-thanh-tien" value="${editable ? getValue(material.thanh_tien_khong_xuat_xu_field) : formatNumber(getValue(material.thanh_tien_khong_xuat_xu_field), 2)}" name="material_${index}_tt_khong_xx" ${inputState}></td>
             <td><input type="text" class="form-control form-control-sm" value="${nuocXx}" name="material_${index}_nuoc_xx" ${inputState}></td>
             <td><input type="text" class="form-control form-control-sm" value="${ngayKeBTM}" name="material_${index}_ngay_btm" ${inputState}></td>
             <td><input type="text" class="form-control form-control-sm" value="${soKb}" name="material_${index}_so_kb" ${inputState}></td>
@@ -340,7 +344,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (ctcData.id_lenh_san_xuat_id) {
             populateProductDropdown(ctcData.id_lenh_san_xuat_id, productIdToSelect);
             if (productIdToSelect && fields.id_san_pham) {
-                const selectedOption = Array.from(fields.id_san_pham.options).find(opt => opt.value == productIdToSelect); // Dùng == để so sánh số và chuỗi
+                const selectedOption = Array.from(fields.id_san_pham.options).find(opt => opt.value == productIdToSelect);
                 if (selectedOption) {
                     fields.id_san_pham.value = productIdToSelect;
                     fields.ma_hs.value = selectedOption.dataset.maHs || '';
@@ -386,7 +390,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!materialSelect?.value) return;
             
             const selectedOption = materialSelect.options[materialSelect.selectedIndex];
-            const materialId = selectedOption?.value; // Lấy value (ID) của option
+            const materialId = selectedOption?.value;
             if (!materialId) return;
 
             const ngayBtmInput = row.querySelector('input[name$="_ngay_btm"]');
@@ -405,15 +409,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const calculateThanhTien = (row) => {
         const donGia = parseFloat(row.querySelector('input[name$="_don_gia"]')?.value) || 0;
         const dinhMuc = parseFloat(row.querySelector('input[name$="_dinh_muc"]')?.value) || 0;
-        const thanhTien = (donGia * dinhMuc).toFixed(2);
+        const thanhTien = (donGia * dinhMuc);
         
         const ttCoXxInput = row.querySelector('input[name$="_tt_co_xx"]');
-        if (ttCoXxInput) ttCoXxInput.value = thanhTien;
+        if (ttCoXxInput) {
+            ttCoXxInput.value = isEditMode ? thanhTien.toFixed(2) : formatNumber(thanhTien, 2);
+            if (!isEditMode) ttCoXxInput.setAttribute('value', formatNumber(thanhTien, 2));
+        }
         const ttKhongXxInput = row.querySelector('input[name$="_tt_khong_xx"]');
-        if (ttKhongXxInput) ttKhongXxInput.value = thanhTien;
+        if (ttKhongXxInput) {
+            ttKhongXxInput.value = isEditMode ? thanhTien.toFixed(2) : formatNumber(thanhTien, 2);
+            if (!isEditMode) ttKhongXxInput.setAttribute('value', formatNumber(thanhTien, 2));
+        }
     };
 
-    // --- 7. XỬ LÝ SỰ KIỆN CHÍNH ---
     const handleFilter = () => {
         if (!filterSelectBox || !mainTableBody) return;
         const selectedValue = filterSelectBox.value.trim();
@@ -468,12 +477,12 @@ document.addEventListener('DOMContentLoaded', () => {
             tri_gia_fob: cleanValue(fields.tri_gia_fob.value),
             chi_tiet_nguyen_lieu: Array.from(materialTableBody.querySelectorAll('tr:not(#emptyMaterialRow)')).map((row, index) => {
                 const getMaterialInputValue = (nameSuffix) => row.querySelector(`[name="material_${index}_${nameSuffix}"]`)?.value;
-                const selectedMaterialOption = row.querySelector(`[name="material_${index}_id_nguyen_lieu"]`)?.selectedOptions[0]; // Lấy option đã chọn
+                const selectedMaterialOption = row.querySelector(`[name="material_${index}_id_nguyen_lieu"]`)?.selectedOptions[0];
                 const chiTietId = row.dataset.originalMaterialDbId ? parseInt(row.dataset.originalMaterialDbId, 10) : null;
                 return {
                     id: chiTietId,
-                    id_nguyen_lieu: cleanValue(selectedMaterialOption?.value), // Lưu ID
-                    ten_nguyen_lieu: selectedMaterialOption?.dataset.name || getMaterialInputValue('ten_nguyen_lieu'), // Nếu không có ID, có thể vẫn lưu tên
+                    id_nguyen_lieu: cleanValue(selectedMaterialOption?.value),
+                    ten_nguyen_lieu: selectedMaterialOption?.dataset.name || getMaterialInputValue('ten_nguyen_lieu'),
                     ma_hs: getMaterialInputValue('ma_hs'),
                     don_gia: cleanValue(getMaterialInputValue('don_gia')),
                     dinh_muc_san_pham_hao_hut: cleanValue(getMaterialInputValue('dinh_muc')),
@@ -506,7 +515,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
-    // Hàm chung để tính định mức và điền các trường liên quan
     const fillMaterialRowData = (rowElement, materialDetails, isNewRow = true) => {
         if (!materialDetails) return;
 
@@ -517,13 +525,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         if (maHsInput) maHsInput.value = materialDetails.ma_hs || '';
 
-        // Tính định mức SP hao hụt
         const tyLeThuHoi = parseFloat(materialDetails.ty_le_thu_hoi) || 1;
         const soLuongNVL = parseFloat(materialDetails.so_luong_nguyen_vat_lieu) || 0;
-        const dinhMuc = (tyLeThuHoi !== 0 ? (soLuongNVL / tyLeThuHoi) : 0).toFixed(4);
-        if (dinhMucInput) dinhMucInput.value = dinhMuc;
+        const dinhMuc = (tyLeThuHoi !== 0 ? (soLuongNVL / tyLeThuHoi) : 0);
+        if (dinhMucInput) {
+            dinhMucInput.value = isEditMode ? dinhMuc.toFixed(4) : formatNumber(dinhMuc, 4);
+            if (!isEditMode) dinhMucInput.setAttribute('value', formatNumber(dinhMuc, 4));
+        }
 
-        // Điền ngày BTM/WO nếu có ctcCreateApiData
         if (ctcCreateApiData && isEditMode) {
             const materialId = materialDetails.id_san_pham || materialDetails.id;
             if (materialId) {
@@ -549,8 +558,6 @@ document.addEventListener('DOMContentLoaded', () => {
             ngay_bang_ke_wo: '', 
             nuoc_xuat_xu: 'Việt Nam', 
             so_ban_khai_bao: 'Phụ lục II',
-            // Để trống id_nguyen_lieu và ten_nguyen_lieu để người dùng chọn
-            // Đặt các giá trị mặc định cho các trường cần thiết
             don_gia: 0,
             dinh_muc_san_pham_hao_hut: 0,
             thanh_tien_co_xuat_xu_field: 0,
@@ -574,17 +581,14 @@ document.addEventListener('DOMContentLoaded', () => {
             updateMaterialTableDisplay();
             materialTableBody.querySelectorAll('tr:not(#emptyMaterialRow)').forEach((row, idx) => {
                 row.cells[0].textContent = idx + 1;
-                // Cập nhật lại thuộc tính 'name' cho các input/select để đảm bảo index đúng
                 row.querySelectorAll('[name]').forEach(input => { 
                     input.name = input.name.replace(/material_\d+/, `material_${idx}`); 
                 });
-                // Cập nhật lại dataset.materialRowUiId cho các dòng còn lại
                 row.dataset.materialRowUiId = `new_${Date.now()}_${idx}`; 
             });
         }
     };
 
-    // --- 8. KHỞI TẠO VÀ GẮN SỰ KIỆN ---
     initializeData();
 
     const confirmCloseModal = () => {
@@ -640,16 +644,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
     materialTableBody?.addEventListener('click', (e) => { if (e.target.closest('.delete-material-btn')) handleDeleteMaterial(e); });
     
-    // Xử lý sự kiện thay đổi trên dropdown nguyên liệu
     materialTableBody?.addEventListener('change', (e) => {
         if (e.target.classList.contains('material-select') && isEditMode) {
             const select = e.target;
             const row = select.closest('tr');
-            const selectedMaterialId = select.value; // Lấy ID của nguyên liệu được chọn
+            const selectedMaterialId = select.value;
             const lenhSxId = fields.id_lenh_san_xuat.value;
             const productId = fields.id_san_pham.value;
 
-            // Tìm chi tiết nguyên liệu trong productData dựa trên ID sản phẩm chính và ID nguyên liệu đã chọn
             let materialDetails = null;
             if (productId && lenhSxId && selectedMaterialId) {
                 const productInfo = getProductDetails(lenhSxId, productId);
@@ -659,19 +661,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     );
                 }
             }
-            // Nếu không tìm thấy trong productData (ví dụ: nguyên liệu thêm thủ công, không có trong định mức gốc)
-            // thì thử tìm trong materialData toàn cục
             if (!materialDetails && selectedMaterialId) {
                 materialDetails = materialData.find(m => 
                     (m.id_san_pham || m.id)?.toString() === selectedMaterialId.toString()
                 );
             }
             
-            // Cập nhật các trường liên quan
             if (row && materialDetails) {
-                fillMaterialRowData(row, materialDetails, false); // isNewRow = false vì đây là thay đổi trên dòng đã tồn tại
+                fillMaterialRowData(row, materialDetails, false);
             } else if (row) {
-                 // Nếu không tìm thấy chi tiết, xóa các trường liên quan
                 row.querySelector('input[name$="_ma_hs"]').value = '';
                 row.querySelector('input[name$="_dinh_muc"]').value = '';
                 row.querySelector('input[name$="_ngay_btm"]').value = '';
@@ -692,7 +690,6 @@ document.addEventListener('DOMContentLoaded', () => {
     fields.id_lenh_san_xuat?.addEventListener('change', async function() {
         const lenhSxId = this.value;
         populateProductDropdown(lenhSxId);
-        // Reset các trường liên quan đến sản phẩm
         ['id_san_pham', 'ma_hs', 'don_vi_tinh', 'so_luong'].forEach(fieldKey => { if(fields[fieldKey]) fields[fieldKey].value = ''; });
         resetMaterialTable();
         
@@ -715,7 +712,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
         resetMaterialTable();
 
-        // Tự động điền các dòng nguyên liệu khi chọn sản phẩm chính (chỉ khi tạo mới hoặc sản phẩm thay đổi trong chế độ sửa)
         if (isEditMode && productId && materialTableBody) {
             const productDetails = getProductDetails(lenhSxId, productId);
             if (productDetails?.nguyen_vat_lieu) {
@@ -724,15 +720,14 @@ document.addEventListener('DOMContentLoaded', () => {
                     if (emptyMaterialRow && materialTableBody.contains(emptyMaterialRow)) materialTableBody.removeChild(emptyMaterialRow);
                     materialsForProduct.forEach((nvl, index) => {
                         const newRowElement = renderMaterialRow({
-                            id_nguyen_lieu: nvl.id_san_pham || nvl.id, // Đảm bảo truyền ID để chọn trong dropdown
+                            id_nguyen_lieu: nvl.id_san_pham || nvl.id,
                             ten_nguyen_lieu: nvl.ten_khac || nvl.ten_sp_chinh, 
                             ma_hs: nvl.ma_hs,
                             nuoc_xuat_xu: 'Việt Nam', 
                             so_ban_khai_bao: 'Phụ lục II',
-                            don_gia: nvl.don_gia || 0, // Điền giá trị mặc định cho don_gia
+                            don_gia: nvl.don_gia || 0,
                         }, index, true);
                         materialTableBody.appendChild(newRowElement);
-                        // Sau khi render row, tìm lại materialDetails để điền các trường khác
                         fillMaterialRowData(newRowElement, nvl, true); 
                     });
                 }
