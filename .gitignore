@@ -2,3 +2,4 @@ env
 .env
 CO_Manager\Backend\__pycache__
 .vscode
+CO-Manager\CO_Manager\CO_Manager\__pycache__
