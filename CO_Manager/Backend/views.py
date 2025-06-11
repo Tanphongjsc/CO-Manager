@@ -970,133 +970,246 @@ def orders_detail(request, pk):
 
     return render(request, 'orders_detail.html', context)
 
+
+def fetch_and_prepare_erp_data():
+    """Lấy dữ liệu từ ERP và chuẩn bị cấu trúc phẳng để đồng bộ."""
+    session = requests.Session()  # Dùng chung session
+
+    # 1. Lấy danh sách lệnh sản xuất
+    orders_data, session = fetch_erp_data(
+        model='stock.ex.lenh.san.xuat', 
+        endpoint='search_read', 
+        fields=['SO_LENH', 'LAP_TU_DON_DAT_HANG_IDS', 'NGAY', 'STOCK_EX_LENH_SAN_XUAT_CHI_TIET_THANH_PHAM_IDS'],
+        session=session
+    )
+    if not orders_data or not orders_data.get('records'):
+        return {}, []
+
+    # Gom tất cả ID sản phẩm từ các lệnh
+    all_product_ids = {
+        pid for order in orders_data['records'] 
+        for pid in order['STOCK_EX_LENH_SAN_XUAT_CHI_TIET_THANH_PHAM_IDS']
+    }
+    
+    # 2. Lấy chi tiết các sản phẩm theo ID đã gom
+    all_product_details_data, session = fetch_erp_data(
+        model="stock.ex.lenh.san.xuat.chi.tiet.thanh.pham",
+        endpoint='call_kw/.../read', # Thay thế endpoint phù hợp
+        params={"args": [list(all_product_ids), ['MA_HANG_ID', 'TEN_THANH_PHAM', 'SO_LUONG', 'STOCK_EX_THANH_PHAM_CHI_TIET_DINH_MUC_XUAT_NVL_IDS']]},
+        session=session
+    )
+    products_by_id = {p['id']: p for p in all_product_details_data}
+    
+    # Gom tất cả ID vật liệu từ các sản phẩm
+    all_material_ids = {
+        mid for product in all_product_details_data 
+        for mid in product['STOCK_EX_THANH_PHAM_CHI_TIET_DINH_MUC_XUAT_NVL_IDS']
+    }
+
+    # 3. Lấy chi tiết các vật liệu theo ID đã gom
+    all_material_details_data, _ = fetch_erp_data(
+        model="stock.ex.thanh.pham.chi.tiet.dinh.muc.xuat.nvl",
+        endpoint='call_kw/.../read', # Thay thế endpoint phù hợp
+        params={"args": [list(all_material_ids), ['MA_HANG_ID', 'SO_LUONG_NVL']]},
+        session=session
+    )
+    materials_by_id = {m['id']: m for m in all_material_details_data}
+
+    # Chuẩn bị dữ liệu trả về
+    erp_orders = {o['SO_LENH']: o for o in orders_data['records']}
+    flat_details = []
+    for order in orders_data['records']:
+        for product_id in order['STOCK_EX_LENH_SAN_XUAT_CHI_TIET_THANH_PHAM_IDS']:
+            product = products_by_id.get(product_id)
+            if not product: continue
+            for material_id in product['STOCK_EX_THANH_PHAM_CHI_TIET_DINH_MUC_XUAT_NVL_IDS']:
+                material = materials_by_id.get(material_id)
+                if not material: continue
+                
+                # Làm phẳng dữ liệu chi tiết
+                flat_details.append({
+                    'id_ct_lenh_san_xuat': material['id'],
+                    'id_lenh_san_xuat': order['SO_LENH'],
+                    'id_san_pham': product['MA_HANG_ID'][1],
+                    'ten_san_pham': product['TEN_THANH_PHAM'],
+                    'so_luong_san_pham': product['SO_LUONG'],
+                    'id_nguyen_vat_lieu': material['MA_HANG_ID'][1],
+                    'so_luong_nguyen_vat_lieu': material['SO_LUONG_NVL'],
+                })
+
+    return erp_orders, flat_details
+
+
+
+def fetch_cloudify_orders_data():
+    """Lấy dữ liệu từ Cloudify và trả về data đã xử lý"""
+    # Lấy danh sách lệnh sản xuất
+    production_orders_data, session = fetch_erp_data(model='stock.ex.lenh.san.xuat', endpoint='search_read', fields=['SO_LENH', 'LAP_TU_DON_DAT_HANG_IDS', 'NGAY', 'STOCK_EX_LENH_SAN_XUAT_CHI_TIET_THANH_PHAM_IDS'])
+
+    if not production_orders_data:
+        return None, None, None
+
+    production_orders = {order['SO_LENH']: order for order in production_orders_data['records']} # Các lệnh sản xuất, tương ứng dữ liệu cho bảng Lệnh Sản Xuất
+    product_norms = {} # Thông tin các sản phẩm của các lệnh sản xuất, tương ứng dữ liệu cho bảng Chi Tiết Lệnh Sản Xuất
+    all_detail_ids = [] # ID của các dòng của Chi Tiết Lệnh Sản Xuất
+
+    for order_id, order_data in production_orders.items():
+        product_norms[order_id] = []
+        
+        for product_id in order_data['STOCK_EX_LENH_SAN_XUAT_CHI_TIET_THANH_PHAM_IDS']:
+            # Lấy chi tiết sản phẩm
+            product_params = {
+                "model": "stock.ex.lenh.san.xuat.chi.tiet.thanh.pham",
+                "method": "read",
+                "args": [product_id, ['MA_HANG_ID', 'TEN_THANH_PHAM', 'SO_LUONG', 'STOCK_EX_THANH_PHAM_CHI_TIET_DINH_MUC_XUAT_NVL_IDS']],
+                "kwargs": {'active_menu': 171},
+            }
+            
+            product_details, session = fetch_erp_data(endpoint='call_kw/stock.ex.lenh.san.xuat.chi.tiet.thanh.pham/read', params=product_params, session=session) # Gọi API lấy chi tiết sản phẩm
+            # Retry nếu lần đầu fail
+            if not product_details: 
+                product_details, session = fetch_erp_data(endpoint='call_kw/stock.ex.lenh.san.xuat.chi.tiet.thanh.pham/read', params=product_params)
+            
+            product_details = product_details[0]
+            
+            # Lấy định mức nguyên vật liệu
+            material_details = []
+            if product_details['STOCK_EX_THANH_PHAM_CHI_TIET_DINH_MUC_XUAT_NVL_IDS']:
+                material_params = {
+                    "model": "stock.ex.thanh.pham.chi.tiet.dinh.muc.xuat.nvl",
+                    "method": 'read',
+                    "args": [product_details['STOCK_EX_THANH_PHAM_CHI_TIET_DINH_MUC_XUAT_NVL_IDS'], ['MA_HANG_ID', 'SO_LUONG_NVL']],
+                    "kwargs": {'active_menu': 171},
+                }
+                # Gọi API lấy chi tiết sản phẩm
+                material_details, session = fetch_erp_data(endpoint='call_kw/stock.ex.thanh.pham.chi.tiet.dinh.muc.xuat.nvl/read', params=material_params, session=session) 
+
+            # Tổ chức dữ liệu
+            product_norms[order_id].append({
+                'id_san_pham': product_details['MA_HANG_ID'][1],
+                'ten_san_pham': product_details['TEN_THANH_PHAM'],
+                'so_luong_san_pham': product_details['SO_LUONG'],
+                'dinh_muc_nvl': {
+                    item['id']: {
+                        "id_nguyen_vat_lieu": item['MA_HANG_ID'][1],
+                        "dinh_muc_nvl": item['SO_LUONG_NVL']
+                    }
+                    for item in material_details or []
+                }
+            })
+            
+            all_detail_ids.extend([item['id'] for item in material_details or []])
+
+    return production_orders, product_norms, all_detail_ids
+
+
+def sync_database(production_orders, product_norms, all_detail_ids):
+    """Đồng bộ dữ liệu với database: thêm/sửa/xóa"""
+    # 1. Lấy dữ liệu hiện tại từ database
+    existing_orders = LenhSanXuat.objects.all()
+    existing_details = CtLenhSanXuat.objects.all()
+    
+    existing_order_ids = set(existing_orders.values_list('id_lenh_san_xuat', flat=True))
+    existing_detail_ids = set(existing_details.values_list('id_ct_lenh_san_xuat', flat=True))
+    
+    # 2. So sánh và phân loại IDs (mới/cũ/xóa)
+    new_order_ids = set(production_orders.keys()) - existing_order_ids  # Lệnh mới từ Cloudify
+    update_order_ids = existing_order_ids & set(production_orders.keys())  # Lệnh cần cập nhật
+    new_detail_ids = set(all_detail_ids) - existing_detail_ids  # Chi tiết mới
+    update_detail_ids = existing_detail_ids & set(all_detail_ids)  # Chi tiết cần cập nhật
+    delete_detail_ids = existing_detail_ids - set(all_detail_ids)  # Chi tiết cần xóa
+
+    # 3. Chuẩn bị containers cho objects
+    new_orders, new_details, update_orders, update_details = [], [], [], []
+    
+    # Tạo dict để tra cứu nhanh
+    existing_orders_dict = {o.id_lenh_san_xuat: o for o in existing_orders}
+    existing_details_dict = {d.id_ct_lenh_san_xuat: d for d in existing_details}
+    order_objects = {}  # Cache các order object mới tạo
+
+    # 4. Tạo các lệnh sản xuất mới
+    for order_id in new_order_ids:
+        order_data = production_orders[order_id]
+        order_obj = LenhSanXuat(
+            id_lenh_san_xuat=order_id,
+            id_don_hang=order_data['LAP_TU_DON_DAT_HANG_IDS'][0] if order_data['LAP_TU_DON_DAT_HANG_IDS'] else None,
+            ngay_tao_don_hang=order_data['NGAY'].split(" ")[0]
+        )
+        new_orders.append(order_obj)
+        order_objects[order_id] = order_obj  # Cache để dùng cho details
+
+    # 5. Cập nhật các lệnh sản xuất cũ
+    for order_id in update_order_ids:
+        order_obj = existing_orders_dict[order_id]
+        order_data = production_orders[order_id]
+        order_obj.id_don_hang = order_data['LAP_TU_DON_DAT_HANG_IDS'][0] if order_data['LAP_TU_DON_DAT_HANG_IDS'] else None
+        update_orders.append(order_obj)
+
+    # 6. Xử lý chi tiết lệnh sản xuất
+    for order_id, products in product_norms.items():
+        # Lấy reference đến order (mới hoặc cũ)
+        order_ref = order_objects.get(order_id) or existing_orders_dict.get(order_id)
+        
+        for product in products:
+            for detail_id, detail_data in product['dinh_muc_nvl'].items():
+                # Chuẩn bị data cho detail object
+                detail_obj_data = {
+                    'id_ct_lenh_san_xuat': detail_id,
+                    'id_lenh_san_xuat': order_ref,
+                    'id_san_pham_id': product['id_san_pham'],
+                    'ten_san_pham': product['ten_san_pham'],
+                    'so_luong_san_pham': product['so_luong_san_pham'],
+                    'id_nguyen_vat_lieu_id': detail_data['id_nguyen_vat_lieu'],
+                    'so_luong_nguyen_vat_lieu': detail_data['dinh_muc_nvl'],
+                }
+                
+                # Phân loại: tạo mới hoặc cập nhật
+                if detail_id in new_detail_ids:
+                    new_details.append(CtLenhSanXuat(**detail_obj_data))
+                elif detail_id in update_detail_ids:
+                    detail_obj = existing_details_dict[detail_id]
+                    for key, value in detail_obj_data.items():
+                        setattr(detail_obj, key, value)
+                    update_details.append(detail_obj)
+
+    # 7. Thực hiện database operations trong transaction
+    with transaction.atomic():
+        # Tạo mới
+        LenhSanXuat.objects.bulk_create(new_orders)
+        CtLenhSanXuat.objects.bulk_create(new_details)
+        
+        # Cập nhật
+        LenhSanXuat.objects.bulk_update(update_orders, ['id_don_hang'])
+        CtLenhSanXuat.objects.bulk_update(update_details, [
+            'id_lenh_san_xuat', 'id_san_pham_id', 'ten_san_pham', 'so_luong_san_pham', 
+            'id_nguyen_vat_lieu_id', 'so_luong_nguyen_vat_lieu'
+        ])
+        
+        # Xóa các chi tiết không còn cần thiết
+        existing_details.filter(id_ct_lenh_san_xuat__in=delete_detail_ids).delete()
+
+    return len(new_orders), len(update_orders), len(delete_detail_ids)
+
+
 @require_POST
 def orders_sync_cloudify(request):
-    """Xử lý đồng bộ hóa dữ liệu đơn hàng từ Cloudify."""
+    """Xử lý đồng bộ hóa dữ liệu đơn hàng từ Cloudify"""
     try:
-        # Lấy danh sách lệnh sản xuất từ ERP
-        production_orders_data, session = fetch_erp_data(model='stock.ex.lenh.san.xuat', endpoint='search_read', fields=['SO_LENH', 'LAP_TU_DON_DAT_HANG_IDS', 'NGAY', 'STOCK_EX_LENH_SAN_XUAT_CHI_TIET_THANH_PHAM_IDS'])
-
-        if not production_orders_data:
+        # Lấy dữ liệu từ Cloudify
+        production_orders, product_norms, all_detail_ids = fetch_cloudify_orders_data()
+        
+        if not production_orders:
             return JsonResponse({
                 'success': False,
                 'message': 'Không có dữ liệu lệnh sản xuất từ Cloudify!'
             }, status=404)
 
-        # Chuyển đổi thành dict để dễ truy xuất
-        production_orders = {order['SO_LENH']: order for order in production_orders_data['records']}
-        
-        # Tìm các lệnh sản xuất chưa tồn tại trong database
-        existing_order_ids = set(
-            LenhSanXuat.objects.filter(id_lenh_san_xuat__in=production_orders.keys())
-            .values_list('id_lenh_san_xuat', flat=True)
-        )
-        new_order_ids = set(production_orders.keys()) - existing_order_ids
-
-        if not new_order_ids:
-            return JsonResponse({
-                'success': True,
-                'message': 'Tất cả lệnh sản xuất đã được đồng bộ!'
-            })
-
-        # Lấy thông tin định mức nguyên vật liệu cho các lệnh mới
-        product_norms = []
-        
-        for order_id in new_order_ids:
-            product_ids = production_orders[order_id]['STOCK_EX_LENH_SAN_XUAT_CHI_TIET_THANH_PHAM_IDS']
-            
-            for product_id in product_ids:
-                # Lấy thông tin chi tiết thành phẩm
-                product_params = {
-                    "model": "stock.ex.lenh.san.xuat.chi.tiet.thanh.pham",
-                    "method": "read",
-                    "args": [product_id, ['MA_HANG_ID', 'SO_LUONG', 'STOCK_EX_THANH_PHAM_CHI_TIET_DINH_MUC_XUAT_NVL_IDS']],
-                    "kwargs": {'active_menu': 171},
-                }
-                
-                product_details, session = fetch_erp_data(endpoint='call_kw/stock.ex.lenh.san.xuat.chi.tiet.thanh.pham/read', params=product_params, session=session)
-                
-                if not product_details:
-                    product_details, session = fetch_erp_data(endpoint='call_kw/stock.ex.lenh.san.xuat.chi.tiet.thanh.pham/read', params=product_params,)
-                    
-                product_details = product_details[0]
-                material_ids = product_details['STOCK_EX_THANH_PHAM_CHI_TIET_DINH_MUC_XUAT_NVL_IDS']
-                
-                # Lấy thông tin định mức nguyên vật liệu
-                material_details = []
-                if material_ids:
-                    material_params = {
-                        "model": "stock.ex.thanh.pham.chi.tiet.dinh.muc.xuat.nvl",
-                        "method": 'read',
-                        "args": [material_ids, ['MA_HANG_ID', 'SO_LUONG_NVL']],
-                        "kwargs": {'active_menu': 171},
-                    }
-                    
-                    material_details, session = fetch_erp_data(endpoint='call_kw/stock.ex.thanh.pham.chi.tiet.dinh.muc.xuat.nvl/read', params=material_params, session=session)
-
-                # Lưu thông tin định mức
-                product_norms.append({
-                    'id_lenh_san_xuat': order_id,
-                    'id_san_pham': product_details['MA_HANG_ID'][1],
-                    'so_luong_san_pham': product_details['SO_LUONG'],
-                    'dinh_muc_nvl': {item['MA_HANG_ID'][1]: item['SO_LUONG_NVL'] for item in material_details or []}
-                })
-
-        # Lấy tất cả sản phẩm liên quan
-        all_product_ids = set(
-            [item['id_san_pham'] for item in product_norms] + # ID thành phẩm
-            [key for item in product_norms for key in item['dinh_muc_nvl'].keys()] # ID nguyên vật liệu
-        )
-        
-        all_products = {
-            vt.id_san_pham: vt 
-            for vt in VatTu.objects.filter(id_san_pham__in=all_product_ids)
-        }
-
-        # Tạo các đối tượng lệnh sản xuất
-        lenh_san_xuat_objs = []
-        for order_id in new_order_ids:
-            order_data = production_orders[order_id]
-            lenh_san_xuat_objs.append(
-                LenhSanXuat(
-                    id_lenh_san_xuat=order_id,
-                    id_don_hang=order_data['LAP_TU_DON_DAT_HANG_IDS'][0] if order_data['LAP_TU_DON_DAT_HANG_IDS'] else None,
-                    ngay_tao_don_hang=order_data['NGAY'].split(" ")[0]
-                )
-            )
-
-        # Tạo dict để map order_id với object
-        lenh_san_xuat_dict = {obj.id_lenh_san_xuat: obj for obj in lenh_san_xuat_objs}
-
-        # Tạo các đối tượng chi tiết lệnh sản xuất
-        ct_lenh_san_xuat_objs = []
-        for product in product_norms:
-            if product['id_san_pham'] not in all_products:
-                continue
-                
-            for material_id, material_quantity in product['dinh_muc_nvl'].items():
-                if material_id not in all_products:
-                    continue
-                    
-                ct_lenh_san_xuat_objs.append(
-                    CtLenhSanXuat(
-                        id_lenh_san_xuat=lenh_san_xuat_dict[product['id_lenh_san_xuat']],
-                        id_san_pham=all_products[product['id_san_pham']],
-                        ten_san_pham=all_products[product['id_san_pham']].ten_sp_chinh,
-                        so_luong_san_pham=product['so_luong_san_pham'],
-                        id_nguyen_vat_lieu=all_products[material_id],
-                        so_luong_nguyen_vat_lieu=material_quantity,
-                    )
-                )
-
-        # Lưu vào database với transaction
-        with transaction.atomic():
-            LenhSanXuat.objects.bulk_create(lenh_san_xuat_objs)
-            CtLenhSanXuat.objects.bulk_create(ct_lenh_san_xuat_objs)
+        # Đồng bộ với database
+        created, updated, deleted = sync_database(production_orders, product_norms, all_detail_ids)
 
         return JsonResponse({
             'success': True,
-            'message': f'Đồng bộ thành công lệnh sản xuất!',
+            'message': f'Đồng bộ thành công! Tạo: {created}, Sửa: {updated}, Xóa: {deleted}',
             'data_lenh_san_xuat': production_orders,
             'data_product_norms': product_norms
         })

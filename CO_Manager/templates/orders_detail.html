@@ -1,5 +1,6 @@
 {% extends 'base.html' %}
 {% load static %}
+{% load humanize %}
 
 {% block title %}Chi tiết Đơn hàng{% endblock %}
 
@@ -37,7 +38,7 @@
           <td>{{ forloop.counter }}</td>
           <td>{{ item.ten_san_pham }}</td>
           <td>{{ item.id_san_pham.ma_hs }}</td>
-          <td>{{ item.so_luong_san_pham }}</td>
+          <td>{{ item.so_luong_san_pham|intcomma }}</td>
           <td>{{ item.id_san_pham.don_vi_tinh }}</td>
           <td>
             <button class="btn btn-sm btn-warning detail-btn" data-product-id="{{ item.id_san_pham.id_san_pham }}">Chi tiết</button>
@@ -46,7 +47,7 @@
         {% endfor %}
         <tr class="total-row">
           <td colspan="3"><strong>Tổng cộng</strong></td>
-          <td><strong>{{ total_quantity }}</strong></td>
+          <td><strong>{{ total_quantity|intcomma }}</strong></td>
           <td colspan="2"></td>
         </tr>
       </tbody>
@@ -108,10 +109,10 @@
             {
                 "id": "{{ item.id_san_pham.id_san_pham|escapejs }}",
                 "name": "{{ item.ten_san_pham|escapejs }}",
-                "quantity": "{{ item.so_luong_san_pham|escapejs }}",
+                "quantity": "{{ item.so_luong_san_pham|escapejs|intcomma }}",
                 "unit": "{{ item.id_san_pham.don_vi_tinh|escapejs }}",
                 "materialName": "{{ item.id_nguyen_vat_lieu.ten_sp_chinh|escapejs }}",
-                "materialQuantity": "{{ item.so_luong_nguyen_vat_lieu|escapejs }}",
+                "materialQuantity": "{{ item.so_luong_nguyen_vat_lieu|escapejs|intcomma }}",
                 "materialUnit": "{{ item.id_nguyen_vat_lieu.don_vi_tinh|escapejs }}"
             }{% if not forloop.last %},{% endif %}
         {% endfor %}

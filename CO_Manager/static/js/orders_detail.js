@@ -23,6 +23,20 @@ document.addEventListener('DOMContentLoaded', function() {
         return [];
     }
     
+    // Hàm helper để parse số có dấu phẩy
+    function parseNumberWithComma(value) {
+        if (typeof value === 'string') {
+            // Loại bỏ tất cả dấu phẩy trước khi parse
+            return parseFloat(value.replace(/,/g, ''));
+        }
+        return parseFloat(value);
+    }
+    
+    // Hàm helper để format số với dấu phẩy
+    function formatNumberWithComma(number) {
+        return number.toLocaleString('en-US');
+    }
+    
     // Lấy dữ liệu 
     const orderItems = getOrderItemsFromJson();
     
@@ -56,13 +70,13 @@ document.addEventListener('DOMContentLoaded', function() {
                     if (!materialsMap.has(key)) {
                         materialsMap.set(key, {
                             name: item.materialName,
-                            quantity: parseFloat(item.materialQuantity),
+                            quantity: parseNumberWithComma(item.materialQuantity), // Sử dụng hàm helper
                             unit: item.materialUnit
                         });
                     } else {
                         // Cộng dồn số lượng nếu nguyên vật liệu đã tồn tại
                         const material = materialsMap.get(key);
-                        material.quantity += parseFloat(item.materialQuantity);
+                        material.quantity += parseNumberWithComma(item.materialQuantity); // Sử dụng hàm helper
                     }
                 });
                 
@@ -71,7 +85,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     const row = document.createElement('tr');
                     row.innerHTML = `
                         <td>${material.name}</td>
-                        <td>${material.quantity}</td>
+                        <td>${formatNumberWithComma(material.quantity)}</td>
                         <td>${material.unit}</td>
                     `;
                     materialsTable.appendChild(row);
