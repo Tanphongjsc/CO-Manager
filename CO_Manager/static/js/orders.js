@@ -82,7 +82,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 if (data.success) {
                     alert('Đồng bộ dữ liệu thành công!');
-                    // window.location.reload();
+                    window.location.reload();
                 } else {
                     alert('Có lỗi xảy ra khi đồng bộ: ' + data.message);
                 }

@@ -1,0 +1,291 @@
+{% load humanize %}
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BẢNG KÊ KHAI HÀNG HOÁ XUẤT KHẨU ĐẶT TIÊU CHÍ "CTC"</title>
+  {% load static %}
+  <style>
+    body {
+      font-family: "Times New Roman", Times, serif;
+      margin: 20px;
+      color: #000;
+      font-size: 14px;
+      line-height: 1.2;
+    }
+
+    .company-info {
+      margin-bottom: 15px;
+      text-align: left;
+    }
+    .company-info div {
+      margin: 3px 0;
+    }
+    .company-name {
+      font-weight: bold;
+      margin-bottom: 5px;
+    }
+
+    .print-title {
+      text-align: center;
+      font-weight: bold;
+      margin: 5px 0 20px 0;
+      font-size: 16px;
+      text-transform: uppercase;
+    }
+    
+    .header-sub {
+        text-align: center;
+        font-size: 14px;
+        margin-bottom: 5px;
+    }
+
+    .info-section {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      font-size: 14px;
+    }
+    .info-left, .info-right {
+      width: 48%;
+    }
+    .info-row {
+      margin-bottom: 5px;
+    }
+    .info-row span {
+      font-weight: normal;
+    }
+
+    .print-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 10px;
+    }
+    .print-table th,
+    .print-table td {
+      border: 0.5px solid #000 !important;
+      padding: 6px;
+      text-align: center;
+      vertical-align: middle;
+      font-size: 14px;
+    }
+    .print-table thead th {
+      background-color: #f9f9f9;
+      font-weight: bold;
+    }
+    .print-table tbody td:nth-child(2) {
+        text-align: left;
+    }
+
+    .print-footer {
+      margin-top: 10px;
+      font-size: 14px;
+      line-height: 1.3;
+    }
+
+    .print-footer p {
+      margin: 8px 0;
+    }
+
+    .signature {
+      text-align: right;
+      margin-top: 15px;
+    }
+    .signature-content {
+      display: inline-block;
+      text-align: center;
+      line-height: 1.2;
+    }
+    
+    .signature-content p {
+      margin: 5px 0;
+    }
+    
+    .signature-content .date-line {
+      margin-bottom: 8px;
+    }
+    
+    .signature-content .title-line {
+      margin: 15px 0 5px 0;
+      font-weight: bold;
+    }
+    
+    .signature-content .instruction-line {
+      margin: 5px 0 8px 0;
+      font-size: 13px;
+    }
+    
+    .stamp-signature {
+      position: relative;
+      display: block;
+      margin: 8px auto 0;
+      width: 150px;
+    }
+
+    .note-section {
+      margin-top: 8px;
+      font-size: 13px;
+      padding-top: 8px;
+      line-height: 1.2;
+    }
+
+    .note-section p {
+      margin: 3px 0;
+    }
+
+    /* Ẩn nút in khi in */
+    @media print {
+      .no-print {
+        display: none !important;
+      }
+      .print-table th,
+      .print-table td {
+        border: 0.05pt solid #000 !important;
+        padding: 3pt !important;
+      }
+      
+      .print-footer {
+        margin-top: 8px;
+      }
+      
+      .signature {
+        margin-top: 8px;
+      }
+      
+      .signature-content .title-line {
+        margin: 8px 0 3px 0;
+      }
+      
+      .stamp-signature {
+        margin: 5px auto 0;
+        width: 180px;
+      }
+      
+      .note-section {
+        margin-top: 6px;
+        font-size: 12px;
+      }
+    }
+
+    /* Style nút in */
+    .print-button {
+      text-align: center;
+      margin: 30px 0;
+    }
+    button {
+      padding: 10px 30px;
+      background: #4CAF50;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header-sub"><strong>Phụ lục V</strong></div>
+  <div class="print-title">BẢNG KÊ KHAI HÀNG HOÁ XUẤT KHẨU ĐẶT TIÊU CHÍ "CTC"</div>
+
+  <div class="info-section">
+    <div class="info-left">
+      <div class="info-row">Tên Thương Nhân: Công ty cổ phần Tân Phong</div>
+      <div class="info-row">Mã số thuế: 2600274542</div>
+      <div class="info-row">Tờ khai Hải quan xuất khẩu số: {{data.so_to_hai_quan}}</div>
+    </div>
+    <div class="info-right">
+      <div class="info-row">Tiêu chí áp dụng: CC</div>
+      <div class="info-row">Tên hàng hoá: {{ data.id_san_pham.ten_khac }}</div>
+      <div class="info-row">Mã số của hàng hoá (6 số): {{ data.id_san_pham.ma_hs }}</div>
+      <div class="info-row">Số lượng: {{ data.so_luong|floatformat:0|intcomma }} {{ unit }}</div>
+      <div class="info-row">Trị giá (FOB): {{ data.tri_gia_fob |floatformat:0|intcomma }}</div>
+    </div>
+  </div>
+
+  <table class="print-table">
+    <thead>
+      <tr>
+        <th rowspan="3">STT</th>
+        <th rowspan="3">Tên Nguyên Liệu</th>
+        <th rowspan="3">Mã HS</th>
+        <th rowspan="3">Đơn vị tính</th>
+        <th rowspan="3">Định mức sản phẩm hao hụt</th>
+        <th colspan="3">Nhu cầu nguyên liệu sử dụng cho lô hàng</th>
+        <th rowspan="3">Nước xuất xứ</th>
+        <th colspan="2">Tờ khai hải quan nhập khẩu/Hoá đơn trị giá tăng</th>
+        <th colspan="2">C/O ưu đãi nhập khẩu bản khai của nhà sản xuất nhà cung cấp nguyên liệu trong nước</th>
+      </tr>
+      <tr>
+        <th rowspan="2">Đơn giá</th>
+        <th rowspan="2">Có xuất xứ</th>
+        <th rowspan="2">Không có xuất xứ</th>
+        <th rowspan="2">Số</th>
+        <th rowspan="2">Ngày</th>
+        <th rowspan="2">Số</th>
+        <th rowspan="2">Ngày</th>
+      </tr>
+      <tr>
+      </tr>
+      <tr>
+          <td>(1)</td>
+          <td>(2)</td>
+          <td>(3)</td>
+          <td>(4)</td>
+          <td>(5)</td>
+          <td>(6)</td>
+          <td>(7)</td>
+          <td>(8)</td>
+          <td>(9)</td>
+          <td>(10)</td>
+          <td>(11)</td>
+          <td>(12)</td>
+          <td>(13)</td>
+      </tr>
+    </thead>
+    <tbody>
+      {% for material in data.chi_tiet_nguyen_lieu %}
+      <tr>
+        <td>{{ forloop.counter }}</td>
+        <td style="text-align: left;">{{ material.ten_nguyen_lieu }}</td>
+        <td>{{ material.ma_hs }}</td>
+        <td>{{ material.don_vi_tinh }}</td>
+        <td>{{ material.dinh_muc_san_pham_hao_hut|floatformat:0|intcomma }}</td>
+        <td>{{ material.don_gia|floatformat:0|intcomma }}</td>
+        <td>{{ material.thanh_tien_co_xuat_xu_field|floatformat:0|intcomma }}</td>
+        <td>{{ material.thanh_tien_khong_xuat_xu_field|floatformat:0|intcomma }}</td>
+        <td>{{ material.nuoc_xuat_xu }}</td>
+        <td>Bảng kê thu mua</td>
+        <td>{{ material.ngay_ke_bang_thu_mua|default_if_none:'' }}</td>
+        <td>{{ material.so_ban_khai_bao }}</td>
+        <td>{{ material.ngay_bang_ke_wo|date:"d/m/Y" }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="print-footer">
+    <p><strong>Kết luận: hàng hoá đáp ứng tiêu chí "CC"</strong></p>
+    <p>Công ty cam kết số liệu, thông tin khai báo trên là đúng và chịu trách nhiệm trước pháp luật về thông tin, số liệu đã khai.</p>
+    
+    <div class="signature">
+      <div class="signature-content">
+        <p class="date-line">Ngày {{ current_date|date:"d" }} tháng {{ current_date|date:"m" }} năm {{ current_date|date:"Y" }}</p>
+        <p class="title-line">NGƯỜI ĐẠI DIỆN THEO PHÁP LUẬT</p>
+        <p class="instruction-line">(Ký, đóng dấu, ghi rõ họ tên)</p>
+        <img src="https://kflhmmvetkhuqntuamqt.supabase.co/storage/v1/object/sign/anhchuky/chuky.jpg?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InN0b3JhZ2UtdXJsLXNpZ25pbmcta2V5X2VmMDUzMzhlLWFkNGUtNDExOC1hOWMyLWZhMzM3ZDRkZjVlMCJ9.eyJ1cmwiOiJhbmhjaHVreS9jaHVreS5qcGciLCJpYXQiOjE3NDcwMjEyNjYsImV4cCI6MzMyMzgyMTI2Nn0.eD_DIvcnSxPA3ZuPWFzLHD7V_-DINdTTwOvdkOEjfVs" alt="Dấu và chữ ký công ty" class="stamp-signature" />
+      </div>
+    </div>
+  </div>
+
+  <div class="note-section">
+      <p><strong>Ghi chú:</strong></p>
+      <p>Thương nhân nộp bản in Tờ khai hải quan nhập khẩu và bản sao các chứng từ (có dấu sao y bản chính): Hoá đơn trị giá tăng, C/O ưu đãi nhập khẩu bản khai của nhà sản xuất/ nhà cung cấp nguyên liệu trong nước để đối chiếu với thông tin kê khai từ cột (9) đến cột (13)</p>
+  </div>
+
+  <div class="no-print print-button">
+    <button onclick="window.print()">IN BẢNG KÊ</button>
+  </div>
+</body>
+</html>
