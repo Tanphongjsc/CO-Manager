@@ -1,5 +1,7 @@
-env
+env/
 .env
-CO_Manager\Backend\__pycache__
-.vscode
-CO-Manager\CO_Manager\CO_Manager\__pycache__
+**/__pycache__/
+.vscode/
+*.pyc
+*.pyo
+__pycache__/

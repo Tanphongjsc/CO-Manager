@@ -149,6 +149,7 @@ def ctc_detail(request, pk):
 
 @require_POST
 def ctc_create(request):
+    """Tạo mới bảng kê CTC"""
     try:
         data = json.loads(request.body)
         
