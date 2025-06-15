@@ -73,6 +73,19 @@
             clear: both;
             display: table;
         }
+        .stamp-signature {
+            position: relative;
+            display: block;
+            margin: 8px auto 0;
+            width: 150px;
+        }
+        
+        @media print {
+            .stamp-signature {
+                margin: 5px auto 0;
+                width: 180px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -139,6 +152,7 @@
                 <div class="signature-content">
                     <p>Ngày {{ record.ngay_thang|date:"d" }} tháng {{ record.ngay_thang|date:"m" }} năm {{ record.ngay_thang|date:"Y" }}</p>
                     <p><strong>Công ty cổ phần Tân Phong</strong></p>
+                    <img src="https://kflhmmvetkhuqntuamqt.supabase.co/storage/v1/object/sign/anhchuky/chuky.jpg?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InN0b3JhZ2UtdXJsLXNpZ25pbmcta2V5X2VmMDUzMzhlLWFkNGUtNDExOC1hOWMyLWZhMzM3ZDRkZjVlMCJ9.eyJ1cmwiOiJhbmhjaHVreS9jaHVreS5qcGciLCJpYXQiOjE3NDcwMjEyNjYsImV4cCI6MzMyMzgyMTI2Nn0.eD_DIvcnSxPA3ZuPWFzLHD7V_-DINdTTwOvdkOEjfVs" alt="Chữ ký giám đốc" class="stamp-signature" />
                 </div>
             </div>
         </div>

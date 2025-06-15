@@ -1,17 +1,92 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Tổng quan - Hệ thống quản lý{% endblock %}
+{% block title %}Bảng kê thu mua từ dân{% endblock %}
 
 {% block css %}
-    <link rel="stylesheet" href="{% static 'css/dashboard.css' %}">
+<link rel="stylesheet" href="{% static 'css/purchase.css' %}">
 {% endblock %}
 
 {% block content %}
+<div class="page-header">BẢNG KÊ THU MUA TỪ DÂN</div>
 
+<div class="filter-section">
+    <div class="filter-title">Tìm kiếm và lọc</div>
+    <form method="GET" action="{% url 'purchase' %}">
+        <div class="filter-form">
+            <div class="form-group">
+                <label for="ma_don_hang">Mã đơn hàng</label>
+                <select name="ma_don_hang" id="ma_don_hang" onchange="loadLenhSanXuat()">
+                    <option value="">--Chọn--</option>
+                    {% for don_hang in don_hang_list %}
+                        <option value="{{ don_hang }}" {% if request.GET.ma_don_hang == don_hang %}selected{% endif %}>{{ don_hang }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="ma_lenh_sx">Mã lệnh sản xuất</label>
+                <select name="ma_lenh_sx" id="ma_lenh_sx">
+                    <option value="">--Chọn--</option>
+                    {% if request.GET.ma_lenh_sx %}
+                        <option value="{{ request.GET.ma_lenh_sx }}" selected>{{ request.GET.ma_lenh_sx }}</option>
+                    {% endif %}
+                </select>
+            </div>
+        </div>
+        <div class="button-group">
+            <button type="button" id="btnClearFilter" class="btn btn-primary">Xóa lọc</button>
+            <button type="button" id="btnFilter" class="btn btn-danger">Lọc</button>
+            <a href="#" id="btnCreateNew" class="btn btn-success">Tạo mới</a>
+        </div>
+    </form>
+</div>
+
+<div class="table-section">
+    <div class="table-title">Danh sách bảng kê thu mua từ dân</div>
+    <div class="table-wrapper">
+        {% if records %}
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Mã lệnh sản xuất</th>
+                        <th>Tên nguyên vật liệu</th>
+                        <th>Số lượng sản phẩm xuất</th>
+                        <th>Tỷ lệ thu hồi</th>
+                        <th>Số lượng sản xuất tối thiểu</th>
+                        <th>Thời gian thu mua</th>
+                        <th>Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in records %}
+                        <tr>
+                            <td>{{ record.ma_lenh_sx }}</td>
+                            <td>{{ record.ten_nguyen_lieu }}</td>
+                            <td>{{ record.so_luong_san_pham_xuat }}</td>
+                            <td>{{ record.ty_le_thu_hoi }}</td>
+                            <td>{{ record.so_luong_san_xuat_toi_thieu }}</td>
+                            <td>{{ record.thoi_gian_thu_mua }}</td>
+                            <td>
+                                <a href="{% url 'purchase_detail' record.id_bang_ke_thu_mua_tu_dan %}" 
+                                class="btn btn-primary btn-sm view-btn" 
+                                title="Xem chi tiết">XEM</a>
+
+                                <button class="btn btn-danger btn-sm btn-delete" 
+                                        data-id="{{ record.id_bang_ke_thu_mua_tu_dan }}" 
+                                        data-name="{{ record.ten_nguyen_lieu }}"
+                                        title="Xóa">XÓA</button>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div class="no-data">Không có dữ liệu bảng kê thu mua từ dân</div>
+        {% endif %}
+    </div>
+</div>
 {% endblock %}
 
 {% block javascript %}
-    <script src="{% static 'js/dashboard.js' %}"></script>
+<script src="{% static 'js/purchase.js' %}"></script>
 {% endblock %}
-

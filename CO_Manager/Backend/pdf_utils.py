@@ -1,14 +1,7 @@
-from django.template.loader import get_template
-from django.conf import settings
-import os
 import io
-import re
 from num2words import num2words
-from django.utils.html import conditional_escape
-from django.contrib.humanize.templatetags.humanize import intcomma
 import datetime
 import xlsxwriter
-from django.conf import settings
 from Backend.models import VatTu
 
 

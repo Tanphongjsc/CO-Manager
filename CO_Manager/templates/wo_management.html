@@ -1,89 +1,90 @@
 {% extends 'base.html' %}
 {% load static %}
 
-{% block title %}Bảng kê WO - Hệ thống quản lý{% endblock %}
+{% block title %}Bảng kê WO{% endblock %}
 
 {% block css %}
-    <link rel="stylesheet" href="{% static 'css/bang_ke_wo.css' %}">
+<link rel="stylesheet" href="{% static 'css/wo_management.css' %}">
 {% endblock %}
 
 {% block content %}
-<div id="bang_ke_wo" class="module-content">
-    <div class="module-header">
-        <h2 class="module-title">Bảng kê WO</h2>
-        <div style="display: flex; gap: 8px;">
-            <button class="btn btn-primary">Thêm mới</button>
-            <div class="view-toggle">
-                <button class="list-view active">Danh sách</button>
-                <button class="form-view">Biểu mẫu</button>
-            </div>
-        </div>
-    </div>
+<div class="page-header">BẢNG KÊ WO</div>
 
-    <div class="table-container list-view-content">
-        <table>
-            <thead>
-                <tr>
-                    <th>ID Bảng kê WO</th>
-                    <th>Tên Bảng kê</th>
-                    <th>Ngày tạo</th>
-                    <th>Trạng thái</th>
-                    <th style="text-align: right;">Thao tác</th>
-                </tr>
-            </thead>
-            <tbody>
-                <tr>
-                    <td>BKWO001</td>
-                    <td>Bảng kê WO tháng 5</td>
-                    <td>01/05/2023</td>
-                    <td>Đã duyệt</td>
-                    <td style="text-align: right;">
-                        <button class="action-btn edit-btn">Sửa</button>
-                        <button class="action-btn delete-btn">Xóa</button>
-                    </td>
-                </tr>
-                <tr>
-                    <td>BKWO002</td>
-                    <td>Bảng kê WO tháng 4</td>
-                    <td>01/04/2023</td>
-                    <td>Đã hoàn thành</td>
-                    <td style="text-align: right;">
-                        <button class="action-btn edit-btn">Sửa</button>
-                        <button class="action-btn delete-btn">Xóa</button>
-                    </td>
-                </tr>
-            </tbody>
-        </table>
-    </div>
+<div class="filter-section">
+    <div class="filter-title">Tìm kiếm và lọc</div>
+    <form method="GET" action="{% url 'wo_ledger' %}">
+        <div class="filter-form">
+            <div class="form-group">
+                <label for="ma_don_hang">Mã đơn hàng</label>
+                <select name="ma_don_hang" id="ma_don_hang" onchange="loadLenhSanXuat()">
+                    <option value="">--Chọn--</option>
+                    {% for don_hang in don_hang_list %}
+                        <option value="{{ don_hang }}" {% if request.GET.ma_don_hang == don_hang %}selected{% endif %}>{{ don_hang }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="ma_lenh_sx">Mã lệnh sản xuất</label>
+                <select name="ma_lenh_sx" id="ma_lenh_sx">
+                    <option value="">--Chọn--</option>
+                    {% if request.GET.ma_lenh_sx %}
+                        <option value="{{ request.GET.ma_lenh_sx }}" selected>{{ request.GET.ma_lenh_sx }}</option>
+                    {% endif %}
+                </select>
+            </div>
+        </div>
+        <div class="button-group">
+            <button type="button" id="btnClearFilter" class="btn btn-primary">Xóa lọc</button>
+            <button type="button" id="btnFilter" class="btn btn-danger">Lọc</button>
+            <a href="#" id="btnCreateNew" class="btn btn-success">Tạo mới</a>
+        </div>
+    </form>
+</div>
 
-    <div class="form-container form-view-content" style="display: none;">
-        <div class="form-grid">
-            <div class="form-group">
-                <label class="form-label">ID Bảng kê WO</label>
-                <input type="text" class="form-control" placeholder="Nhập ID Bảng kê WO">
-            </div>
-            <div class="form-group">
-                <label class="form-label">Tên Bảng kê</label>
-                <input type="text" class="form-control" placeholder="Nhập Tên Bảng kê">
-            </div>
-            <div class="form-group">
-                <label class="form-label">Ngày tạo</label>
-                <input type="date" class="form-control">
-            </div>
-            <div class="form-group">
-                <label class="form-label">Trạng thái</label>
-                <input type="text" class="form-control" placeholder="Nhập Trạng thái">
-            </div>
-        </div>
-        <div class="form-actions">
-            <button class="btn btn-secondary">Hủy</button>
-            <button class="btn btn-primary">Lưu</button>
-        </div>
+<div class="table-section">
+    <div class="table-title">Danh sách bảng kê WO</div>
+    <div class="table-wrapper">
+        {% if records %}
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Mã lệnh sản xuất</th>
+                        <th>Tên nguyên liệu</th>
+                        <th>Mã HS</th>
+                        <th>Số lượng sản phẩm xuất</th>
+                        <th>Trị giá FOB</th>
+                        <th>Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for record in records %}
+                        <tr>
+                            <td>{{ record.ma_lenh_sx }}</td>
+                            <td>{{ record.ten_nguyen_lieu }}</td>
+                            <td>{{ record.ma_hs }}</td>
+                            <td>{{ record.so_luong_san_pham_xuat }}</td>
+                            <td>{{ record.tri_gia_fob }}</td>
+                            <td>
+                                <a href="{% url 'wo_ledger_detail' record.id %}" 
+                                   class="btn btn-primary btn-sm view-btn" 
+                                   title="Xem chi tiết">XEM</a>
+
+                                <button class="btn btn-danger btn-sm btn-delete" 
+                                        data-id="{{ record.id }}" 
+                                        data-name="{{ record.ten_nguyen_lieu }}"
+                                        title="Xóa">XÓA</button>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        {% else %}
+            <div class="no-data">Không có dữ liệu bảng kê WO</div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}
 
 {% block javascript %}
-    <script src="{% static 'js/bang_ke_wo.js' %}"></script>
+<script src="{% static 'js/wo_management.js' %}"></script>
 {% endblock %}
-
