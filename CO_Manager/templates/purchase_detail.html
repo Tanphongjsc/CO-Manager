@@ -1,0 +1,207 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Chi tiết bảng kê thu mua từ dân{% endblock %}
+
+{% block css %}
+<link rel="stylesheet" href="{% static 'css/purchase_detail.css' %}">
+{% endblock %}
+
+{% block content %}
+<div class="page-header">CHI TIẾT BẢNG KÊ THU MUA TỪ DÂN</div>
+
+<form id="purchaseDetailForm" method="post" data-record-id="{{ record.id_bang_ke_thu_mua_tu_dan }}">
+    {% csrf_token %}
+    <div class="form-section">
+        <div class="form-row">
+            <div class="form-group">
+                <label for="ma_don_hang">Mã đơn hàng <span class="required">*</span></label>
+                <input type="text" id="ma_don_hang" name="ma_don_hang" class="form-control" value="{{ record.ma_don_hang }}" readonly>
+            </div>
+            <div class="form-group">
+                <label for="ma_lenh_sx">ID Lệnh sản xuất <span class="required">*</span></label>
+                <input type="text" id="ma_lenh_sx" name="ma_lenh_sx" class="form-control" value="{{ record.ma_lenh_sx }}" readonly>
+            </div>
+            <div class="form-group">
+                <label for="ten_nguyen_lieu">Tên nguyên vật liệu <span class="required">*</span></label>
+                <input type="text" id="ten_nguyen_lieu" name="ten_nguyen_lieu" class="form-control" value="{{ record.ten_nguyen_lieu }}" readonly>
+            </div>
+            <div class="form-group">
+                <label for="so_luong_san_pham_xuat">Số lượng sản phẩm xuất</label>
+                <input type="number" id="so_luong_san_pham_xuat" name="so_luong_san_pham_xuat" class="form-control" value="{{ record.so_luong_san_pham_xuat }}" readonly>
+            </div>
+            <div class="form-group">
+                <label for="so_luong_san_xuat_toi_thieu">Số lượng sản xuất tối thiểu</label>
+                <input type="number" id="so_luong_san_xuat_toi_thieu" name="so_luong_san_xuat_toi_thieu" class="form-control" value="{{ record.so_luong_san_xuat_toi_thieu }}" readonly>
+            </div>
+            <div class="form-group">
+                <label for="ngay_from">Ngày từ</label>
+                <input type="date" id="ngay_from" name="ngay_from" class="form-control" value="{{ record.ngay_from }}" readonly>
+            </div>
+            <div class="form-group">
+                <label for="ngay_to">Ngày đến</label>
+                <input type="date" id="ngay_to" name="ngay_to" class="form-control" value="{{ record.ngay_to }}" readonly>
+            </div>
+        </div>
+    </div>
+
+    <div class="table-section">
+        <div class="table-header">
+            <button type="button" id="exportExcelBtn" class="btn btn-success">Xuất file Excel</button>
+            <button type="button" id="exportPdfBtn" class="btn btn-danger">Xuất file PDF</button>
+            <button type="button" id="addRowBtn" class="btn btn-success" style="display: none;">+ Thêm dòng mới</button>
+            <button type="button" id="editBtn" class="btn btn-primary">Chỉnh sửa</button>
+        </div>
+        <div class="table-responsive">
+            <table class="data-table" id="purchaseTable">
+                <thead>
+                    <tr>
+                        <th>STT</th>
+                        <th>Ngày tháng</th>
+                        <th>Họ & Tên</th>
+                        <th>Số CMND/CCCD</th>
+                        <th>Địa chỉ</th>
+                        <th>Tên nguyên liệu</th>
+                        <th>Đơn vị tính</th>
+                        <th>Số lượng</th>
+                        <th>Đơn giá</th>
+                        <th>Thành tiền</th>
+                        <th>Ghi chú</th>
+                        <th class="edit-column">Thao tác</th>
+                    </tr>
+                </thead>
+                <tbody id="purchaseTableBody">
+                    {% if record.chi_tiet %}
+                        {% for detail in record.chi_tiet %}
+                        <tr data-row-id="{{ forloop.counter }}">
+                            <td>{{ forloop.counter }}</td>
+                            <td>
+                                <span class="display-value">{{ detail.ngay_mua_hang }}</span>
+                                <input type="date" class="edit-input form-control" value="{{ detail.ngay_mua_hang }}" name="ngay_mua_hang_{{ forloop.counter }}">
+                            </td>
+                            <td>
+                                <span class="display-value">{{ detail.ten_nguoi_ban }}</span>
+                                <select class="edit-input form-control person-select" name="ten_nguoi_ban_{{ forloop.counter }}" data-original-value="{{ detail.ten_nguoi_ban }}">
+                                    <option value="">-- Chọn người --</option>
+                                    <option value="{{ detail.id_nguoi_ban }}" selected>{{ detail.ten_nguoi_ban }}</option>
+                                    <!-- Options sẽ được load từ JavaScript -->
+                                </select>
+                                <div class="person-info">
+                                    <div>CMND/CCCD: <span class="person-cmnd">{{ detail.so_cmnd_cccd }}</span></div>
+                                    <div>Địa chỉ: <span class="person-address">{{ detail.dia_chi }}</span></div>
+                                </div>
+                            </td>
+                            <td>
+                                <span class="display-value">{{ detail.so_cmnd_cccd }}</span>
+                                <input type="text" class="edit-input form-control cmnd-input" value="{{ detail.so_cmnd_cccd }}" name="so_cmnd_cccd_{{ forloop.counter }}" readonly>
+                            </td>
+                            <td>
+                                <span class="display-value">{{ detail.dia_chi }}</span>
+                                <input type="text" class="edit-input form-control address-input" value="{{ detail.dia_chi }}" name="dia_chi_{{ forloop.counter }}" readonly>
+                            </td>
+                            <td>
+                                <span class="display-value">{{ detail.ten_nguyen_lieu }}</span>
+                                <input type="text" class="edit-input form-control" value="{{ detail.ten_nguyen_lieu }}" name="ten_nguyen_lieu_{{ forloop.counter }}" readonly>
+                            </td>
+                            <td>
+                                <span class="display-value">{{ detail.don_vi_tinh }}</span>
+                                <input type="text" class="edit-input form-control" value="{{ detail.don_vi_tinh }}" name="don_vi_tinh_{{ forloop.counter }}" readonly>
+                            </td>
+                            <td>
+                                <span class="display-value">{{ detail.so_luong|floatformat:2 }}</span>
+                                <input type="number" class="edit-input form-control quantity-input" value="{{ detail.so_luong }}" name="so_luong_{{ forloop.counter }}" step="0.01">
+                            </td>
+                            <td>
+                                <span class="display-value">{{ detail.don_gia|floatformat:0 }}</span>
+                                <input type="number" class="edit-input form-control price-input" value="{{ detail.don_gia }}" name="don_gia_{{ forloop.counter }}">
+                            </td>
+                            <td class="text-right">
+                                <span class="display-value total-amount">{{ detail.thanh_tien|floatformat:0 }}</span>
+                                <input type="number" class="edit-input form-control" value="{{ detail.thanh_tien }}" name="thanh_tien_{{ forloop.counter }}" readonly>
+                            </td>
+                            <td>
+                                <span class="display-value">{{ detail.ghi_chu }}</span>
+                                <input type="text" class="edit-input form-control" value="{{ detail.ghi_chu }}" name="ghi_chu_{{ forloop.counter }}">
+                            </td>
+                            <td class="edit-column">
+                                <button type="button" class="btn btn-danger btn-sm delete-row">Xóa</button>
+                            </td>
+                            <!-- Hidden input chứa ID chi tiết -->
+                            <input type="hidden" name="ct_id_{{ forloop.counter }}" value="{{ detail.id_ct_bang_ke_thu_mua_tu_dan }}">
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="12" class="no-data">Chưa có dữ liệu chi tiết</td>
+                        </tr>
+                    {% endif %}
+                    {% if record.chi_tiet|length > 0 %}
+                        <tr class="add-row">
+                    {% else %}
+                        <tr>
+                            <td colspan="12" class="no-data">Chưa có dữ liệu chi tiết</td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+                <tfoot>
+                    <tr class="total-row">
+                        <td colspan="7"><strong>Tổng cộng</strong></td>
+                        <td class="text-right"><strong id="totalQuantity">{{ record.tong_so_luong|floatformat:2 }}</strong></td>
+                        <td></td>
+                        <td class="text-right"><strong id="totalAmount">{{ record.tong_thanh_tien|floatformat:0 }}</strong></td>
+                        <td></td>
+                        <td class="edit-column"></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+
+    <div class="form-actions">
+        <a href="{% url 'purchase' %}" class="btn btn-secondary">Quay lại</a>
+        <button type="button" id="cancelEditBtn" class="btn btn-secondary" style="display: none;">Hủy chỉnh sửa</button>
+        <button type="submit" id="saveBtn" class="btn btn-primary" style="display: none;">Lưu</button>
+    </div>
+</form>
+
+<!-- Modal thêm người mới -->
+<div id="addPersonModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Thêm người mới</h3>
+            <span class="close">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="modal_ten">Họ tên <span class="required">*</span></label>
+                <input type="text" id="modal_ten" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label for="modal_so_cmnd_cccd">Số CMND/CCCD</label>
+                <input type="text" id="modal_so_cmnd_cccd" class="form-control">
+            </div>
+            <div class="form-group">
+                <label for="modal_ngay_cap_cmnd_cccd">Ngày cấp CMND/CCCD</label>
+                <input type="date" id="modal_ngay_cap_cmnd_cccd" class="form-control">
+            </div>
+            <div class="form-group">
+                <label for="modal_dia_chi">Địa chỉ</label>
+                <input type="text" id="modal_dia_chi" class="form-control">
+            </div>
+            <div class="form-group">
+                <label for="modal_vai_tro">Vai trò</label>
+                <input type="text" id="modal_vai_tro" class="form-control" value="Người bán">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" id="cancelPersonBtn" class="btn btn-secondary">Hủy</button>
+            <button type="button" id="savePersonBtn" class="btn btn-primary">Thêm</button>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block javascript %}
+<script src="{% static 'js/purchase_detail.js' %}"></script>
+{% endblock %}

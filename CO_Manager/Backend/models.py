@@ -30,7 +30,7 @@ class BangKeThuMuaTuDan(models.Model):
     id_bang_ke_thu_mua_tu_dan = models.BigAutoField(primary_key=True)
     id_lenh_san_xuat = models.ForeignKey('LenhSanXuat', models.DO_NOTHING, db_column='id_lenh_san_xuat')
     id_san_pham = models.CharField()
-    ngay_lap_giay_to = models.DateField(blank=True, null=True)
+    ngay_lap_giay_to = models.CharField(blank=True, null=True)
 
     class Meta:
         managed = False
