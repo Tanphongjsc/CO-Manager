@@ -147,29 +147,47 @@ document.addEventListener('DOMContentLoaded', () => {
         updateMaterialTableDisplay();
     };
 
-    const generateMaterialOptionsHtml = (materialsToUse, selectedValue, globalMaterialDataSource) => {
-        let options = '<option value="">-- Chọn nguyên liệu --</option>';
-        const effectiveMaterials = (materialsToUse && materialsToUse.length > 0) ? materialsToUse : globalMaterialDataSource;
-        let foundMatch = false;
+        const generateMaterialOptionsHtml = (materialsToUse, selectedValue, globalMaterialDataSource) => {
+            let options = '<option value="">-- Chọn nguyên liệu --</option>';
+            const effectiveMaterials = (materialsToUse && materialsToUse.length > 0) ? materialsToUse : globalMaterialDataSource;
+            let foundMatch = false;
+            const addedNames = new Set(); // Sử dụng Set để theo dõi tên nguyên liệu đã thêm để chống trùng lặp
 
-        effectiveMaterials.forEach(material => {
-            const name = material.ten_khac || material.ten_sp_chinh || material.name || material.ten_nguyen_lieu;
-            const id = material.id_san_pham || material.id;
-            const maHs = material.ma_hs || '';
-            const isSelected = selectedValue && id && (selectedValue === id.toString());
-            if (isSelected) foundMatch = true;
-            options += `<option value="${id || ''}" data-name="${name}" data-mahs="${maHs}" ${isSelected ? 'selected' : ''}>${name} (${maHs})</option>`;
-        });
-        if (selectedValue && !foundMatch && typeof selectedValue === 'string') {
-             const materialByName = effectiveMaterials.find(m => (m.ten_khac || m.ten_sp_chinh || m.name || m.ten_nguyen_lieu)?.toLowerCase() === selectedValue.toLowerCase());
-             if (materialByName) {
-                 options += `<option value="${materialByName.id_san_pham || materialByName.id}" data-name="${selectedValue}" data-mahs="${materialByName.ma_hs || ''}" selected>${selectedValue}</option>`;
-             } else {
-                 options += `<option value="${selectedValue}" data-name="${selectedValue}" data-mahs="" selected>${selectedValue}</option>`;
-             }
-        }
-        return options;
-    };
+            effectiveMaterials.forEach(material => {
+                const name = material.ten_khac || material.ten_sp_chinh || material.name || material.ten_nguyen_lieu;
+                if (!name || addedNames.has(name)) { // Nếu không có tên hoặc tên đã được thêm, bỏ qua
+                    return;
+                }
+                addedNames.add(name);
+
+                const id = material.id_san_pham || material.id;
+                const maHs = material.ma_hs || '';
+
+                let isSelected = false;
+                if (selectedValue) {
+                    // Một lựa chọn được xem là "selected" nếu ID của nó khớp với selectedValue, hoặc nếu chưa có lựa chọn nào được tìm thấy và tên của nó khớp với selectedValue (dạng chuỗi).
+
+                    if (id && id.toString() === selectedValue.toString()) {
+                        isSelected = true;
+                    } else if (!foundMatch && typeof selectedValue === 'string' && name.toLowerCase() === selectedValue.toLowerCase()) {
+                        isSelected = true;
+                    }
+                }
+
+                if (isSelected) {
+                    foundMatch = true;
+                }
+                options += `<option value="${id || ''}" data-name="${name}" data-mahs="${maHs}" ${isSelected ? 'selected' : ''}>${name}</option>`;
+            });
+
+            // Xử lý trường hợp một giá trị đã được lưu nhưng không còn trong danh sách nguyên liệu hiệu quả nữa.
+            if (selectedValue && !foundMatch && typeof selectedValue === 'string') {
+                if (!addedNames.has(selectedValue)) {
+                    options += `<option value="${selectedValue}" data-name="${selectedValue}" data-mahs="" selected>${selectedValue}</option>`;
+                }
+            }
+            return options;
+        };
 
     const createMaterialDropdown = (selectedValue = '', fieldName = '', isDisabled = false, availableMaterials = []) => {
         const optionsHtml = generateMaterialOptionsHtml(availableMaterials, selectedValue, materialData);
