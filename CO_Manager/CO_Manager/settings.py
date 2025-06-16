@@ -138,3 +138,10 @@ STATICFILES_DIRS = [
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 CORS_ALLOW_ALL_ORIGINS = True  # Cho phép tất cả các nguồn gốc
+
+# Thêm domain Render vào trusted origins
+CSRF_TRUSTED_ORIGINS = [
+    'https://co-manager-c4cg.onrender.com',
+    'http://127.0.0.1:8000',  # Để giữ cho local development
+    'http://localhost:8000',
+]
