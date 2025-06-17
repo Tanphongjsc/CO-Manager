@@ -408,17 +408,20 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!materialSelect?.value) return;
             
             const selectedOption = materialSelect.options[materialSelect.selectedIndex];
-            const materialId = selectedOption?.value;
-            if (!materialId) return;
+            // THAY ĐỔI: Lấy TÊN nguyên liệu từ thuộc tính data-name hoặc text của option
+            const materialName = selectedOption?.dataset.name || selectedOption?.text;
+            if (!materialName) return;
 
             const ngayBtmInput = row.querySelector('input[name$="_ngay_btm"]');
-            if (ngayBtmInput && ctcCreateApiData.bang_ke_thu_mua && ctcCreateApiData.bang_ke_thu_mua.hasOwnProperty(materialId)) {
-                ngayBtmInput.value = ctcCreateApiData.bang_ke_thu_mua[materialId] || '';
+            // THAY ĐỔI: Sử dụng TÊN để tra cứu trong bang_ke_thu_mua
+            if (ngayBtmInput && ctcCreateApiData.bang_ke_thu_mua && ctcCreateApiData.bang_ke_thu_mua.hasOwnProperty(materialName)) {
+                ngayBtmInput.value = ctcCreateApiData.bang_ke_thu_mua[materialName] || '';
             }
 
             const ngayWoInput = row.querySelector('input[name$="_ngay_wo"]');
-            if (ngayWoInput && ctcCreateApiData.bang_ke_wo && ctcCreateApiData.bang_ke_wo.hasOwnProperty(materialId)) {
-                const woDate = ctcCreateApiData.bang_ke_wo[materialId];
+            // THAY ĐỔI: Sử dụng TÊN để tra cứu trong bang_ke_wo
+            if (ngayWoInput && ctcCreateApiData.bang_ke_wo && ctcCreateApiData.bang_ke_wo.hasOwnProperty(materialName)) {
+                const woDate = ctcCreateApiData.bang_ke_wo[materialName];
                 ngayWoInput.value = woDate ? formatDateForInput(woDate) : '';
             }
         });
@@ -552,16 +555,23 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         if (ctcCreateApiData && isEditMode) {
-            const materialId = materialDetails.id_san_pham || materialDetails.id;
-            if (materialId) {
-                if (ngayBtmInput && ctcCreateApiData.bang_ke_thu_mua && ctcCreateApiData.bang_ke_thu_mua.hasOwnProperty(materialId)) {
-                    ngayBtmInput.value = ctcCreateApiData.bang_ke_thu_mua[materialId] || '';
-                }
-                if (ngayWoInput && ctcCreateApiData.bang_ke_wo && ctcCreateApiData.bang_ke_wo.hasOwnProperty(materialId)) {
-                    const woDate = ctcCreateApiData.bang_ke_wo[materialId];
-                    ngayWoInput.value = woDate ? formatDateForInput(woDate) : '';
-                }
+            const materialName = materialDetails.ten_khac || materialDetails.ten_sp_chinh || materialDetails.name || materialDetails.ten_nguyen_lieu;
+            
+            // Luôn lấy giá trị mới, nếu không tìm thấy trong API thì trả về chuỗi rỗng ''
+            const btmDate = (materialName && ctcCreateApiData.bang_ke_thu_mua?.[materialName]) || '';
+            if (ngayBtmInput) {
+                ngayBtmInput.value = btmDate;
             }
+
+            const woDateRaw = (materialName && ctcCreateApiData.bang_ke_wo?.[materialName]) || null;
+            if (ngayWoInput) {
+                // Nếu có ngày thì định dạng, không thì trả về chuỗi rỗng ''
+                ngayWoInput.value = woDateRaw ? formatDateForInput(woDateRaw) : '';
+            }
+        } else {
+            // Đảm bảo các trường này trống nếu không ở chế độ sửa hoặc không có dữ liệu API
+            if (ngayBtmInput) ngayBtmInput.value = '';
+            if (ngayWoInput) ngayWoInput.value = '';
         }
 
         calculateThanhTien(rowElement);

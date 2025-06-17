@@ -623,20 +623,31 @@ def get_data_for_ctc_create(request):
     data = json.loads(request.body)
     id_lenh_san_xuat = data.get('id_lenh_san_xuat')
 
-    id_lenh_san_xuat = '101031'
-    bang_ke_thu_mua = BangKeThuMuaTuDan.objects.filter(id_lenh_san_xuat = id_lenh_san_xuat).values()
-    bang_ke_wo = BangKeWo.objects.filter(id_lenh_san_xuat = id_lenh_san_xuat).values()
+    if id_lenh_san_xuat:
+        bang_ke_thu_mua = BangKeThuMuaTuDan.objects.filter(id_lenh_san_xuat = id_lenh_san_xuat).values()
+        bang_ke_wo = BangKeWo.objects.filter(id_lenh_san_xuat = id_lenh_san_xuat).values()
+        nguyen_vat_lieu = VatTu.objects.filter(
+            id_san_pham__in=[item['id_san_pham'] for item in bang_ke_thu_mua] + 
+                            [item['id_san_pham'] for item in bang_ke_wo]
+        ).values('id_san_pham', 'ten_khac', 'ma_hs', 'don_vi_tinh')
 
-    data = {
-        "bang_ke_thu_mua": {item['id_san_pham']: item['ngay_lap_giay_to'] for item in list(bang_ke_thu_mua)},
-        "bang_ke_wo": {item['id_san_pham']: item['ngay'] for item in list(bang_ke_wo)}
-    }
+        # Chuyển đổi nguyen_vat_lieu thành dictionary để dễ truy cập
+        nguyen_vat_lieu = {item['id_san_pham']: item for item in nguyen_vat_lieu}
 
+        data = {
+            "bang_ke_thu_mua": {nguyen_vat_lieu[item['id_san_pham']]['ten_khac']: item['ngay_lap_giay_to'] for item in list(bang_ke_thu_mua)},
+            "bang_ke_wo": {nguyen_vat_lieu[item['id_san_pham']]['ten_khac']: item['ngay'] for item in list(bang_ke_wo)}
+        }
+
+        return JsonResponse({
+            'success': True,
+            'data': data,
+        })
+    
     return JsonResponse({
-        'success': True,
-        'data': data,
-    })
-
+        'success': False,
+        'message': 'Không tìm thấy mã lệnh sản xuất!'
+    }, status=404)
     
 
 def users_management(request):
@@ -647,6 +658,7 @@ def users_management(request):
         'users': users,
     }
     return render(request, 'user_management.html', context)
+
 
 @require_POST
 def users_create(request):
@@ -750,6 +762,7 @@ def product_update(request):
     try:
         # Phân tích JSON từ request body
         data = json.loads(request.body)
+        data['alt_name'] = data.get('alt_name', '').strip().capitalize()
         
         # Lấy ID sản phẩm từ dữ liệu gửi lên
         product_id = data.get('id')
