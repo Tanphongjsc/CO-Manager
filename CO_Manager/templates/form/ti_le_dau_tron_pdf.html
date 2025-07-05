@@ -45,7 +45,7 @@
     .print-table th, 
     .print-table td {
       border: 0.5px solid #000 !important;
-      padding: 6px;
+      padding: 4px;
       text-align: center;
       vertical-align: middle;
       font-size: 14px;
@@ -181,37 +181,37 @@
         <td>{{ forloop.counter }}</td>
         <td style="text-align: left; width: 35%">{{ item.ten_san_pham }}</td>
         <td>{{ item.id_san_pham.ma_hs }}</td>
-        <td>{{ item.so_luong_san_pham|floatformat:0|intcomma }}</td>
+        <td>{{ item.so_luong_san_pham|floatformat:2|intcomma }}</td>
         
         {% for material_type in material_types %}
           <td>
             {% for key, value in item.materials.items %}
               {% if key == material_type %}
-                {{ value|default_if_none:''|floatformat:0|intcomma }}
+                {{ value|default_if_none:''|floatformat:2|intcomma }}
               {% endif %}
             {% endfor %}
           </td>
         {% endfor %}
 
-        <td>{{ item.so_luong_san_pham|floatformat:0|intcomma }}</td>
+        <td>{{ item.total_materials|floatformat:2|intcomma }}</td>
       </tr>
       {% endfor %}
 
       <tr class="total-row">
         <td colspan="3">Tổng cộng</td>
-        <td>{{ total_quantity|floatformat:0|intcomma }}</td>
+        <td>{{ total_quantity_sanpham|floatformat:2|intcomma }}</td>
         
         {% for material_type in material_types %}
           <td>
             {% for key, value in totals.items %}
               {% if key == material_type %}
-                {{ value|floatformat:0|intcomma }}
+                {{ value|floatformat:2|intcomma }}
               {% endif %}
             {% endfor %}
           </td>
         {% endfor %}
         
-        <td>{{ total_quantity|floatformat:0|intcomma }}</td>
+        <td>{{ total_quantity_nguyenlieu|floatformat:2|intcomma }}</td>
       </tr>
     </tbody>
   </table>

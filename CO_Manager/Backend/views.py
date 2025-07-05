@@ -7,6 +7,7 @@ from django.db import transaction
 from django.forms.models import model_to_dict
 
 from .models import *
+from django.db.models import Q
 
 from datetime import datetime, date
 from collections import defaultdict
@@ -871,6 +872,7 @@ def products_sync_cloudify(request):
                     VatTu(
                         id_san_pham=id,
                         ten_sp_chinh=cloudify_product[id].get('TEN'),
+                        ten_khac=cloudify_product[id].get('TEN'),
                         don_vi_tinh=cloudify_product[id].get('DVT_CHINH_ID'),
                         loai_sp=cloudify_product[id].get('TINH_CHAT'),
                         nhom_vthh=cloudify_product[id].get('LIST_NHOM_VTHH')
@@ -1190,12 +1192,17 @@ def orders_export(request, pk):
 
 def get_order_data(order_id):
     """Lấy và tổ chức dữ liệu lệnh sản xuất."""
+    
     # Lấy chi tiết lệnh sản xuất
-    order_items = CtLenhSanXuat.objects.filter(id_lenh_san_xuat=order_id).select_related(
-        'id_san_pham', 'id_nguyen_vat_lieu')
+    order_items = CtLenhSanXuat.objects.filter(
+        id_lenh_san_xuat=order_id
+    ).filter(
+        ~Q(id_nguyen_vat_lieu__nhom_vthh="NVL - THÔ")
+    ).select_related('id_san_pham', 'id_nguyen_vat_lieu')
+
     
     # Xác định danh sách nguyên liệu để làm header
-    material_types = sorted({obj.id_nguyen_vat_lieu.ten_khac for obj in order_items})
+    material_types = sorted({obj.id_nguyen_vat_lieu.ten_khac if obj.id_nguyen_vat_lieu.ten_khac else obj.id_nguyen_vat_lieu.ten_sp_chinh for obj in order_items })
 
     # Gom nhóm theo sản phẩm
     products_map = {}
@@ -1204,7 +1211,7 @@ def get_order_data(order_id):
     
     for item in order_items:
         product_id = item.id_san_pham.id_san_pham
-        material_name = item.id_nguyen_vat_lieu.ten_khac
+        material_name = item.id_nguyen_vat_lieu.ten_khac or item.id_nguyen_vat_lieu.ten_sp_chinh
         material_qty = item.so_luong_nguyen_vat_lieu or 0
         
         # Khởi tạo thông tin sản phẩm nếu chưa có
@@ -1215,11 +1222,13 @@ def get_order_data(order_id):
                 'id_san_pham': item.id_san_pham,
                 'so_luong_san_pham': product_qty,
                 'materials': defaultdict(float),
+                'total_materials': 0.0,
             }
             total_quantity += product_qty
         
         # Cộng dồn NVL
         products_map[product_id]['materials'][material_name] += material_qty
+        products_map[product_id]['total_materials'] += material_qty
         material_totals[material_name] += material_qty
     
     # Chuyển defaultdict sang dict thông thường
@@ -1230,7 +1239,8 @@ def get_order_data(order_id):
         'order_items': list(products_map.values()),
         'material_types': material_types,
         'totals': dict(material_totals),
-        'total_quantity': total_quantity,
+        'total_quantity_sanpham': total_quantity,
+        'total_quantity_nguyenlieu': sum(material_totals.values()),
     }
 
 def create_ti_le_dau_tron_excel_response(order_id, data):
@@ -1307,7 +1317,7 @@ def create_ti_le_dau_tron_excel_response(order_id, data):
         
         for col, value in basic_cells:
             cell = ws.cell(row=row_idx, column=col, value=value)
-            number_format = '#,##0' if col == 4 else None
+            number_format = '#,##0.00' if col == 4 else None
             apply_cell_style(cell, font=styles['base_font'], border=styles['border'], 
                          align=styles['center'], number_format=number_format)
         
@@ -1316,12 +1326,12 @@ def create_ti_le_dau_tron_excel_response(order_id, data):
             val = item['materials'].get(mat)
             cell = ws.cell(row=row_idx, column=col, value=val)
             apply_cell_style(cell, font=styles['base_font'], border=styles['border'], 
-                         align=styles['center'], number_format='#,##0' if val else None)
+                         align=styles['center'], number_format='#,##0.00' if val is not None else None)
         
         # Tổng cộng
-        cell = ws.cell(row=row_idx, column=total_cols, value=item['so_luong_san_pham'])
+        cell = ws.cell(row=row_idx, column=total_cols, value=item['total_materials'])
         apply_cell_style(cell, font=styles['base_font'], border=styles['border'], 
-                     align=styles['center'], number_format='#,##0')
+                     align=styles['center'], number_format='#,##0.00')
     
     # ===== PHẦN 4: DÒNG TỔNG CỘNG =====
     total_row = start_row + len(order_items)
@@ -1332,20 +1342,20 @@ def create_ti_le_dau_tron_excel_response(order_id, data):
     ws.merge_cells(start_row=total_row, start_column=1, end_row=total_row, end_column=3)
 
     # Tổng số lượng sản phẩm
-    cell = ws.cell(row=total_row, column=4, value=data['total_quantity'])
+    cell = ws.cell(row=total_row, column=4, value=data['total_quantity_sanpham'])
     apply_cell_style(cell, font=styles['bold_font'], border=styles['border'], 
-                 align=styles['center'], number_format='#,##0')
+                 align=styles['center'], number_format='#,##0.00')
 
     # Tổng lượng nguyên liệu
     for key, col in material_cols.items():
         cell = ws.cell(row=total_row, column=col, value=data['totals'].get(key))
         apply_cell_style(cell, font=styles['bold_font'], border=styles['border'], 
-                     align=styles['center'], number_format='#,##0')
+                     align=styles['center'], number_format='#,##0.00')
     
     # Tổng cộng cuối cùng
-    cell = ws.cell(row=total_row, column=total_cols, value=data['total_quantity'])
+    cell = ws.cell(row=total_row, column=total_cols, value=data['total_quantity_nguyenlieu'])
     apply_cell_style(cell, font=styles['bold_font'], border=styles['border'], 
-                 align=styles['center'], number_format='#,##0')
+                 align=styles['center'], number_format='#,##0.00')
     
     # ===== PHẦN 5: CHỮ KÝ VÀ CAM KẾT =====
     sig_row = total_row + 3
