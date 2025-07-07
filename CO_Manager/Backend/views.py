@@ -3788,7 +3788,7 @@ def wo_export_word(request, pk):
     # Row 2  
     info_table.cell(1, 0).text = f'Mã số thuế: 2600274542'
     info_table.cell(1, 1).text = ''
-    info_table.cell(1, 2).text = f'Tên hàng hóa: {wo_record.ten_hang_hoa or ten_nguyen_lieu}'
+    info_table.cell(1, 2).text = f'Tên hàng hóa: {ten_nguyen_lieu or ""}'
     
     # Row 3
     info_table.cell(2, 0).text = f'Tờ khai hải quan xuất khẩu số: {wo_record.to_khai_hai_quan or ""}'
