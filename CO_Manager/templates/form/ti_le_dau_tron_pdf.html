@@ -9,17 +9,58 @@
   {% load static %}
   <link rel="stylesheet" href="{% static 'css/print.css' %}" media="print">
   <style>
+    /* --- CSS CƠ BẢN --- */
+    * {
+      box-sizing: border-box;
+    }
+
     body { 
       font-family: "Times New Roman", Times, serif;
-      margin: 15px;
+      font-size: 12px;
       color: #000;
-      font-size: 14px;
       line-height: 1.2;
+      text-align: justify;
+      margin: 0;
+    }
+
+    /* --- BEGIN MAJOR CHANGES --- */
+    
+    /* THAY ĐỔI 1: SỬ DỤNG @page ĐỂ KIỂM SOÁT LỀ IN */
+    /* Đây là cách làm chuẩn và đáng tin cậy nhất để đảm bảo lề đồng đều
+       trên MỌI trang giấy, bất kể khổ dọc hay ngang và khi ngắt trang. */
+    @page {
+      size: auto; /* Cho phép người dùng chọn khổ giấy A4, A3, Letter... */
+      margin: 0.7cm; /* Đặt lề đều 0.7cm cho cả 4 cạnh (trên, dưới, trái, phải) */
+    }
+
+    @media print {
+      body {
+        /* Khi in, không cần margin hay padding cho body nữa vì @page đã xử lý. */
+        margin: 0;
+        padding: 0;
+      }
+
+      /* THAY ĐỔI 2: Đảm bảo bảng không bị tràn ra ngoài lề */
+      .print-table {
+        width: 100%;
+        max-width: 100%; /* Rất quan trọng: Ngăn bảng rộng hơn vùng in */
+        table-layout: auto;
+      }
+
+      /* Các tối ưu khác cho việc in */
+      .no-print { display: none !important; }
+      .print-table td, .print-table th {
+        padding: 2pt !important;
+        font-size: 11px !important; /* Giảm nhẹ cỡ chữ để vừa vặn hơn ở khổ dọc */
+      }
     }
     
+    /* --- END MAJOR CHANGES --- */
+
+
+    /* --- CÁC STYLE KHÁC GIỮ NGUYÊN --- */
     .company-info {
       margin-bottom: 15px;
-      text-align: left;
     }
     .company-info div {
       margin: 3px 0;
@@ -38,21 +79,25 @@
     }
 
     .print-table {
-      width: 100%;
       border-collapse: collapse;
       margin-bottom: 10px;
     }
+
     .print-table th, 
     .print-table td {
-      border: 0.5px solid #000 !important;
+      border: 0.5pt solid #000 !important;
       padding: 4px;
       text-align: center;
       vertical-align: middle;
-      font-size: 14px;
     }
+
     .print-table thead th {
       background-color: #f9f9f9;
       font-weight: bold;
+    }
+    
+    .print-table tbody tr {
+      page-break-inside: avoid;
     }
 
     .total-row td {
@@ -61,7 +106,7 @@
 
     .print-footer {
       margin-top: 10px;
-      font-size: 14px;
+      font-size: 12px;
       line-height: 1.3;
     }
 
@@ -94,7 +139,7 @@
     
     .signature-content .instruction-line {
       margin: 5px 0 8px 0;
-      font-size: 13px;
+      font-size: 11px;
     }
 
     .stamp-signature {
@@ -103,37 +148,7 @@
         margin: 8px auto 0;
         width: 150px;
     }
-
-    /* Ẩn nút in khi in */
-    @media print {
-      .no-print { 
-        display: none !important; 
-      }
-      .print-table th,
-      .print-table td {
-        border: 0.05pt solid #000 !important;
-        padding: 3pt !important;
-      }
-      
-      .print-footer {
-        margin-top: 8px;
-      }
-      
-      .signature {
-        margin-top: 8px;
-      }
-      
-      .signature-content .title-line {
-        margin: 8px 0 3px 0;
-      }
-      
-      .stamp-signature {
-        margin: 5px auto 0;
-        width: 180px;
-      }
-    }
-
-    /* Style nút in */
+    
     .print-button {
       text-align: center;
       margin: 30px 0;
@@ -145,7 +160,7 @@
       border: none;
       border-radius: 4px;
       cursor: pointer;
-      font-size: 14px;
+      font-size: 12px;
     }
   </style>
 </head>

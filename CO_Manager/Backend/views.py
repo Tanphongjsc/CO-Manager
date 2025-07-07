@@ -45,7 +45,6 @@ def ctc_ledger(request):
     
     # Lấy danh sách CTC với select_related để giảm query
     ctc = BangKeCtc.objects.select_related('id_lenh_san_xuat', 'id_san_pham').order_by('id_bang_ke_ctc')
-    
 
     # Lấy chi tiết lệnh sản xuất với prefetch_related để tối ưu query
     ct_lenh_sx = CtLenhSanXuat.objects.all().select_related('id_lenh_san_xuat', 'id_san_pham', 'id_nguyen_vat_lieu')
@@ -75,10 +74,11 @@ def ctc_ledger(request):
         
         # Thêm nguyên vat liệu nếu tồn tại
         if item.id_nguyen_vat_lieu:
-            nvl_id = item.id_nguyen_vat_lieu.id_san_pham
-            dict_nvl = model_to_dict(item.id_nguyen_vat_lieu)
-            dict_nvl["so_luong_nguyen_vat_lieu"] = item.so_luong_nguyen_vat_lieu
-            orders[lenh_id][san_pham_id]["nguyen_vat_lieu"][nvl_id] = dict_nvl
+            if item.id_nguyen_vat_lieu.nhom_vthh != 'NVL - THÔ':
+                nvl_id = item.id_nguyen_vat_lieu.id_san_pham
+                dict_nvl = model_to_dict(item.id_nguyen_vat_lieu)
+                dict_nvl["so_luong_nguyen_vat_lieu"] = item.so_luong_nguyen_vat_lieu
+                orders[lenh_id][san_pham_id]["nguyen_vat_lieu"][nvl_id] = dict_nvl
     
     # Chuyển đổi sang list format bằng dictionary comprehension
     orders_list = {
