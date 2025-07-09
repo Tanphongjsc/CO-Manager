@@ -37,9 +37,6 @@ from docx.oxml import OxmlElement
 def dashboard(request):
     return render(request, 'dashboard.html', {})
 
-def orders(request):
-    return render(request, 'orders.html', {})
-
 def ctc_ledger(request):
     """Trang quản lý CTC (Chi tiết công việc)"""
     
