@@ -135,41 +135,6 @@
       margin: 3px 0;
     }
 
-    /* Ẩn nút in khi in */
-    @media print {
-      .no-print {
-        display: none !important;
-      }
-      .print-table th,
-      .print-table td {
-        border: 0.05pt solid #000 !important;
-        padding: 3pt !important;
-      }
-      
-      .print-footer {
-        margin-top: 8px;
-      }
-      
-      .signature {
-        margin-top: 8px;
-      }
-      
-      .signature-content .title-line {
-        margin: 8px 0 3px 0;
-      }
-      
-      .stamp-signature {
-        margin: 5px auto 0;
-        width: 180px;
-      }
-      
-      .note-section {
-        margin-top: 6px;
-        font-size: 12px;
-      }
-    }
-
-    /* Style nút in */
     .print-button {
       text-align: center;
       margin: 30px 0;
@@ -182,6 +147,77 @@
       border-radius: 4px;
       cursor: pointer;
       font-size: 14px;
+    }
+    
+    /* Tối ưu hóa cho việc in ấn */
+    @media print {
+      /* --- BẮT ĐẦU KHU VỰC CHỈNH SỬA --- */
+      /*
+        - Lề trang (margin) được đặt về 0 để người dùng có thể tự điều chỉnh
+          trong hộp thoại in (ví dụ: chọn "Mặc định", "Không có", "Tối thiểu").
+        - Thuộc tính 'size' đã được loại bỏ để người dùng tự chọn khổ giấy
+          và hướng in (dọc/ngang).
+      */
+      @page {
+        margin: 0; /* Loại bỏ lề trang do CSS kiểm soát. */
+        size: auto;  /* Để trình duyệt tự quyết định hoặc theo cài đặt người dùng. */
+      }
+
+      body {
+        margin: 0.1; /* Đảm bảo body không có lề riêng. */
+        line-height: 1.2;
+      }
+      
+      .no-print {
+        display: none !important;
+      }
+      
+      .print-title {
+        margin-bottom: 10px;
+      }
+
+      .info-section {
+        margin-bottom: 5px;
+      }
+      
+      .print-table {
+        margin-bottom: 5px;
+      }
+
+      .print-table th,
+      .print-table td {
+        border: 0.5px solid #000 !important;
+        padding: 1.5pt !important;
+        vertical-align: middle;
+      }
+      
+      .print-footer {
+        margin-top: 5px;
+        line-height: 1.2;
+      }
+
+      .print-footer p {
+        margin: 5px 0;
+      }
+      
+      .signature {
+        margin-top: 5px;
+      }
+      
+      .signature-content .title-line {
+        margin: 8px 0 3px 0;
+      }
+      
+      .stamp-signature {
+        margin: 5px auto 0;
+        width: 140px;
+      }
+      
+      .note-section {
+        margin-top: 5px;
+        font-size: 12px;
+      }
+      /* --- KẾT THÚC KHU VỰC CHỈNH SỬA --- */
     }
   </style>
 </head>

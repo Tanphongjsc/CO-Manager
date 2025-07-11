@@ -55,7 +55,7 @@
             </thead>
             <tbody>
                 {% for ctc_item in ctc_list %}
-                <tr>
+                <tr data-lenh-sx-id="{{ ctc_item.id_lenh_san_xuat_id|default_if_none:'' }}" data-san-pham-id="{{ ctc_item.id_san_pham.id_san_pham|default_if_none:'' }}">     {# Thêm data-lenh-sx-id và data-san-pham-id vào đây #}
                     <td>{{ ctc_item.id_bang_ke_ctc }}</td>
                     <td>{{ ctc_item.id_lenh_san_xuat_id|default_if_none:'' }}</td>
                     <td>{{ ctc_item.id_san_pham.ten_khac|default_if_none:'' }}</td>
@@ -201,5 +201,7 @@
 {% endblock %}
 
 {% block javascript %}
-    <script src="{% static 'js/ctc_management.js' %}"></script>
+    <script src="{% static 'js/ctc_core.js' %}"></script>
+    <script src="{% static 'js/ctc_data_handler.js' %}"></script>
+    <script src="{% static 'js/ctc_events.js' %}"></script>
 {% endblock %}
