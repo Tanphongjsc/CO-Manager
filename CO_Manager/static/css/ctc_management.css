@@ -279,6 +279,15 @@
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
+@media (min-width: 992px) {
+    /* * Sử dụng :has() để tìm mục .info-item chứa ô chọn #modal_id_san_pham.
+     * Thuộc tính 'grid-column: span 2' sẽ làm cho mục này chiếm chiều rộng của 2 cột trong grid.
+    */
+    .detail-info-grid .info-item:has(#modal_id_san_pham) {
+        grid-column: span 2;
+    }
+}
+
 /* === STYLES CHO VIEW/EDIT MODE TRONG MODAL FORM === */
 /* Edit mode styles */
 #ctcForm.edit-mode .form-control,
