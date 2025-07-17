@@ -1229,9 +1229,10 @@ def get_order_data_for_export(order_id, source_model=CtLenhSanXuatOriginal):
             total_quantity += product_qty
         
         # Cộng dồn NVL của từng sản phẩm
-        products_map[product_id]['materials'][item.id_nguyen_vat_lieu.id_san_pham] = {}
-        products_map[product_id]['materials'][item.id_nguyen_vat_lieu.id_san_pham]["name"] = material_name
-        products_map[product_id]['materials'][item.id_nguyen_vat_lieu.id_san_pham]["quantity"] = material_qty
+        products_map[product_id]['materials'][item.id_nguyen_vat_lieu.id_san_pham] = {
+            "name": material_name,
+            "quantity": material_qty
+        }
 
         # Cộng dồn tổng số lượng NVL theo từng nguyên vật liệu
         products_map[product_id]['total_materials'] += material_qty
@@ -1463,7 +1464,7 @@ def blending_ratios(request):
     # ======== 3. Trả về context cho template =========    
     context = {
         'blending_data': original_production_orders,
-        'unprocessed_order_ids': unprocessed_order_ids,
+        'unprocessed_order_ids': sorted(unprocessed_order_ids),
     }
     
     return render(request, 'blending_ratios.html', context)
@@ -1473,14 +1474,18 @@ def blending_ratios_detail(request, pk):
     """Hiển thị chi tiết tỉ lệ phối trộn cho một lệnh sản xuất cụ thể."""
 
     try:
+        # Lấy tham số 'mode' từ URL, nếu không có thì mặc định là 'edit'
+        mode = request.GET.get('mode', 'edit') 
+        
+        # Lấy dữ liệu lệnh sản xuất từ bảng gốc
         orders_data = get_order_data_for_export(pk, source_model=CtLenhSanXuat)
 
-        if orders_data:
+        if orders_data.get('order_items'):
             for item in orders_data['order_items']:
                 item['id_san_pham'] = item['id_san_pham'].id_san_pham  # Chuyển đổi sang id_san_pham
         
-        # Lấy tham số 'mode' từ URL, nếu không có thì mặc định là 'edit'
-        mode = request.GET.get('mode', 'edit') 
+        else:
+            return render(request, '404.html', {'error': 'Không tìm thấy dữ liệu cho lệnh sản xuất này.'})
 
     except Exception as e:
         # Xử lý lỗi nếu không tìm thấy đơn hàng
@@ -1513,7 +1518,7 @@ def blending_ratios_detail(request, pk):
 
 @require_POST
 @transaction.atomic
-def blending_ratios_update(request, pk):
+def blending_ratios_update_or_create(request, pk):
     """Cập nhật tỉ lệ phối trộn cho một lệnh sản xuất cụ thể."""
 
     try:
@@ -1553,8 +1558,85 @@ def blending_ratios_update(request, pk):
     return JsonResponse({'success': False, 'message': 'Không có dữ liệu để cập nhật!'}, status=400)
 
 
-def blending_ratios_create(request, pk=None):
-    return render(request, 'blending_ratios_create.html')
+def blending_ratios_create(request):
+    """View này CHỈ render template HTML ban đầu. Nó cung cấp danh sách LSX chưa xử lý cho dropdown và danh sách NVL cho JS."""
+    # Lấy danh sách các LSX chưa có trong bảng chính thức để điền vào dropdown
+    processed_ids = CtLenhSanXuat.objects.values_list('id_lenh_san_xuat_id', flat=True).distinct()
+    unprocessed_orders = LenhSanXuat.objects.exclude(id_lenh_san_xuat__in=processed_ids).order_by('-id_lenh_san_xuat')
+
+    # Lấy danh sách tất cả sản phẩm/vật tư có thể được thêm vào làm nguyên vật liệu
+    products = VatTu.objects.filter(
+        Q(loai_sp="Vật tư hàng hóa") & ~Q(nhom_vthh="NVL - THÔ")
+    ).order_by("ten_sp_chinh").values("id_san_pham", "ten_sp_chinh", "ten_khac")
+
+    # Chuẩn hóa tên để JS sử dụng
+    for p in products:
+        p['ten_khac'] = (p.get('ten_khac') or p.get('ten_sp_chinh')).strip().capitalize()
+
+    context = {
+        'unprocessed_orders': unprocessed_orders,
+        'products_json': json.dumps(list(products)),
+    }
+    
+    return render(request, 'blending_ratios_create.html', context)
+
+
+def blending_ratios_get_order_data_for_create(request):
+    """
+    Lấy dữ liệu của một LSX từ bảng gốc (Original) để tạo mới.
+    Được gọi bởi JavaScript khi người dùng chọn một LSX từ dropdown.
+    """
+    selected_lsx_id = request.GET.get('lsx_id', None)
+
+    if not selected_lsx_id:
+        return JsonResponse({'success': False, 'detail': 'Mã Lệnh sản xuất không được cung cấp.'}, status=400)
+    
+    try:
+        # Lấy dữ liệu đơn hàng từ bảng gốc CtLenhSanXuatOriginal
+        orders_data = get_order_data_for_export(selected_lsx_id, source_model=CtLenhSanXuatOriginal)
+
+        if not orders_data:
+             return JsonResponse({'success': False, 'detail': f'Không tìm thấy dữ liệu cho LSX ID: {selected_lsx_id}'}, status=404)
+
+        # Chuyển đổi đối tượng id_san_pham sang mã id_san_pham để JS có thể sử dụng
+        for item in orders_data['order_items']:
+            item['id_san_pham'] = item['id_san_pham'].id_san_pham 
+
+        # Thêm 'id_lenh_san_xuat' vào data để JS có thể dùng khi lưu
+        orders_data['id_lenh_san_xuat'] = int(selected_lsx_id)
+
+        return JsonResponse({
+            'success': True,
+            'data': orders_data,
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'detail': f'Đã có lỗi xảy ra: {str(e)}'}, status=500)
+
+
+@require_POST
+@transaction.atomic
+def blending_ratios_delete(request, pk):
+    """Xóa tỉ lệ phối trộn cho một lệnh sản xuất cụ thể."""
+
+    if not pk:
+        return JsonResponse({'success': False, 'message': 'Mã Lệnh sản xuất không được cung cấp.'}, status=400)
+    
+    try:
+        pk = int(pk)
+
+        # Lojc các bản ghi liên quan đến id_lenh_san_xuat
+        obj_ct_lenh_sx = CtLenhSanXuat.objects.filter(id_lenh_san_xuat=pk)
+        
+        if obj_ct_lenh_sx:
+            # Xóa tất cả các bản ghi liên quan
+            obj_ct_lenh_sx.delete()
+            return JsonResponse({'success': True, 'message': 'Xóa tỉ lệ phối trộn thành công!'})
+        
+        return JsonResponse({'success': False, 'message': 'Không tìm thấy tỉ lệ phối trộn nào để xóa.'}, status=404)
+    
+    except ValueError:  
+        return JsonResponse({'success': False, 'message': 'Mã Lệnh sản xuất không hợp lệ.'}, status=400)
 
 
 # ==================== HELPER FUNCTIONS ====================

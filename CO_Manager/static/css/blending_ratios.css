@@ -1,4 +1,4 @@
-/* blending_ratios.css (Phiên bản cuối cùng đã tối ưu) */
+/* blending_ratios.css */
 
 /* --- CÁC STYLE CHUNG --- */
 .module-title {
@@ -94,6 +94,20 @@
     background-color: #007bff;
     color: white;
 }
+
+/* ================================================================ */
+/* === CSS MỚI CHO NÚT XÓA === */
+/* ================================================================ */
+.btn-outline-danger {
+    color: #dc3545; /* Màu đỏ */
+    border: 1px solid #dc3545;
+    background-color: transparent;
+}
+.btn-outline-danger:hover {
+    background-color: #dc3545;
+    color: white;
+}
+
 
 /* --- 3. STYLE CHO THANH THÔNG BÁO --- */
 .notification-bar {

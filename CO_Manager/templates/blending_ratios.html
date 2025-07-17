@@ -28,7 +28,7 @@
             <span>
                 <strong>Thông báo:</strong> Các lệnh sản xuất sau chưa có tỉ lệ phối trộn:
                 {% for item in unprocessed_order_ids %}
-                    <a href="{% url 'blending_ratios_create' %}">{{ item|default_if_none:'' }}</a>{% if not forloop.last %}, {% endif %}
+                    <a href="{% url 'blending_ratios_create' %}?lsx_id={{ item }}">{{ item|default_if_none:'' }}</a>{% if not forloop.last %}, {% endif %}
                 {% endfor %}
                 Vui lòng tạo mới.
             </span>
@@ -67,6 +67,11 @@
                         <a href="{% url 'blending_ratios_detail' item.id_lenh_san_xuat %}?mode=edit" class="btn btn-sm btn-outline-primary">
                             <i class="fas fa-edit"></i> Sửa
                         </a>
+                        <button class="btn btn-sm btn-outline-danger btn-delete-ratio" 
+                                data-pk="{{ item.id_lenh_san_xuat }}" 
+                                title="Xóa tỉ lệ này">
+                            <i class="fas fa-trash-alt"></i> Xóa
+                        </button>
                     </div>
                 </td>
             </tr>

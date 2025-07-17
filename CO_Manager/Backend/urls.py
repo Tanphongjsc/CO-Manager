@@ -15,8 +15,9 @@ urlpatterns = [
     path('blendingratios/create/', views.blending_ratios_create, name='blending_ratios_create'),
 
     # API URLs for blending ratios
-    path('api/blendingratios/update/<int:pk>/', views.blending_ratios_update, name='api_blending_ratios_update'),
-    path('api/blendingratios/create/', views.blending_ratios_create, name='api_create_blending_ratio'),
+    path('api/blendingratios/update_or_create/<int:pk>/', views.blending_ratios_update_or_create, name='api_blending_ratios_update_or_create'),
+    path('api/blendingratios/get_order_data_for_create/', views.blending_ratios_get_order_data_for_create, name='api_blending_ratios_get_order_data_for_create'),
+    path('api/blendingratios/delete/<int:pk>/', views.blending_ratios_delete, name='api_blending_ratios_delete'),
 
     path("ctc/", views.ctc_ledger, name="ctc_ledger"),
     path("ctc/<str:pk>/", views.ctc_detail, name="ctc_detail"),

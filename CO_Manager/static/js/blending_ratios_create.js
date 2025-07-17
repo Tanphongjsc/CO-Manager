@@ -1,29 +1,31 @@
+// blending_ratios_create.js (Phiên bản hoàn chỉnh)
+
 document.addEventListener('DOMContentLoaded', function () {
-    // === KHU VỰC KHAI BÁO (Không thay đổi) ===
-    const initialDataElement = document.getElementById('initial-data');
-    if (!initialDataElement || !initialDataElement.textContent.trim()) {
-        alert('Lỗi: Không thể tải dữ liệu từ server.');
-        return;
-    }
-    let dataStore;
-    try {
-        dataStore = JSON.parse(initialDataElement.textContent);
-    } catch (e) {
-        alert('Lỗi: Dữ liệu từ server không hợp lệ.');
-        return;
-    }
-    const pageContainer = document.getElementById('blending-ratio-detail-page');
+    // === KHAI BÁO CÁC BIẾN VÀ DOM ELEMENTS ===
+    const lsxSelect = document.getElementById('lsx-select');
+    const mainContentWrapper = document.getElementById('main-content-wrapper');
+    const noDataPlaceholder = document.getElementById('no-data-placeholder');
+    const loadingSpinner = document.getElementById('loading-spinner');
     const editFormContainer = document.getElementById('edit-form-container');
     const previewTableBody = document.getElementById('preview-table-body');
     const materialHeaderRow = document.getElementById('material-header-row');
     const materialHeaderColspan = document.getElementById('material-header-colspan');
     const productSearchInput = document.getElementById('product-search-input');
+    const currentLsxIdSpan = document.getElementById('current-lsx-id');
+    const saveBtn = document.getElementById('save-btn');
+
+    let dataStore = {};
     let allPossibleMaterials = [];
     let originalGrandTotal = 0;
 
-    // === CÁC HÀM RENDER, TÍNH TOÁN, XỬ LÝ SỰ KIỆN (Không thay đổi) ===
-    function renderEditForm(){/*... Giữ nguyên ...*/
+    // === CÁC HÀM TIỆN ÍCH ===
+    const getCsrfToken = () => document.cookie.match(/csrftoken=([^;]+)/)?.[1] || null;
+    const formatNumber = (num) => new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 }).format(num || 0);
+
+    // === CÁC HÀM RENDER, TÍNH TOÁN (ĐỒNG BỘ LOGIC VỚI TRANG DETAIL) ===
+    function renderEditForm() {
         editFormContainer.innerHTML = '';
+        if (!dataStore.order_items) return;
         dataStore.order_items.forEach((item, itemIndex) => {
             const materialsHTML = Object.entries(item.materials)
                 .map(([materialId, materialData]) => `
@@ -74,26 +76,24 @@ document.addEventListener('DOMContentLoaded', function () {
             `;
             editFormContainer.appendChild(productCard);
         });
-
-        $('.add-material-select').select2({
-            placeholder: "-- Chọn hoặc nhập để thêm NVL --",
-            width: '100%',
-            allowClear: true
-        });
+        $('.add-material-select').select2({ placeholder: "-- Chọn để thêm NVL --", width: '100%', allowClear: true });
     }
-    function renderPreviewTable(){/*... Giữ nguyên ...*/
+
+    function renderPreviewTable() {
+        dataStore.material_types = dataStore.material_types || [];
         materialHeaderColspan.setAttribute('colspan', dataStore.material_types.length);
         materialHeaderRow.innerHTML = dataStore.material_types.map(name => `<th>${name}</th>`).join('');
+
         previewTableBody.innerHTML = '';
+        if (!dataStore.order_items) return;
         dataStore.order_items.forEach((item, index) => {
             const aggregatedMaterials = {};
-            for (const material of Object.values(item.materials)) {
+            Object.values(item.materials).forEach(material => {
                 aggregatedMaterials[material.name] = (aggregatedMaterials[material.name] || 0) + material.quantity;
-            }
-            const materialCellsHTML = dataStore.material_types.map(materialName =>
-                `<td>${formatNumber(aggregatedMaterials[materialName] || 0)}</td>`
-            ).join('');
-            const rowHTML = `
+            });
+            const materialCellsHTML = dataStore.material_types.map(materialName => `<td>${formatNumber(aggregatedMaterials[materialName] || 0)}</td>`).join('');
+            
+            previewTableBody.innerHTML += `
                 <tr>
                     <td>${index + 1}</td>
                     <td class="text-left col-product-name col-sticky">${item.ten_san_pham}</td>
@@ -102,47 +102,62 @@ document.addEventListener('DOMContentLoaded', function () {
                     ${materialCellsHTML}
                     <td>${formatNumber(item.total_materials)}</td>
                 </tr>`;
-            previewTableBody.innerHTML += rowHTML;
         });
+        
+        // LOGIC THAY ĐỔI MÀU SẮC
         const currentTotal = dataStore.total_quantity_nguyenlieu;
         const currentTotalEl = document.getElementById('current-grand-total-value');
         const currentTotalContainer = currentTotalEl.closest('.grand-total-container');
         currentTotalEl.textContent = formatNumber(currentTotal);
-        currentTotalContainer.style.color = ''; currentTotalEl.style.backgroundColor = ''; currentTotalEl.style.color = '';
+        
+        currentTotalContainer.style.color = '';
+        currentTotalEl.style.backgroundColor = ''; 
+        currentTotalEl.style.color = '';
+
         if (currentTotal > originalGrandTotal) {
-            currentTotalContainer.style.color = '#E65100'; currentTotalEl.style.backgroundColor = '#FFF3E0'; currentTotalEl.style.color = '#E65100';
+            currentTotalContainer.style.color = '#E65100'; // Orange
+            currentTotalEl.style.backgroundColor = '#FFF3E0';
+            currentTotalEl.style.color = '#E65100';
         } else if (currentTotal < originalGrandTotal) {
-            currentTotalContainer.style.color = '#D32F2F'; currentTotalEl.style.backgroundColor = '#FFEBEE'; currentTotalEl.style.color = '#D32F2F';
+            currentTotalContainer.style.color = '#D32F2F'; // Red
+            currentTotalEl.style.backgroundColor = '#FFEBEE';
+            currentTotalEl.style.color = '#D32F2F';
         } else {
-            currentTotalContainer.style.color = '#006064'; currentTotalEl.style.backgroundColor = '#E0F7FA'; currentTotalEl.style.color = '#006064';
+            currentTotalContainer.style.color = '#006064'; // Green/Cyan
+            currentTotalEl.style.backgroundColor = '#E0F7FA';
+            currentTotalEl.style.color = '#006064';
         }
     }
-    function recalculateAllData(){/*... Giữ nguyên ...*/
+
+    function recalculateAllData() {
         const allUsedMaterialNames = new Set();
+        if (!dataStore.order_items) return;
+        
         dataStore.order_items.forEach(item => {
-            for (const material of Object.values(item.materials)) {
-                allUsedMaterialNames.add(material.name);
-            }
+            Object.values(item.materials).forEach(material => allUsedMaterialNames.add(material.name));
         });
         dataStore.material_types = Array.from(allUsedMaterialNames).sort();
+        
+        let totalNguyenLieu = 0;
+        let totalSanPham = 0;
+        
         dataStore.order_items.forEach(item => {
-            item.total_materials = Object.values(item.materials).reduce((sum, material) => sum + material.quantity, 0);
+            item.total_materials = Object.values(item.materials).reduce((sum, material) => sum + (material.quantity || 0), 0);
+            totalNguyenLieu += item.total_materials;
+            totalSanPham += item.so_luong_san_pham;
         });
-        const grandTotalsByName = dataStore.material_types.reduce((acc, name) => ({ ...acc, [name]: 0 }), {});
-        dataStore.order_items.forEach(item => {
-            for (const material of Object.values(item.materials)) {
-                grandTotalsByName[material.name] += material.quantity;
-            }
-        });
-        dataStore.totals = grandTotalsByName;
-        dataStore.total_quantity_nguyenlieu = Object.values(grandTotalsByName).reduce((a, b) => a + b, 0);
-        dataStore.total_quantity_sanpham = dataStore.order_items.reduce((sum, item) => sum + item.so_luong_san_pham, 0);
+
+        dataStore.total_quantity_nguyenlieu = totalNguyenLieu;
+        dataStore.total_quantity_sanpham = totalSanPham;
     }
-    function handleInputChange(event){/*... Giữ nguyên ...*/
+
+    // === CÁC HÀM XỬ LÝ SỰ KIỆN ===
+    function handleInputChange(event) {
         const target = event.target;
         if (!target.matches('.product-quantity-input, .material-input, .product-notes-input')) return;
         const itemIndex = target.dataset.itemIndex;
         if (itemIndex === undefined) return;
+
         if (target.classList.contains('product-quantity-input')) {
             dataStore.order_items[itemIndex].so_luong_san_pham = parseFloat(target.value) || 0;
         } else if (target.classList.contains('material-input')) {
@@ -152,17 +167,18 @@ document.addEventListener('DOMContentLoaded', function () {
             }
         } else if (target.classList.contains('product-notes-input')) {
             dataStore.order_items[itemIndex].ghi_chu = target.value;
-            return; 
+            return; // Không cần tính toán lại khi chỉ thay đổi ghi chú
         }
         recalculateAllData();
         renderPreviewTable();
     }
-    function handleContainerClick(event){/*... Giữ nguyên ...*/
+
+    function handleContainerClick(event) {
         const deleteButton = event.target.closest('.delete-material-btn');
         if (!deleteButton) return;
         const { itemIndex, materialId } = deleteButton.dataset;
         const materialName = dataStore.order_items[itemIndex].materials[materialId]?.name || 'NVL này';
-        if (confirm(`Bạn có chắc chắn muốn xóa "${materialName}" (ID: ${materialId}) khỏi sản phẩm này?`)) {
+        if (confirm(`Bạn có chắc muốn xóa "${materialName}" khỏi sản phẩm này?`)) {
             delete dataStore.order_items[itemIndex].materials[materialId];
             recalculateAllData();
             renderEditForm();
@@ -170,21 +186,23 @@ document.addEventListener('DOMContentLoaded', function () {
             handleProductSearch();
         }
     }
-    $(document).on('select2:select', '.add-material-select', function(e){/*... Giữ nguyên ...*/
+    
+    $(document).on('select2:select', '.add-material-select', function(e) {
         const materialId = e.params.data.id;
-        const materialName = e.params.data.text;
         const itemIndex = $(this).data('item-index');
-        if (materialId && itemIndex > -1) {
-            dataStore.order_items[itemIndex].materials[materialId] = { name: materialName, quantity: 0 };
+        const selectedMaterial = allPossibleMaterials.find(m => m.id == materialId);
+        if (selectedMaterial && itemIndex > -1) {
+            dataStore.order_items[itemIndex].materials[materialId] = { name: selectedMaterial.text, quantity: 0 };
             recalculateAllData();
             renderEditForm();
             renderPreviewTable();
             handleProductSearch();
         }
     });
-    function handleProductSearch(){
-        // Logic tìm kiếm đã có sẵn và sẽ hoạt động khi có ô input
-        const searchTerm = productSearchInput.value.toLowerCase();
+
+    function handleProductSearch() {
+        if(!productSearchInput) return;
+        const searchTerm = productSearchInput.value.toLowerCase().trim();
         document.querySelectorAll('.product-card').forEach(card => {
             const isMatch = card.dataset.productName.includes(searchTerm);
             card.style.display = isMatch ? '' : 'none';
@@ -192,109 +210,109 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     async function handleSaveChanges() {
-        // ĐÃ THÊM: Hộp thoại xác nhận trước khi lưu
-        if (!confirm('Bạn có chắc chắn muốn lưu các thay đổi này không?')) {
-            return; // Dừng hàm nếu người dùng nhấn "Cancel"
-        }
-
-        const saveBtn = document.getElementById('save-btn');
-        const pk = dataStore.id_lenh_san_xuat;
-        if (!pk) {
-            alert('Lỗi: Không tìm thấy mã lệnh sản xuất.');
-            return;
-        }
-        const url = `/api/blendingratios/update_or_create/${pk}/`;
+        if (!confirm('Bạn có chắc chắn muốn lưu tỉ lệ phối trộn này không?')) return;
+        
         saveBtn.disabled = true;
         saveBtn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Đang lưu...`;
+
+        const pk = dataStore.id_lenh_san_xuat;
+        const url = `/api/blendingratios/update_or_create/${pk}/`;
+        
         try {
             const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
                 body: JSON.stringify(dataStore)
             });
-            if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.detail || `Lỗi server: ${response.status}`);
-            }
-            alert('Lưu thay đổi thành công!');
-            originalGrandTotal = dataStore.total_quantity_nguyenlieu;
-            document.getElementById('original-grand-total-value').textContent = formatNumber(originalGrandTotal);
-            renderPreviewTable();
+            const result = await response.json();
+            if (!response.ok) throw new Error(result.detail || 'Lỗi không xác định từ server.');
+            
+            alert('Lưu thành công! Đang chuyển hướng về trang danh sách...');
+            window.location.href = "/blendingratios/";
         } catch (error) {
-            console.error("Lỗi khi lưu thay đổi:", error);
-            alert(`Đã có lỗi xảy ra khi lưu: ${error.message}`);
-        } finally {
+            alert(`Lỗi khi lưu: ${error.message}`);
             saveBtn.disabled = false;
-            saveBtn.innerHTML = `<i class="fas fa-save"></i> Lưu thay đổi`;
+            saveBtn.innerHTML = `<i class="fas fa-save"></i> Lưu tỉ lệ`;
         }
     }
-    
-    function switchToEditMode(){/*... Giữ nguyên ...*/
-        pageContainer.dataset.mode = 'edit';
-        const switchToEditBtn = document.getElementById('switch-to-edit-btn');
-        if (switchToEditBtn) switchToEditBtn.style.display = 'none';
-        
-        let saveBtn = document.getElementById('save-btn');
-        if (!saveBtn) {
-            const saveButtonHtml = `<button id="save-btn" class="btn btn-success"><i class="fas fa-save"></i> Lưu thay đổi</button>`;
-            document.querySelector('.header-actions').insertAdjacentHTML('beforeend', saveButtonHtml);
-            saveBtn = document.getElementById('save-btn');
-            saveBtn.addEventListener('click', handleSaveChanges);
-        }
-        saveBtn.style.display = '';
 
-        const currentUrl = new URL(window.location);
-        currentUrl.searchParams.set('mode', 'edit');
-        window.history.pushState({}, '', currentUrl);
-        
-        $('.add-material-select').select2({
-            placeholder: "-- Chọn hoặc nhập để thêm NVL --",
-            width: '100%',
-            allowClear: true
-        });
+    // === HÀM LẤY DỮ LIỆU TỪ API ===
+    async function fetchOrderData(lsxId) {
+        mainContentWrapper.style.display = 'none';
+        noDataPlaceholder.style.display = 'none';
+        loadingSpinner.style.display = 'block';
+        $(lsxSelect).prop('disabled', true);
+
+        try {
+            const response = await fetch(`/api/blendingratios/get_order_data_for_create/?lsx_id=${lsxId}`);
+            const result = await response.json();
+
+            if (!result.success) {
+                throw new Error(result.detail);
+            }
+            
+            dataStore = result.data;
+            originalGrandTotal = dataStore.total_quantity_nguyenlieu || 0;
+            
+            initializeEditor();
+            mainContentWrapper.style.display = 'block';
+
+        } catch (error) {
+            alert(`Không thể tải dữ liệu cho LSX ${lsxId}: ${error.message}`);
+            noDataPlaceholder.style.display = 'block';
+        } finally {
+            loadingSpinner.style.display = 'none';
+            $(lsxSelect).prop('disabled', false);
+        }
     }
-    
-    const getCsrfToken = () => document.cookie.match(/csrftoken=([^;]+)/)?.[1] || null;
-    function formatNumber(num) {
-        return new Intl.NumberFormat('vi-VN', { maximumFractionDigits: 2 }).format(num || 0);
+
+    // === HÀM KHỞI TẠO CHÍNH ===
+    function initializeEditor() {
+        currentLsxIdSpan.textContent = dataStore.id_lenh_san_xuat;
+        document.getElementById('original-grand-total-value').textContent = formatNumber(originalGrandTotal);
+        renderEditForm();
+        renderPreviewTable();
     }
 
     function init() {
-        // ... (Phần init không thay đổi logic cốt lõi)
-        const productsDataElement = document.getElementById('products-data');
-        if (productsDataElement) {
-             try {
-                const productsFromView = JSON.parse(productsDataElement.textContent);
-                allPossibleMaterials = productsFromView.map(m => ({ id: m.id_san_pham, text: m.ten_khac })).sort((a,b) => a.text.localeCompare(b.text));
-             } catch(e) { console.error("Lỗi khi đọc dữ liệu sản phẩm từ view:", e); }
-        }
-        recalculateAllData();
-        originalGrandTotal = dataStore.total_quantity_nguyenlieu;
-        document.getElementById('original-grand-total-value').textContent = formatNumber(originalGrandTotal);
-        
-        renderEditForm();
-        renderPreviewTable();
-        
-        editFormContainer.addEventListener('input', handleInputChange);
-        editFormContainer.addEventListener('click', handleContainerClick);
-        productSearchInput.addEventListener('input', handleProductSearch); // Sẽ hoạt động khi có input
-
-        document.getElementById('back-btn').addEventListener('click', (e) => { e.preventDefault(); window.history.back(); });
-        document.getElementById('print-btn').addEventListener('click', () => window.print());
-        document.getElementById('export-btn').addEventListener('click', () => {
-            console.log("Dữ liệu để xuất Excel:", dataStore);
-            alert('Chức năng xuất Excel cần được xử lý ở phía backend.\nKiểm tra Console (F12).');
+        $(lsxSelect).select2({
+            placeholder: "-- Vui lòng chọn --",
+            allowClear: true
         });
 
-        const switchToEditBtn = document.getElementById('switch-to-edit-btn');
-        if (switchToEditBtn) {
-            switchToEditBtn.addEventListener('click', switchToEditMode);
+        const productsDataElement = document.getElementById('products-data');
+        if (productsDataElement && productsDataElement.textContent) {
+             try {
+                const productsFromView = JSON.parse(productsDataElement.textContent);
+                allPossibleMaterials = productsFromView.map(m => ({ id: m.id_san_pham, text: m.ten_khac }));
+             } catch(e) { console.error("Lỗi khi đọc dữ liệu sản phẩm:", e); }
         }
-        
-        const saveBtn = document.getElementById('save-btn');
-        if (saveBtn) {
-            saveBtn.addEventListener('click', handleSaveChanges);
+
+        $(lsxSelect).on('change', function() {
+            const selectedLsxId = this.value;
+            if (selectedLsxId) {
+                fetchOrderData(selectedLsxId);
+            } else {
+                mainContentWrapper.style.display = 'none';
+                noDataPlaceholder.style.display = 'block';
+            }
+        });
+
+        editFormContainer.addEventListener('input', handleInputChange);
+        editFormContainer.addEventListener('click', handleContainerClick);
+        productSearchInput.addEventListener('input', handleProductSearch);
+        saveBtn.addEventListener('click', handleSaveChanges);
+
+        // LOGIC TỰ ĐỘNG CHỌN KHI CÓ THAM SỐ TRÊN URL ===
+        const urlParams = new URLSearchParams(window.location.search);
+        const lsxIdFromUrl = urlParams.get('lsx_id');
+
+        if (lsxIdFromUrl) {
+            $(lsxSelect).val(lsxIdFromUrl);  // Cập nhật giá trị cho dropdown của Select2
+            
+            $(lsxSelect).trigger('change');  // Kích hoạt sự kiện 'change' để Select2 nhận giá trị mới và để hàm listener của chúng ta chạy và tải dữ liệu
         }
+
     }
 
     init();
