@@ -9,6 +9,15 @@ urlpatterns = [
     path('orders/<str:pk>/export/', views.orders_export, name='orders_export'),
     path('orders/sync-cloudify', views.orders_sync_cloudify, name='orders_sync_cloudify'),
 
+    # Blending Ratios URLs
+    path('blendingratios/', views.blending_ratios, name='blending_ratios'),
+    path('blendingratios/<int:pk>/', views.blending_ratios_detail, name='blending_ratios_detail'),
+    path('blendingratios/create/', views.blending_ratios_create, name='blending_ratios_create'),
+
+    # API URLs for blending ratios
+    path('api/blendingratios/update/<int:pk>/', views.blending_ratios_update, name='api_blending_ratios_update'),
+    path('api/blendingratios/create/', views.blending_ratios_create, name='api_create_blending_ratio'),
+
     path("ctc/", views.ctc_ledger, name="ctc_ledger"),
     path("ctc/<str:pk>/", views.ctc_detail, name="ctc_detail"),
     path("ctc/<str:pk>/export/", views.ctc_export, name="ctc_export"),
@@ -38,6 +47,7 @@ urlpatterns = [
     path('api/check_rollback_exist/', views.check_rollback_exist, name='check_rollback_exist'),
     path('api/rollback/delete/<int:pk>/', views.rollback_delete, name='rollback_delete'),
 
+    # API CTC URLs
     path('api/get_data_for_ctc_create/', views.get_data_for_ctc_create, name='get_data_for_ctc_create'),
     path("api/ctc/create/", views.ctc_create, name="ctc_create"),
     path("api/ctc/<str:pk>/update/", views.ctc_update, name="ctc_update"),

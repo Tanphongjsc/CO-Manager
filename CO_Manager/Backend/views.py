@@ -748,11 +748,14 @@ def users_delete(request):
 
 
 def product_management(request):
+    """API endpoint để lấy danh sách sản phẩm."""
+    
     products = VatTu.objects.all().order_by('id_san_pham')
     context = {
         'products': products,
     }
     return render(request, 'product_management.html', context)
+
 
 @require_POST
 def product_update(request):
@@ -962,7 +965,7 @@ def orders(request):
 
 def orders_detail(request, pk):
     # Truy vấn chi tiết đơn hàng từ cơ sở dữ liệu
-    order_items = CtLenhSanXuat.objects.filter(id_lenh_san_xuat=pk).select_related('id_san_pham', 'id_nguyen_vat_lieu', 'id_lenh_san_xuat')
+    order_items = CtLenhSanXuatOriginal.objects.filter(id_lenh_san_xuat=pk).select_related('id_san_pham', 'id_nguyen_vat_lieu', 'id_lenh_san_xuat')
     if not order_items.exists():
         return render(request, '404.html')
 
@@ -1174,7 +1177,7 @@ def orders_export(request, pk):
     
     # Lấy và tổ chức dữ liệu
     try:
-        order_data = get_order_data(pk)
+        order_data = get_order_data_for_export(pk)
     except Exception as e:
         return JsonResponse({'success': False, 'message': f'Dữ liệu thiếu hoặc không hợp lệ: {e}'}, status=400)
     
@@ -1187,11 +1190,11 @@ def orders_export(request, pk):
     else:
         return JsonResponse({'success': False, 'message': 'Format không hợp lệ!'}, status=400)
 
-def get_order_data(order_id):
+def get_order_data_for_export(order_id, source_model=CtLenhSanXuatOriginal):
     """Lấy và tổ chức dữ liệu lệnh sản xuất."""
     
     # Lấy chi tiết lệnh sản xuất
-    order_items = CtLenhSanXuat.objects.filter(
+    order_items = source_model.objects.filter(
         id_lenh_san_xuat=order_id
     ).filter(
         ~Q(id_nguyen_vat_lieu__nhom_vthh="NVL - THÔ")
@@ -1199,7 +1202,7 @@ def get_order_data(order_id):
 
     
     # Xác định danh sách nguyên liệu để làm header
-    material_types = sorted({obj.id_nguyen_vat_lieu.ten_khac if obj.id_nguyen_vat_lieu.ten_khac else obj.id_nguyen_vat_lieu.ten_sp_chinh for obj in order_items })
+    material_types = sorted({obj.id_nguyen_vat_lieu.ten_khac.strip().capitalize() if obj.id_nguyen_vat_lieu.ten_khac else obj.id_nguyen_vat_lieu.ten_sp_chinh.strip().capitalize() for obj in order_items })
 
     # Gom nhóm theo sản phẩm
     products_map = {}
@@ -1208,7 +1211,7 @@ def get_order_data(order_id):
     
     for item in order_items:
         product_id = item.id_san_pham.id_san_pham
-        material_name = item.id_nguyen_vat_lieu.ten_khac or item.id_nguyen_vat_lieu.ten_sp_chinh
+        material_name = (item.id_nguyen_vat_lieu.ten_khac.strip().capitalize() if item.id_nguyen_vat_lieu.ten_khac else None) or (item.id_nguyen_vat_lieu.ten_sp_chinh.strip().capitalize() if item.id_nguyen_vat_lieu.ten_sp_chinh else None)
         material_qty = item.so_luong_nguyen_vat_lieu or 0
         
         # Khởi tạo thông tin sản phẩm nếu chưa có
@@ -1217,14 +1220,20 @@ def get_order_data(order_id):
             products_map[product_id] = {
                 'ten_san_pham': item.ten_san_pham or item.id_san_pham.ten_khac,
                 'id_san_pham': item.id_san_pham,
+                'ma_hs': item.id_san_pham.ma_hs or '',
                 'so_luong_san_pham': product_qty,
                 'materials': defaultdict(float),
                 'total_materials': 0.0,
+                'ghi_chu': item.ghi_chu or '',
             }
             total_quantity += product_qty
         
-        # Cộng dồn NVL
-        products_map[product_id]['materials'][material_name] += material_qty
+        # Cộng dồn NVL của từng sản phẩm
+        products_map[product_id]['materials'][item.id_nguyen_vat_lieu.id_san_pham] = {}
+        products_map[product_id]['materials'][item.id_nguyen_vat_lieu.id_san_pham]["name"] = material_name
+        products_map[product_id]['materials'][item.id_nguyen_vat_lieu.id_san_pham]["quantity"] = material_qty
+
+        # Cộng dồn tổng số lượng NVL theo từng nguyên vật liệu
         products_map[product_id]['total_materials'] += material_qty
         material_totals[material_name] += material_qty
     
@@ -1414,6 +1423,139 @@ def apply_cell_style(cell, font=None, border=None, align=None, fill=None, number
     if align: cell.alignment = align
     if fill: cell.fill = fill
     if number_format and cell.value is not None: cell.number_format = number_format
+
+
+# ==================== BLENDING RATIOS ====================
+def blending_ratios(request):
+    # ====== 1. Lấy dữ liệu từ bảng gốc kèm thông tin đơn hàng trong 1 query =========
+    original_production_orders = CtLenhSanXuatOriginal.objects.select_related(
+        'id_lenh_san_xuat'  # Join với bảng LenhSanXuat
+    ).values(
+        'id_lenh_san_xuat',
+        'id_lenh_san_xuat__id_don_hang',  # Lấy luôn id_don_hang từ bảng join
+    ).annotate(
+        total_san_pham=models.Count('id_san_pham', distinct=True),
+        total_nguyen_vat_lieu=models.Sum(
+            # Tính tổng các nguyên vật liệu "ngoại trừ" nhóm VTHH 'NVL - THÔ'
+            'so_luong_nguyen_vat_lieu',
+            filter=~models.Q(id_nguyen_vat_lieu__nhom_vthh='NVL - THÔ')
+        )
+    ).order_by('-id_lenh_san_xuat')
+    
+    # Lấy danh sách id_lenh_san_xuat từ bảng gốc
+    original_order_ids = set(item['id_lenh_san_xuat'] for item in original_production_orders)
+
+    # Lấy ra list các id_lenh_san_xuat đã được tạo tỉ lệ phối trộn
+    processed_order_ids = set(CtLenhSanXuat.objects.values_list('id_lenh_san_xuat', flat=True).distinct())
+    
+    # Lấy ra những id có trong bảng gốc nhưng chưa được tạo tỉ lệ phối trộn
+    unprocessed_order_ids = original_order_ids - processed_order_ids
+    
+    # ======== 2. Định dạng lại id_don_hang cho hiển thị (xử lý trực tiếp trong data) ========
+    for item in original_production_orders:
+        id_don_hang = item.get('id_lenh_san_xuat__id_don_hang')
+        if id_don_hang:
+            len_id = len(str(id_don_hang))
+            item['formatted_id_don_hang'] = f"ĐH{'0'*(6-len_id)}{int(id_don_hang)-1}"
+        else:
+            item['formatted_id_don_hang'] = None
+    
+    # ======== 3. Trả về context cho template =========    
+    context = {
+        'blending_data': original_production_orders,
+        'unprocessed_order_ids': unprocessed_order_ids,
+    }
+    
+    return render(request, 'blending_ratios.html', context)
+
+
+def blending_ratios_detail(request, pk):
+    """Hiển thị chi tiết tỉ lệ phối trộn cho một lệnh sản xuất cụ thể."""
+
+    try:
+        orders_data = get_order_data_for_export(pk, source_model=CtLenhSanXuat)
+
+        if orders_data:
+            for item in orders_data['order_items']:
+                item['id_san_pham'] = item['id_san_pham'].id_san_pham  # Chuyển đổi sang id_san_pham
+        
+        # Lấy tham số 'mode' từ URL, nếu không có thì mặc định là 'edit'
+        mode = request.GET.get('mode', 'edit') 
+
+    except Exception as e:
+        # Xử lý lỗi nếu không tìm thấy đơn hàng
+        print(f"Error fetching order data: {e}")
+        return render(request, '404.html', {'error': str(e)})
+    
+    #  Lấy ra dữ liệu các sản phẩm vật từ phù hợp 
+    products = VatTu.objects.filter(
+        Q(loai_sp="Vật tư hàng hóa") & ~Q(nhom_vthh="NVL - THÔ")
+    ).order_by("id_san_pham").values("id_san_pham", "ten_sp_chinh", "ten_khac", "ma_hs")
+    
+    # Thêm thông tin cho các sản phẩm chưa có tên khác
+    for product in products:
+        if not product.get("ten_khac"):
+            product["ten_khac"] = product.get("ten_sp_chinh").strip().capitalize()
+        else:
+            product["ten_khac"] = product.get("ten_khac").strip().capitalize()
+
+    # Thêm 'id_lenh_san_xuat' vào data để JS có thể truy cập
+    orders_data['id_lenh_san_xuat'] = pk
+    
+    context = {
+        'initial_data_json': json.dumps(orders_data, default=str), # Dùng default=str để xử lý các kiểu dữ liệu phức tạp như Decimal, Datetime
+        'id_lenh_san_xuat': pk, # Vẫn truyền riêng để dùng cho tiêu đề trang
+        'products': list(products),  # Danh sách sản phẩm vật tư
+        'mode': mode,  # Chế độ hiển thị: 'edit' hoặc 'view'
+    }
+    
+    return render(request, 'blending_ratios_detail.html', context)
+
+@require_POST
+@transaction.atomic
+def blending_ratios_update(request, pk):
+    """Cập nhật tỉ lệ phối trộn cho một lệnh sản xuất cụ thể."""
+
+    try:
+        pk = int(pk)  # Chuyển pk sang int nếu cần thiết
+        data = json.loads(request.body)
+    
+    except (ValueError, json.JSONDecodeError) as e:
+        return JsonResponse({'success': False, 'message': f'Lỗi dữ liệu: {str(e)}'}, status=400)
+    
+    # Xoas dữ liệu cũ trước khi cập nhật theo pk
+    CtLenhSanXuat.objects.filter(id_lenh_san_xuat=pk).delete()
+
+    # Chuẩn bị dữ liệu để bulk_create
+    objects_to_create = []
+    for produdct in data.get("order_items", []):
+        for material_id, material_value in produdct.get("materials", {}).items():
+            
+            # Tạo đối tượng CtLenhSanXuat cho từng sản phẩm và nguyên vật liệu
+            object_ct_lenh_sx = CtLenhSanXuat(
+                id_lenh_san_xuat_id=pk,
+                id_san_pham_id=produdct.get("id_san_pham"),
+                ten_san_pham=produdct.get("ten_san_pham"),
+                so_luong_san_pham=produdct.get("so_luong_san_pham"),
+                id_nguyen_vat_lieu_id=material_id,
+                so_luong_nguyen_vat_lieu=material_value.get("quantity"),
+                ghi_chu=produdct.get("ghi_chu", None)
+            )
+
+            # Thêm các bản obj vào list để bulk_create
+            objects_to_create.append(object_ct_lenh_sx)
+
+    # Thực hiện bulk_create để thêm tất cả các đối tượng vào database
+    if objects_to_create:
+        CtLenhSanXuat.objects.bulk_create(objects_to_create)
+        return JsonResponse({'success': True, 'message': 'Cập nhật tỉ lệ phối trộn thành công!'})
+    
+    return JsonResponse({'success': False, 'message': 'Không có dữ liệu để cập nhật!'}, status=400)
+
+
+def blending_ratios_create(request, pk=None):
+    return render(request, 'blending_ratios_create.html')
+
 
 # ==================== HELPER FUNCTIONS ====================
 def _get_vat_tu_info(id_san_pham):
