@@ -7,7 +7,6 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>BẢNG TỈ LỆ PHỐI TRỘN</title>
   {% load static %}
-  <link rel="stylesheet" href="{% static 'css/print.css' %}" media="print">
   <style>
     /* --- CSS CƠ BẢN --- */
     * {
@@ -22,12 +21,7 @@
       text-align: justify;
       margin: 0;
     }
-
-    /* --- BEGIN MAJOR CHANGES --- */
     
-    /* THAY ĐỔI 1: SỬ DỤNG @page ĐỂ KIỂM SOÁT LỀ IN */
-    /* Đây là cách làm chuẩn và đáng tin cậy nhất để đảm bảo lề đồng đều
-       trên MỌI trang giấy, bất kể khổ dọc hay ngang và khi ngắt trang. */
     @page {
       size: auto; /* Cho phép người dùng chọn khổ giấy A4, A3, Letter... */
       margin: 0.7cm; /* Đặt lề đều 0.7cm cho cả 4 cạnh (trên, dưới, trái, phải) */
@@ -40,7 +34,7 @@
         padding: 0;
       }
 
-      /* THAY ĐỔI 2: Đảm bảo bảng không bị tràn ra ngoài lề */
+      /* Đảm bảo bảng không bị tràn ra ngoài lề */
       .print-table {
         width: 100%;
         max-width: 100%; /* Rất quan trọng: Ngăn bảng rộng hơn vùng in */
@@ -55,10 +49,6 @@
       }
     }
     
-    /* --- END MAJOR CHANGES --- */
-
-
-    /* --- CÁC STYLE KHÁC GIỮ NGUYÊN --- */
     .company-info {
       margin-bottom: 15px;
     }
@@ -199,15 +189,19 @@
       <tr>
         <td>{{ forloop.counter }}</td>
         <td style="text-align: left; width: 35%">{{ item.ten_san_pham }}</td>
-        <td>{{ item.id_san_pham.ma_hs }}</td>
+        
+        {# MODIFIED: Access ma_hs directly from the item #}
+        <td>{{ item.ma_hs }}</td>
+        
         <td>{{ item.so_luong_san_pham|floatformat:2|intcomma }}</td>
         
+        {# MODIFIED: Updated logic to handle the new nested material structure #}
         {% for material_type in material_types %}
           <td>
-            {% for key, value in item.materials.items %}
-              {% if key == material_type %}
-                {{ value|default_if_none:''|floatformat:2|intcomma }}
-              {% endif %}
+            {% for material_data in item.materials.values %}
+                {% if material_data.name == material_type %}
+                    {{ material_data.quantity|default_if_none:''|floatformat:2|intcomma }}
+                {% endif %}
             {% endfor %}
           </td>
         {% endfor %}
@@ -220,6 +214,7 @@
         <td colspan="3">Tổng cộng</td>
         <td>{{ total_quantity_sanpham|floatformat:2|intcomma }}</td>
         
+        {# UNCHANGED: This part works correctly with the `totals` dictionary structure #}
         {% for material_type in material_types %}
           <td>
             {% for key, value in totals.items %}

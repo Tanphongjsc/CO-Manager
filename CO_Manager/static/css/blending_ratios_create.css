@@ -239,21 +239,10 @@
 .btn-secondary:hover { background-color: #5a6268; }
 @media (max-width: 1200px) { .module-content { height: auto; } .page-grid { grid-template-columns: 1fr; } .edit-panel { max-height: 60vh; } }
 
-/* --- THAY ĐỔI: LOGIC CHO CHẾ ĐỘ XEM (VIEW MODE) --- */
-
-/* Khi ở chế độ 'view', panel chỉnh sửa bên trái sẽ bị ẩn đi */
-[data-mode="view"] .edit-panel {
-    display: none;
-}
-
-/* Khi ở chế độ 'view', lưới chỉ còn 1 cột và panel xem trước sẽ chiếm toàn bộ chiều rộng */
-[data-mode="view"] .page-grid {
-    grid-template-columns: 1fr;
-}
 
 
 
-/* Thêm style cho các thành phần mới của trang Create */
+/* --- 7. THÊM STYLE CHO CÁC THÀNH PHẦN MỚI CỦA TRANG CREATE */
 .lsx-selector-container {
     background-color: #fff;
     padding: 1.5rem;
@@ -289,4 +278,31 @@
 .no-data-placeholder i {
     font-size: 3rem;
     margin-bottom: 1rem;
+}
+
+/* --- STYLE CHO THANH ĐIỀU KHIỂN TRÊN CÙNG --- */
+.top-bar-container {
+    display: flex;
+    justify-content: space-between; /* Đẩy các mục về hai phía */
+    align-items: center; /* Căn giữa theo chiều dọc */
+    margin-bottom: 25px;
+    padding-bottom: 25px;
+    border-bottom: 1px solid #e0e0e0; /* Đường kẻ phân cách */
+}
+
+.selector-group {
+    display: flex;
+    align-items: center;
+    gap: 12px; /* Khoảng cách giữa nhãn và dropdown */
+}
+
+.selector-group label {
+    font-weight: 600;
+    margin-bottom: 0; /* Ghi đè margin mặc định của label */
+    white-space: nowrap; /* Tránh label bị xuống dòng */
+}
+
+/* Tùy chỉnh chiều rộng cho dropdown của Select2 */
+.selector-group .select2-container {
+    width: 250px !important;
 }

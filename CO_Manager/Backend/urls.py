@@ -6,7 +6,7 @@ urlpatterns = [
     
     path('orders/', views.orders, name='orders'),
     path('orders/<str:pk>/', views.orders_detail, name='orders_detail'),
-    path('orders/<str:pk>/export/', views.orders_export, name='orders_export'),
+    path('orders/<str:pk>/export/', views.orders_export_original, name='orders_export_original'),
     path('orders/sync-cloudify', views.orders_sync_cloudify, name='orders_sync_cloudify'),
 
     # Blending Ratios URLs
@@ -18,6 +18,7 @@ urlpatterns = [
     path('api/blendingratios/update_or_create/<int:pk>/', views.blending_ratios_update_or_create, name='api_blending_ratios_update_or_create'),
     path('api/blendingratios/get_order_data_for_create/', views.blending_ratios_get_order_data_for_create, name='api_blending_ratios_get_order_data_for_create'),
     path('api/blendingratios/delete/<int:pk>/', views.blending_ratios_delete, name='api_blending_ratios_delete'),
+    path('api/blendingratios/export/<int:pk>/', views.blending_ratios_export, name='api_blending_ratios_export'),
 
     path("ctc/", views.ctc_ledger, name="ctc_ledger"),
     path("ctc/<str:pk>/", views.ctc_detail, name="ctc_detail"),

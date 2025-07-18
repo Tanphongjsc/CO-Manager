@@ -1171,7 +1171,7 @@ def orders_sync_cloudify(request):
         }, status=500)
 
 
-def orders_export(request, pk):
+def orders_export_original(request, pk):
     """Xuất báo cáo tỉ lệ phối trộn theo định dạng PDF hoặc Excel."""
     export_format = request.GET.get('format', '').lower()
     
@@ -1252,13 +1252,14 @@ def get_order_data_for_export(order_id, source_model=CtLenhSanXuatOriginal):
 
 def create_ti_le_dau_tron_excel_response(order_id, data):
     """Tạo file Excel báo cáo tỉ lệ phối trộn."""
+
     wb = Workbook()
     ws = wb.active
-    
+
     # Thiết lập styles cho Excel
     styles = {
-        'border': Border(left=Side(style='thin'), right=Side(style='thin'), 
-                        top=Side(style='thin'), bottom=Side(style='thin')),
+        'border': Border(left=Side(style='thin'), right=Side(style='thin'),
+                         top=Side(style='thin'), bottom=Side(style='thin')),
         'fill': PatternFill(start_color="F0F0F0", end_color="F0F0F0", fill_type="solid"),
         'base_font': Font(name='Times New Roman', size=12),
         'bold_font': Font(name='Times New Roman', size=12, bold=True),
@@ -1266,149 +1267,139 @@ def create_ti_le_dau_tron_excel_response(order_id, data):
         'center': Alignment(horizontal='center', vertical='center'),
         'right': Alignment(horizontal='right')
     }
-    
+
     # ===== PHẦN 1: THÔNG TIN CÔNG TY =====
     company_info = [
-        "CÔNG TY CỔ PHẦN TÂN PHONG", 
-        "Địa chỉ: Thị Trấn Hùng Sơn, Huyện Lâm Thao, Tỉnh Phú Thọ", 
-        "Điện thoại: 0210 221 5277", 
+        "CÔNG TY CỔ PHẦN TÂN PHONG",
+        "Địa chỉ: Thị Trấn Hùng Sơn, Huyện Lâm Thao, Tỉnh Phú Thọ",
+        "Điện thoại: 0210 221 5277",
         "Mã số thuế: 2600274542"
     ]
     for i, info in enumerate(company_info):
-        cell = ws.cell(row=i+1, column=1, value=info)
+        cell = ws.cell(row=i + 1, column=1, value=info)
         cell.font = styles['bold_font'] if i == 0 else styles['base_font']
-    
+
     # ===== PHẦN 2: TIÊU ĐỀ VÀ HEADER =====
     material_types = data['material_types']
     total_cols = len(material_types) + 5  # Tổng số cột
-    
-    # Tiêu đề bảng
+
     ws.merge_cells(start_row=6, start_column=1, end_row=6, end_column=total_cols)
     title_cell = ws.cell(row=6, column=1, value="BẢNG TỈ LỆ PHỐI TRỘN CÁC MẶT HÀNG CHÈ")
     apply_cell_style(title_cell, font=styles['title_font'], align=styles['center'])
 
-    # Header dòng 1
     headers = ["STT", "Tên Hàng Hoá", "Mã HS", "Số lượng", "Thành phần"] + material_types[1:] + ["Tổng cộng"]
     for i, header in enumerate(headers, 1):
         if header:
             cell = ws.cell(row=7, column=i, value=header)
-            apply_cell_style(cell, font=styles['bold_font'], border=styles['border'], 
-                         align=styles['center'], fill=styles['fill'])
+            apply_cell_style(cell, font=styles['bold_font'], border=styles['border'],
+                             align=styles['center'], fill=styles['fill'])
 
-    # Merge cột thành phần
     ws.merge_cells(start_row=7, start_column=5, end_row=7, end_column=5 + len(material_types) - 1)
 
-    # Header dòng 2 (thành phần chi tiết)
     for i, material in enumerate(material_types):
-        cell = ws.cell(row=8, column=i+5, value=material)
-        apply_cell_style(cell, font=styles['bold_font'], border=styles['border'], 
-                     align=styles['center'], fill=styles['fill'])
+        cell = ws.cell(row=8, column=i + 5, value=material)
+        apply_cell_style(cell, font=styles['bold_font'], border=styles['border'],
+                         align=styles['center'], fill=styles['fill'])
 
-    # Merge các cột cơ bản
     for col in [1, 2, 3, 4, len(headers)]:
         ws.merge_cells(start_row=7, start_column=col, end_row=8, end_column=col)
-    
+
     # ===== PHẦN 3: DỮ LIỆU SẢN PHẨM =====
-    material_cols = {m: i+5 for i, m in enumerate(material_types)}
+    material_cols = {m: i + 5 for i, m in enumerate(material_types)}
     start_row = 9
     order_items = data['order_items']
-    
+
     for row_idx, item in enumerate(order_items, start_row):
-        # STT, Tên HH, Mã HS, Số lượng
         basic_cells = [
-            (1, row_idx-start_row+1),
+            (1, row_idx - start_row + 1),
             (2, item['ten_san_pham']),
             (3, item['id_san_pham'].ma_hs),
             (4, item['so_luong_san_pham'])
         ]
-        
         for col, value in basic_cells:
             cell = ws.cell(row=row_idx, column=col, value=value)
             number_format = '#,##0.00' if col == 4 else None
+            apply_cell_style(cell, font=styles['base_font'], border=styles['border'],
+                             align=styles['center'], number_format=number_format)
+
+        for mat_name, col_idx in material_cols.items():
+            quantity = None  # Đặt giá trị mặc định là None
+
+            # Lặp qua cấu trúc materials mới để tìm đúng số lượng
+            for material_data in item.get('materials', {}).values():
+                if material_data.get('name') == mat_name:
+                    quantity = material_data.get('quantity')
+                    break  # Dừng tìm kiếm khi đã thấy
+
+            cell = ws.cell(row=row_idx, column=col_idx, value=quantity)
             apply_cell_style(cell, font=styles['base_font'], border=styles['border'], 
-                         align=styles['center'], number_format=number_format)
-        
-        # Nguyên liệu
-        for mat, col in material_cols.items():
-            val = item['materials'].get(mat)
-            cell = ws.cell(row=row_idx, column=col, value=val)
-            apply_cell_style(cell, font=styles['base_font'], border=styles['border'], 
-                         align=styles['center'], number_format='#,##0.00' if val is not None else None)
-        
-        # Tổng cộng
-        cell = ws.cell(row=row_idx, column=total_cols, value=item['total_materials'])
+                            align=styles['center'], number_format='#,##0.00' if quantity is not None else None)
+
+        # Điền giá trị cho cột "Tổng cộng" cuối mỗi dòng sản phẩm
+        cell = ws.cell(row=row_idx, column=total_cols, value=item.get('total_materials'))
         apply_cell_style(cell, font=styles['base_font'], border=styles['border'], 
-                     align=styles['center'], number_format='#,##0.00')
-    
+                        align=styles['center'], number_format='#,##0.00')
+
+
     # ===== PHẦN 4: DÒNG TỔNG CỘNG =====
     total_row = start_row + len(order_items)
-    
-    # Tiêu đề "Tổng cộng"
+
     cell = ws.cell(row=total_row, column=1, value="Tổng cộng")
     apply_cell_style(cell, font=styles['bold_font'], border=styles['border'], align=styles['center'])
     ws.merge_cells(start_row=total_row, start_column=1, end_row=total_row, end_column=3)
 
-    # Tổng số lượng sản phẩm
     cell = ws.cell(row=total_row, column=4, value=data['total_quantity_sanpham'])
-    apply_cell_style(cell, font=styles['bold_font'], border=styles['border'], 
-                 align=styles['center'], number_format='#,##0.00')
+    apply_cell_style(cell, font=styles['bold_font'], border=styles['border'],
+                     align=styles['center'], number_format='#,##0.00')
 
-    # Tổng lượng nguyên liệu
     for key, col in material_cols.items():
         cell = ws.cell(row=total_row, column=col, value=data['totals'].get(key))
-        apply_cell_style(cell, font=styles['bold_font'], border=styles['border'], 
-                     align=styles['center'], number_format='#,##0.00')
-    
-    # Tổng cộng cuối cùng
+        apply_cell_style(cell, font=styles['bold_font'], border=styles['border'],
+                         align=styles['center'], number_format='#,##0.00')
+
     cell = ws.cell(row=total_row, column=total_cols, value=data['total_quantity_nguyenlieu'])
-    apply_cell_style(cell, font=styles['bold_font'], border=styles['border'], 
-                 align=styles['center'], number_format='#,##0.00')
-    
+    apply_cell_style(cell, font=styles['bold_font'], border=styles['border'],
+                     align=styles['center'], number_format='#,##0.00')
+
     # ===== PHẦN 5: CHỮ KÝ VÀ CAM KẾT =====
     sig_row = total_row + 3
     today = data['today']
 
-    # Cam kết
-    commitment = "Công ty cam kết số liệu, thông tin khai báo trên là đúng và chịu trách nhiệm trước pháp luật về thông tin, số liệu đã khai."
+    commitment = (
+        "Công ty cam kết số liệu, thông tin khai báo trên là đúng và chịu trách nhiệm trước pháp luật về thông tin, số liệu đã khai."
+    )
     cell = ws.cell(row=sig_row, column=1, value=commitment)
     cell.font = styles['base_font']
     ws.merge_cells(start_row=sig_row, start_column=1, end_row=sig_row, end_column=total_cols)
 
-    # Ngày tháng, người đại diện, chỗ ký
     signatures = [
-        (sig_row+2, total_cols-1, f"Ngày {today.day} tháng {today.month} năm {today.year}", 
-         styles['base_font']),
-        (sig_row+4, total_cols, "NGƯỜI ĐẠI DIỆN THEO PHÁP LUẬT CỦA THƯƠNG NHÂN", 
-         styles['bold_font']),
-        (sig_row+6, total_cols-1, "(Ký, đóng dấu, ghi rõ họ, tên)", 
-         styles['base_font'])
+        (sig_row + 2, total_cols - 1, f"Ngày {today.day} tháng {today.month} năm {today.year}", styles['base_font']),
+        (sig_row + 4, total_cols, "NGƯỜI ĐẠI DIỆN THEO PHÁP LUẬT CỦA THƯƠNG NHÂN", styles['bold_font']),
+        (sig_row + 6, total_cols - 1, "(Ký, đóng dấu, ghi rõ họ, tên)", styles['base_font'])
     ]
-
     for row, col, text, font in signatures:
         cell = ws.cell(row=row, column=col, value=text)
         apply_cell_style(cell, font=font, align=styles['right'])
-    
+
     # ===== PHẦN 6: ĐIỀU CHỈNH CHIỀU RỘNG CỘT =====
-    # Chỉ xem xét các dòng quan trọng để tối ưu hiệu suất
     for column in ws.columns:
         max_length = 0
         column_letter = get_column_letter(column[0].column)
-        
-        for cell in column[6:6+len(order_items)]:  # Chỉ kiểm tra các dòng header và một vài dòng đầu tiên
+
+        for cell in column[6:6 + len(order_items)]:
             try:
                 cell_length = len(str(cell.value)) if cell.value else 0
-                if cell_length > max_length:
-                    max_length = cell_length
+                max_length = max(max_length, cell_length)
             except:
                 pass
-        
+
         ws.column_dimensions[column_letter].width = max_length + 3
-    
+
     # ===== TẠO RESPONSE =====
     output = BytesIO()
     wb.save(output)
     output.seek(0)
-    
+
     filename = f"Lenh_SX_{order_id}_{today.strftime('%Y-%m-%d')}.xlsx"
     response = HttpResponse(
         output.getvalue(),
@@ -1637,6 +1628,35 @@ def blending_ratios_delete(request, pk):
     
     except ValueError:  
         return JsonResponse({'success': False, 'message': 'Mã Lệnh sản xuất không hợp lệ.'}, status=400)
+
+
+def blending_ratios_export(request, pk):
+    """Export tỉ lệ phối trộn cho một lệnh sản xuất cụ thể."""
+
+    # Lấy định dạng xuất từ query params, mặc định là 'pdf'
+    format_type = request.GET.get('format', 'pdf').lower()
+
+    # Lấy dữ liệu lệnh sản xuất từ bảng CtLenhSanXuat (không phải gốc)
+    try:
+        data_export = get_order_data_for_export(pk, source_model=CtLenhSanXuat)
+    
+        if not data_export:
+            return JsonResponse({'success': False, 'message': 'Không có dữ liệu để xuất!'}, status=404)
+    
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Lỗi khi lấy dữ liệu: {str(e)}'}, status=500)
+
+    # Thêm ngày hiện tại vào context
+    context = {**data_export, 'today': timezone.now()}
+
+    if format_type == 'pdf':
+        return render(request, 'form/ti_le_dau_tron_pdf.html', context)
+    elif format_type == 'excel':
+        return create_ti_le_dau_tron_excel_response(pk, context)
+    else: 
+        return JsonResponse({'success': False, 'message': 'Định dạng xuất không hợp lệ!'}, status=400)
+        
+
 
 
 # ==================== HELPER FUNCTIONS ====================

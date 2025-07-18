@@ -280,10 +280,15 @@ document.addEventListener('DOMContentLoaded', function () {
         productSearchInput.addEventListener('input', handleProductSearch); // Sẽ hoạt động khi có input
 
         document.getElementById('back-btn').addEventListener('click', (e) => { e.preventDefault(); window.history.back(); });
-        document.getElementById('print-btn').addEventListener('click', () => window.print());
+        document.getElementById('print-btn').addEventListener('click', () => {
+            callExportApi('pdf');
+        });
         document.getElementById('export-btn').addEventListener('click', () => {
-            console.log("Dữ liệu để xuất Excel:", dataStore);
-            alert('Chức năng xuất Excel cần được xử lý ở phía backend.\nKiểm tra Console (F12).');
+            const pk = dataStore.id_lenh_san_xuat;
+            const url = `/api/blendingratios/export/${pk}/?format=excel`;
+            
+            // Thay đổi: Sử dụng window.location.href để tải file mà không mở tab mới
+            window.location.href = url;
         });
 
         const switchToEditBtn = document.getElementById('switch-to-edit-btn');
@@ -294,6 +299,33 @@ document.addEventListener('DOMContentLoaded', function () {
         const saveBtn = document.getElementById('save-btn');
         if (saveBtn) {
             saveBtn.addEventListener('click', handleSaveChanges);
+        }
+
+        // Hàm để gọi API xuất dữ liệu
+        async function callExportApi(format) {
+
+            try {
+                const pk = dataStore.id_lenh_san_xuat;
+                const response = await fetch(`/api/blendingratios/export/${pk}/?format=${format}`);
+                
+                if (!response.ok) throw new Error(`HTTP error ${response.status}`);
+                
+                const html = await response.text();
+                const printWindow = window.open('', '_blank');
+                
+                if (!printWindow) {
+                    alert('Vui lòng cho phép pop-up và thử lại.');
+                    return;
+                }
+                
+                printWindow.document.write(html);
+                printWindow.document.close();
+                printWindow.onload = () => printWindow.print();
+
+            } catch (error) {
+                console.error('Lỗi khi tạo bản in:', error);
+                alert('Không thể tạo bản PDF.');
+            }
         }
     }
 

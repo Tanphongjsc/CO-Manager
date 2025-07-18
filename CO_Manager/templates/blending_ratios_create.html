@@ -5,21 +5,30 @@
 
 {% block css %}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css">
+{# File CSS riêng cho trang này, chúng ta sẽ tạo nó ở bước 2 #}
 <link rel="stylesheet" href="{% static 'css/blending_ratios_create.css' %}">
 {% endblock %}
 
 {% block content %}
 <div class="module-content">
-    <div class="lsx-selector-container">
-        <label for="lsx-select">Chọn Lệnh Sản Xuất để tạo tỉ lệ:</label>
-        <select id="lsx-select" class="form-control">
-            <option value="">-- Vui lòng chọn --</option>
-            {% for order in unprocessed_orders %}
-                <option value="{{ order.id_lenh_san_xuat }}">
-                    {{ order.id_lenh_san_xuat }}
-                </option>
-            {% endfor %}
-        </select>
+    
+    {# ================================================================ #}
+    {# KHU VỰC ĐÃ THAY ĐỔI #}
+    {# ================================================================ #}
+    <div class="top-bar-container">
+        <div class="selector-group">
+            <label for="lsx-select">Chọn Lệnh Sản Xuất:</label>
+            <select id="lsx-select" class="form-control">
+                <option value="">-- Vui lòng chọn --</option>
+                {% for order in unprocessed_orders %}
+                    <option value="{{ order.id_lenh_san_xuat }}">
+                        {{ order.id_lenh_san_xuat }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        {# Nút "Quay lại" được chuyển lên đây #}
+        <a href="{% url 'blending_ratios' %}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Quay lại</a>
     </div>
 
     {# Vùng nội dung chính, ban đầu sẽ bị ẩn đi #}
@@ -28,7 +37,7 @@
             <div class="page-header">
                 <h2 class="module-title">Tạo Tỉ lệ phối trộn cho LSX: <span id="current-lsx-id"></span></h2>
                 <div class="header-actions">
-                    <a href="{% url 'blending_ratios' %}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Quay lại</a>
+                    {# Nút "Quay lại" đã được xóa khỏi đây #}
                     <button id="save-btn" class="btn btn-success"><i class="fas fa-save"></i> Lưu tỉ lệ</button>
                 </div>
             </div>
@@ -91,10 +100,6 @@
 {% block javascript %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
-
-{# Dữ liệu sản phẩm/NVL được truyền từ view để JS sử dụng #}
 <script id="products-data" type="application/json">{{ products_json|safe }}</script>
-
-{# File JS chính đã được cập nhật logic #}
 <script src="{% static 'js/blending_ratios_create.js' %}"></script>
 {% endblock %}
