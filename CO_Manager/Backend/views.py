@@ -964,8 +964,10 @@ def orders(request):
     return render(request, 'orders.html', context)
 
 def orders_detail(request, pk):
+    """Xem chi tiết đơn hàng"""
+
     # Truy vấn chi tiết đơn hàng từ cơ sở dữ liệu
-    order_items = CtLenhSanXuatOriginal.objects.filter(id_lenh_san_xuat=pk).select_related('id_san_pham', 'id_nguyen_vat_lieu', 'id_lenh_san_xuat')
+    order_items = CtLenhSanXuatOriginal.objects.filter(Q(id_lenh_san_xuat=pk) & ~Q(id_nguyen_vat_lieu__nhom_vthh="NVL - THÔ")).select_related('id_san_pham', 'id_nguyen_vat_lieu', 'id_lenh_san_xuat')
     if not order_items.exists():
         return render(request, '404.html')
 
@@ -977,7 +979,6 @@ def orders_detail(request, pk):
             unique_products[id] = item
     
     order_unique_items = list(unique_products.values())        
-
 
     # Tính tổng số lượng sản phẩm
     total_quantity = sum(item.so_luong_san_pham for item in order_unique_items)
@@ -1057,7 +1058,7 @@ def sync_database(production_orders, product_norms, all_detail_ids):
     """Đồng bộ dữ liệu với database: thêm/sửa/xóa"""
     # 1. Lấy dữ liệu hiện tại từ database
     existing_orders = LenhSanXuat.objects.all()
-    existing_details = CtLenhSanXuat.objects.all()
+    existing_details = CtLenhSanXuatOriginal.objects.all()
     
     existing_order_ids = set(existing_orders.values_list('id_lenh_san_xuat', flat=True))
     existing_detail_ids = set(existing_details.values_list('id_ct_lenh_san_xuat', flat=True))
@@ -1115,7 +1116,7 @@ def sync_database(production_orders, product_norms, all_detail_ids):
                 
                 # Phân loại: tạo mới hoặc cập nhật
                 if detail_id in new_detail_ids:
-                    new_details.append(CtLenhSanXuat(**detail_obj_data))
+                    new_details.append(CtLenhSanXuatOriginal(**detail_obj_data))
                 elif detail_id in update_detail_ids:
                     detail_obj = existing_details_dict[detail_id]
                     for key, value in detail_obj_data.items():
@@ -1126,11 +1127,11 @@ def sync_database(production_orders, product_norms, all_detail_ids):
     with transaction.atomic():
         # Tạo mới
         LenhSanXuat.objects.bulk_create(new_orders)
-        CtLenhSanXuat.objects.bulk_create(new_details)
+        CtLenhSanXuatOriginal.objects.bulk_create(new_details)
         
         # Cập nhật
         LenhSanXuat.objects.bulk_update(update_orders, ['id_don_hang'])
-        CtLenhSanXuat.objects.bulk_update(update_details, [
+        CtLenhSanXuatOriginal.objects.bulk_update(update_details, [
             'id_lenh_san_xuat', 'id_san_pham_id', 'ten_san_pham', 'so_luong_san_pham', 
             'id_nguyen_vat_lieu_id', 'so_luong_nguyen_vat_lieu'
         ])

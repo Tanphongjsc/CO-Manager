@@ -111,7 +111,7 @@
                 "name": "{{ item.ten_san_pham|escapejs }}",
                 "quantity": "{{ item.so_luong_san_pham|escapejs|intcomma }}",
                 "unit": "{{ item.id_san_pham.don_vi_tinh|escapejs }}",
-                "materialName": "{{ item.id_nguyen_vat_lieu.ten_sp_chinh|escapejs }}",
+                "materialName": "{{ item.id_nguyen_vat_lieu.ten_khac|default:item.id_nguyen_vat_lieu.ten_sp_chinh|escapejs }}",
                 "materialQuantity": "{{ item.so_luong_nguyen_vat_lieu|escapejs|intcomma }}",
                 "materialUnit": "{{ item.id_nguyen_vat_lieu.don_vi_tinh|escapejs }}"
             }{% if not forloop.last %},{% endif %}
