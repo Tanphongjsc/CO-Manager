@@ -118,7 +118,10 @@ const populateProductDropdown = (lenhSxId = null, selectedValue = null) => {
             const productId = pItem.san_pham.id_san_pham;
             const combinationKey = `${lenhSxId}_${productId}`;
 
-            // 1. Nó là sản phẩm thuộc bản ghi đang được xem hoặc sửa. (Không còn phụ thuộc vào isEditMode nữa)
+            // Điều kiện mới để một sản phẩm được hiển thị:
+            
+            // 1. Nó là sản phẩm thuộc bản ghi đang được xem hoặc sửa.
+            //    (Không còn phụ thuộc vào isEditMode nữa)
             const isTheProductOfCurrentRecord = (productId && selectedValue && productId.toString() === selectedValue.toString());
 
             // 2. Nó là sản phẩm chưa từng được tạo Bảng kê CTC.
