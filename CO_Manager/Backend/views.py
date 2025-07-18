@@ -1,6 +1,7 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django.http import JsonResponse, HttpResponse
 from django.utils import timezone
 from django.db import transaction
@@ -37,6 +38,7 @@ from docx.oxml import OxmlElement
 def dashboard(request):
     return render(request, 'dashboard.html', {})
 
+@ensure_csrf_cookie
 def ctc_ledger(request):
     """Trang quản lý CTC (Chi tiết công việc)"""
     

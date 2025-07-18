@@ -118,14 +118,14 @@ const populateProductDropdown = (lenhSxId = null, selectedValue = null) => {
             const productId = pItem.san_pham.id_san_pham;
             const combinationKey = `${lenhSxId}_${productId}`;
 
-            // Điều kiện để một sản phẩm được hiển thị:
-            // 1. Nó là sản phẩm đang được chỉnh sửa trong Bảng kê hiện tại. Điều này đảm bảo rằng khi bạn mở một Bảng kê cũ để sửa, sản phẩm của nó vẫn được chọn.
-            const isCurrentlySelectedInEditMode = (isEditMode && productId && selectedValue && productId.toString() === selectedValue.toString());
+            // 1. Nó là sản phẩm thuộc bản ghi đang được xem hoặc sửa. (Không còn phụ thuộc vào isEditMode nữa)
+            const isTheProductOfCurrentRecord = (productId && selectedValue && productId.toString() === selectedValue.toString());
 
-            // 2. Nó chưa từng được tạo Bảng kê (không có trong `existingCtcProductIds`).
+            // 2. Nó là sản phẩm chưa từng được tạo Bảng kê CTC.
             const isAlreadyCreated = existingCtcProductIds.has(combinationKey);
 
-            return isCurrentlySelectedInEditMode || !isAlreadyCreated;
+            // => Hiển thị sản phẩm nếu nó là của bản ghi hiện tại HOẶC nó chưa được tạo.
+            return isTheProductOfCurrentRecord || !isAlreadyCreated;
         });
         
         productOptions = availableProducts.map(pItem => ({
