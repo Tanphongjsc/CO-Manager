@@ -124,8 +124,7 @@ document.addEventListener('DOMContentLoaded', function () {
         currentTotalContainer.style.color = '';
         currentTotalEl.style.backgroundColor = ''; 
         currentTotalEl.style.color = '';
-
-        console.log('Current Total:', currentTotal, 'Original Grand Total:', originalGrandTotal);
+        originalGrandTotal = parseFloat(originalGrandTotal.toFixed(5));
 
         if (currentTotal > originalGrandTotal) {
             currentTotalContainer.style.color = '#E65100'; // Orange
@@ -205,16 +204,31 @@ document.addEventListener('DOMContentLoaded', function () {
         // Xử lý Highlight
         const card = event.target.closest('.product-card');
         if (card) {
-            const itemIndex = card.dataset.itemIndex;
+            const itemIndex = parseInt(card.dataset.itemIndex, 10);
             highlightedIndex = itemIndex; // Cập nhật trạng thái highlight
 
+            // Xóa highlight cũ
             previewTableBody.querySelectorAll('tr').forEach(row => row.classList.remove('highlighted-row'));
 
-            if (itemIndex !== undefined) {
+            if (!isNaN(itemIndex)) {
                 const targetRow = previewTableBody.querySelectorAll('tr')[itemIndex];
-                if (targetRow) {
+                const scrollableContainer = document.querySelector('.table-wrapper'); // Lấy container có thể cuộn
+
+                if (targetRow && scrollableContainer) {
                     targetRow.classList.add('highlighted-row');
-                    targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+                    // Tính toán vị trí để cuộn, giúp dòng được chọn nằm giữa container
+                    const containerHeight = scrollableContainer.clientHeight;
+                    const rowTop = targetRow.offsetTop;
+                    const rowHeight = targetRow.clientHeight;
+                    
+                    const desiredScrollTop = rowTop - (containerHeight / 2) + (rowHeight / 2);
+
+                    // Thực hiện cuộn mượt mà chỉ bên trong container
+                    scrollableContainer.scrollTo({
+                        top: desiredScrollTop,
+                        behavior: 'smooth'
+                    });
                 }
             }
         }
