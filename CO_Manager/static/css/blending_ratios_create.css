@@ -306,3 +306,14 @@
 .selector-group .select2-container {
     width: 250px !important;
 }
+
+/* --- STYLE CHO DÒNG ĐƯỢC HIGHLIGHT --- */
+#preview-table-body tr.highlighted-row td {
+    background-color: #fffde7 !important; /* Màu vàng nhạt */
+    transition: background-color 0.3s ease;
+}
+
+/* Thêm một đường viền trên và dưới để làm nổi bật hơn */
+#preview-table-body tr.highlighted-row td:first-child {
+    border-left: 3px solid #fbc02d; /* Màu vàng đậm hơn */
+}

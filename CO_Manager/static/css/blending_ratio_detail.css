@@ -237,8 +237,6 @@
 .btn-secondary:hover { background-color: #5a6268; }
 @media (max-width: 1200px) { .module-content { height: auto; } .page-grid { grid-template-columns: 1fr; } .edit-panel { max-height: 60vh; } }
 
-/* --- THAY ĐỔI: LOGIC CHO CHẾ ĐỘ XEM (VIEW MODE) --- */
-
 /* Khi ở chế độ 'view', panel chỉnh sửa bên trái sẽ bị ẩn đi */
 [data-mode="view"] .edit-panel {
     display: none;
@@ -247,4 +245,15 @@
 /* Khi ở chế độ 'view', lưới chỉ còn 1 cột và panel xem trước sẽ chiếm toàn bộ chiều rộng */
 [data-mode="view"] .page-grid {
     grid-template-columns: 1fr;
+}
+
+/* --- STYLE CHO DÒNG ĐƯỢC HIGHLIGHT --- */
+#preview-table-body tr.highlighted-row td {
+    background-color: #fffde7 !important; /* Màu vàng nhạt */
+    transition: background-color 0.3s ease;
+}
+
+/* Thêm một đường viền trên và dưới để làm nổi bật hơn */
+#preview-table-body tr.highlighted-row td:first-child {
+    border-left: 3px solid #fbc02d; /* Màu vàng đậm hơn */
 }

@@ -17,6 +17,7 @@ document.addEventListener('DOMContentLoaded', function () {
     let dataStore = {};
     let allPossibleMaterials = [];
     let originalGrandTotal = 0;
+    let highlightedIndex = null;     // Biến lưu trạng thái dòng đang được chọn
 
     // === CÁC HÀM TIỆN ÍCH ===
     const getCsrfToken = () => document.cookie.match(/csrftoken=([^;]+)/)?.[1] || null;
@@ -48,6 +49,8 @@ document.addEventListener('DOMContentLoaded', function () {
             const productCard = document.createElement('div');
             productCard.className = 'product-card';
             productCard.dataset.productName = item.ten_san_pham.toLowerCase();
+            productCard.dataset.itemIndex = itemIndex; // Định danh thẻ sản phẩm
+
             productCard.innerHTML = `
                 <div class="product-header">
                     <span class="product-stt">${itemIndex + 1}</span>
@@ -104,8 +107,16 @@ document.addEventListener('DOMContentLoaded', function () {
                 </tr>`;
         });
         
+        // Áp dụng lại highlight sau khi bảng được vẽ lại
+        if (highlightedIndex !== null) {
+            const targetRow = previewTableBody.querySelectorAll('tr')[highlightedIndex];
+            if (targetRow) {
+                targetRow.classList.add('highlighted-row');
+            }
+        }
+
         // LOGIC THAY ĐỔI MÀU SẮC
-        const currentTotal = dataStore.total_quantity_nguyenlieu;
+        const currentTotal = dataStore.total_quantity_nguyenlieu.toFixed(5);
         const currentTotalEl = document.getElementById('current-grand-total-value');
         const currentTotalContainer = currentTotalEl.closest('.grand-total-container');
         currentTotalEl.textContent = formatNumber(currentTotal);
@@ -113,6 +124,8 @@ document.addEventListener('DOMContentLoaded', function () {
         currentTotalContainer.style.color = '';
         currentTotalEl.style.backgroundColor = ''; 
         currentTotalEl.style.color = '';
+
+        console.log('Current Total:', currentTotal, 'Original Grand Total:', originalGrandTotal);
 
         if (currentTotal > originalGrandTotal) {
             currentTotalContainer.style.color = '#E65100'; // Orange
@@ -174,16 +187,36 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     function handleContainerClick(event) {
+        // Xử lý nút Xóa
         const deleteButton = event.target.closest('.delete-material-btn');
-        if (!deleteButton) return;
-        const { itemIndex, materialId } = deleteButton.dataset;
-        const materialName = dataStore.order_items[itemIndex].materials[materialId]?.name || 'NVL này';
-        if (confirm(`Bạn có chắc muốn xóa "${materialName}" khỏi sản phẩm này?`)) {
-            delete dataStore.order_items[itemIndex].materials[materialId];
-            recalculateAllData();
-            renderEditForm();
-            renderPreviewTable();
-            handleProductSearch();
+        if (deleteButton) {
+            const { itemIndex, materialId } = deleteButton.dataset;
+            const materialName = dataStore.order_items[itemIndex].materials[materialId]?.name || 'NVL này';
+            if (confirm(`Bạn có chắc muốn xóa "${materialName}" khỏi sản phẩm này?`)) {
+                delete dataStore.order_items[itemIndex].materials[materialId];
+                recalculateAllData();
+                renderEditForm();
+                renderPreviewTable();
+                handleProductSearch();
+            }
+            return;
+        }
+
+        // Xử lý Highlight
+        const card = event.target.closest('.product-card');
+        if (card) {
+            const itemIndex = card.dataset.itemIndex;
+            highlightedIndex = itemIndex; // Cập nhật trạng thái highlight
+
+            previewTableBody.querySelectorAll('tr').forEach(row => row.classList.remove('highlighted-row'));
+
+            if (itemIndex !== undefined) {
+                const targetRow = previewTableBody.querySelectorAll('tr')[itemIndex];
+                if (targetRow) {
+                    targetRow.classList.add('highlighted-row');
+                    targetRow.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }
+            }
         }
     }
     
@@ -242,6 +275,7 @@ document.addEventListener('DOMContentLoaded', function () {
         noDataPlaceholder.style.display = 'none';
         loadingSpinner.style.display = 'block';
         $(lsxSelect).prop('disabled', true);
+        highlightedIndex = null; // Reset highlight khi chọn LSX mới
 
         try {
             const response = await fetch(`/api/blendingratios/get_order_data_for_create/?lsx_id=${lsxId}`);
@@ -295,6 +329,7 @@ document.addEventListener('DOMContentLoaded', function () {
             } else {
                 mainContentWrapper.style.display = 'none';
                 noDataPlaceholder.style.display = 'block';
+                highlightedIndex = null; // Xóa trạng thái highlight
             }
         });
 
