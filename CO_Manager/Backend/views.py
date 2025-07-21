@@ -674,11 +674,23 @@ def users_create(request):
         else:
             data['role'] = None
 
+        # Xử lý địa chỉ
+        province = data.get('province') or ""
+        district = data.get('district') or ""
+        ward = data.get('ward') or ""
+
+        address = [ward, district, province]
+        for i in range(len(address)):
+            if address[i]:
+                address[i] = address[i].strip().title()
+        
+        address = ' - '.join(address).strip()
+
         user = Nguoi.objects.create(
             ten=data.get('name'),
             so_cmnd_cccd=data.get('cmnd'),
             ngay_cap_cmnd_cccd=data.get('date'),
-            dia_chi=data.get('address'),
+            dia_chi=address,
             vai_tro=data.get('role'),
         )
         return JsonResponse({
@@ -686,13 +698,14 @@ def users_create(request):
             'message': 'Tạo người dùng thành công!'
         })
     
-    except:
+    except Exception as e:
         return JsonResponse({
             'success': False,
-            'message': 'Dữ liệu không hợp lệ!'
+            'message': f'Dữ liệu không hợp lệ: {str(e)} !'
         })
 
 @require_POST
+@transaction.atomic
 def users_update(request):
     """API endpoint để cập nhật thông tin người dùng."""
     try:
@@ -704,8 +717,7 @@ def users_update(request):
         user.ten = data.get('name', user.ten)
         user.so_cmnd_cccd = data.get('cmnd', user.so_cmnd_cccd)
         user.ngay_cap_cmnd_cccd = data.get('date', user.ngay_cap_cmnd_cccd)
-        user.dia_chi = data.get('address', user.dia_chi)
-
+        
         # Xử lý với trường Vai Trò
         if data.get('role') == "buyer":
             user.vai_tro = 'Người mua'
@@ -714,6 +726,19 @@ def users_update(request):
         else:
             user.vai_tro = None
 
+        # Xử lý địa chỉ
+        province = data.get('province') or ""
+        district = data.get('district') or ""
+        ward = data.get('ward') or ""
+
+        address = [ward, district, province]
+        for i in range(len(address)):
+            if address[i]:
+                address[i] = address[i].strip().title()
+        
+        user.dia_chi = ' - '.join(address).strip()
+
+        # Lưu thông tin người dùng
         user.save()
 
         return JsonResponse({

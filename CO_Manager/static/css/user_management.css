@@ -1,4 +1,5 @@
 /* user_management.css */
+/* Các style hiện có được giữ nguyên */
 .module-title {
   margin-bottom: 20px;
 }
@@ -13,17 +14,15 @@
 .action-buttons {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;  /* Khoảng cách giữa các nút */
+  gap: 8px;
   justify-content: flex-start;
 }
 
-/* Đảm bảo nút có kích thước phù hợp và không bị co lại quá nhỏ */
 .action-buttons .btn {
-  min-width: 50px; /* Đặt chiều rộng tối thiểu cho nút */
-  flex-shrink: 0;  /* Ngăn nút co lại */
+  min-width: 50px;
+  flex-shrink: 0;
 }
 
-/* Đảm bảo các nút vẫn có đủ không gian khi xuống dòng */
 @media (max-width: 768px) {
   .action-buttons {
     margin-top: 4px;
@@ -65,9 +64,9 @@
   gap: 8px;
 }
 
-/* Modal Styles - Using almost identical styles from products.css */
+/* === Modal Styles - Cải tiến với Grid Layout === */
 .modal {
-  display: none; /* Hidden by default */
+  display: none;
   position: fixed;
   z-index: 1000;
   left: 0;
@@ -75,42 +74,113 @@
   width: 100%;
   height: 100%;
   overflow: auto;
-  background-color: rgba(0, 0, 0, 0.5);
+  background-color: rgba(17, 24, 39, 0.6); /* Lớp phủ nền tối hơn để tập trung vào modal */
+  padding: 4rem 1rem; /* Thêm padding để modal không dính sát viền màn hình */
 }
 
 .modal-content {
-  background-color: #fff;
-  margin: 5% auto;
-  padding: 25px;
-  border: 1px solid #888;
-  width: 80%;
-  max-width: 600px;
-  border-radius: 8px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  background-color: #f9fafb; /* Màu nền dịu mắt hơn */
+  margin: auto;
+  padding: 1.5rem 2rem; /* Tăng khoảng đệm bên trong */
+  border: 1px solid #e5e7eb; /* Viền mảnh hơn */
+  width: 90%;
+  max-width: 650px; /* Tăng chiều rộng để vừa với layout lưới */
+  border-radius: 12px; /* Bo góc mềm mại hơn */
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04); /* Đổ bóng hiện đại */
   position: relative;
-  animation: modalFadeIn 0.3s;
+  animation: modalFadeIn 0.3s ease-out;
 }
 
 @keyframes modalFadeIn {
-  from {opacity: 0; transform: translateY(-20px);}
-  to {opacity: 1; transform: translateY(0);}
+  from { opacity: 0; transform: translateY(-20px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .close {
-  color: #aaa;
-  float: right;
-  font-size: 28px;
-  font-weight: bold;
-  cursor: pointer;
+  color: #9ca3af;
   position: absolute;
-  top: 10px;
-  right: 20px;
+  top: 1rem;
+  right: 1rem;
+  font-size: 24px;
+  font-weight: normal;
+  line-height: 1;
+  transition: color 0.2s ease-in-out;
+}
+
+.close:hover,
+.close:focus {
+  color: #1f2937;
+  text-decoration: none;
+  cursor: pointer;
 }
 
 .user-add-content h3,
 .user-edit-content h3 {
-  margin-bottom: 20px;
-  padding-bottom: 10px;
-  border-bottom: 1px solid #eee;
+  margin-top: 0;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #e5e7eb;
+  text-align: center;
+  color: #111827;
+  font-size: 1.25rem;
+  font-weight: 600;
 }
 
+/* Bố cục lưới cho Form */
+.modal-content form {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr); /* Tạo 2 cột bằng nhau */
+  gap: 1rem 1.5rem; /* Khoảng cách hàng và cột */
+}
+
+.modal-content .form-group {
+  margin-bottom: 0; /* Để grid 'gap' xử lý khoảng cách */
+}
+
+/* Trường "Tên" chiếm hết chiều rộng */
+#add-user-form .form-group:first-child,
+#edit-user-form .form-group:first-child {
+  grid-column: 1 / -1; /* Trải dài từ cột 1 đến hết */
+}
+
+.modal-content form .form-group label {
+  display: block;
+  margin-bottom: 0.5rem;
+  font-weight: 500; /* Giảm độ đậm của label */
+  font-size: 0.875rem;
+  color: #374151;
+}
+
+.modal-content form .form-control {
+  width: 100%;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background-color: #fff;
+  box-sizing: border-box;
+  transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.modal-content form .form-control:focus {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+  outline: none;
+}
+
+/* Khu vực nút bấm */
+.modal-content .form-actions {
+  grid-column: 1 / -1; /* Trải dài hết các cột */
+  justify-content: flex-end;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.modal-content .form-actions button {
+  padding: 0.65rem 1.25rem;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: background-color 0.2s ease-in-out;
+}
