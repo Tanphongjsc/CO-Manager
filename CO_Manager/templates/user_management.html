@@ -53,7 +53,7 @@
         </tr>
         {% empty %}
         <tr>
-          <td colspan="6" class="text-center">Không có dữ liệu người dùng</td>
+          <td colspan="7" class="text-center">Không có dữ liệu người dùng</td>
         </tr>
         {% endfor %}
       </tbody>
@@ -61,7 +61,6 @@
   </div>
 </div>
 
-<!-- Modal Popup Thêm Người dùng -->
 <div id="addUserModal" class="modal">
     <div class="modal-content">
         <span class="close">&times;</span>
@@ -86,8 +85,16 @@
                 </div>
                 
                 <div class="form-group">
-                    <label for="add-user-address">Địa chỉ:</label>
-                    <textarea id="add-user-address" class="form-control" rows="3" required></textarea>
+                    <label for="add-user-province">Tỉnh/Thành phố:</label>
+                    <input type="text" id="add-user-province" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="add-user-district">Quận/Huyện:</label>
+                    <input type="text" id="add-user-district" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="add-user-ward">Phường/Xã:</label>
+                    <input type="text" id="add-user-ward" class="form-control" required>
                 </div>
 
                 <div class="form-group">
@@ -108,7 +115,6 @@
     </div>
 </div>
 
-<!-- Modal Popup Chỉnh sửa Người dùng -->
 <div id="editUserModal" class="modal">
     <div class="modal-content">
         <span class="close">&times;</span>
@@ -134,8 +140,16 @@
                 </div>
                 
                 <div class="form-group">
-                    <label for="edit-user-address">Địa chỉ:</label>
-                    <textarea id="edit-user-address" class="form-control" rows="3" required></textarea>
+                    <label for="edit-user-province">Tỉnh/Thành phố:</label>
+                    <input type="text" id="edit-user-province" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit-user-district">Quận/Huyện:</label>
+                    <input type="text" id="edit-user-district" class="form-control" required>
+                </div>
+                <div class="form-group">
+                    <label for="edit-user-ward">Phường/Xã:</label>
+                    <input type="text" id="edit-user-ward" class="form-control" required>
                 </div>
 
                 <div class="form-group">
