@@ -34,6 +34,9 @@ urlpatterns = [
     path('products/delete/', views.product_delete, name='delete_product'),
     path('products/sync-cloudify/', views.products_sync_cloudify, name='products_sync_cloudify'),
 
+    # Phụ lục X URLs
+    path('phu_luc_x/', views.phu_luc_x, name='phu_luc_x'),
+
     # Rollback URLs
     path('rollback/', views.rollback, name='rollback'),
     path('rollback/create/', views.rollback_create, name='rollback_create'),

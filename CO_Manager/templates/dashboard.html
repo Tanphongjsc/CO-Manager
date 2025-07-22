@@ -17,7 +17,7 @@
                         <i class="fas fa-shopping-cart"></i>
                         <h3>Đơn hàng</h3>
                     </div>
-                    <p class="card-description">Theo dõi đơn hàng, Lệnh sản xuất.</p>
+                    <p class="card-description">Quản lý thông tin đơn hàng, tạo và theo dõi các lệnh sản xuất phục vụ cho hồ sơ C/O.</p>
                 </a>
             </div>
             <div class="dashboard-card" data-module="ti_le_dau_tron">
@@ -26,7 +26,7 @@
                         <i class="fas fa-balance-scale"></i>
                         <h3>Tỉ lệ đấu trộn</h3>
                     </div>
-                    <p class="card-description">Chỉnh sửa, Tính toán số liệu và xuất ra tỉ lệ đấu trộn phù hợp để làm hồ sơ</p>
+                    <p class="card-description">Nhập số liệu thực tế, hệ thống tự tính toán và xuất ra tỉ lệ đấu trộn phù hợp để lập hồ sơ xuất khẩu.</p>
                 </a>
             </div>
             <div class="dashboard-card" data-module="thu_mua">
@@ -35,7 +35,7 @@
                         <i class="fas fa-shopping-bag"></i>
                         <h3>Thu mua từ dân</h3>
                     </div>
-                    <p class="card-description">Theo dõi và quản lý và tính toán ra số lượng nguyên vật liệu cần tối thiểu cho một đơn hàng.</p>
+                    <p class="card-description">Quản lý quá trình thu mua nguyên vật liệu từ dân, xác định số lượng tối thiểu phục vụ đơn hàng.</p>
                 </a>
             </div>
             <div class="dashboard-card" data-module="tra_lai">
@@ -44,7 +44,7 @@
                         <i class="fas fa-undo-alt"></i>
                         <h3>Trừ lùi nguyên liệu</h3>
                     </div>
-                    <p class="card-description">Quản lý quy trình trả lại nguyên liệu không đạt chuẩn hoặc dư thừa.</p>
+                    <p class="card-description">Quản lý quy trình trả lại số lượng nguyên liệu cần xuất là bao nhiêu và tỉ lệ thu hồi để có thể sản xuất.</p>
                 </a>
             </div>
             <div class="dashboard-card" data-module="bang_ke_wo">
@@ -53,7 +53,16 @@
                         <i class="fas fa-chart-line"></i>
                         <h3>Bảng kê WO</h3>
                     </div>
-                    <p class="card-description">Xem và quản lý bảng kê chi tiết cho các đơn hàng công việc.</p>
+                    <p class="card-description">Tạo bảng kê chi tiết theo từng lệnh sản xuất (WO) phục vụ kê khai trong hồ sơ C/O.</p>
+                </a>
+            </div>
+            <div class="dashboard-card" data-module="bang_ke_wo">
+                <a href="{% url 'phu_luc_x' %}" class="card-link">
+                    <div class="card-header">
+                        <i class="fas fa-file-alt"></i>
+                        <h3>Phụ lục X</h3>
+                    </div>
+                    <p class="card-description">Quản lý phụ lục bổ sung chứa thông tin sản xuất, thu mua, và đấu trộn — làm căn cứ để cấp C/O.</p>
                 </a>
             </div>
             <div class="dashboard-card" data-module="bang_ke_ctc">
@@ -62,7 +71,7 @@
                         <i class="fas fa-chart-bar"></i>
                         <h3>Bảng kê CTC</h3>
                     </div>
-                    <p class="card-description">Xem và quản lý bảng kê chi tiết cho các hợp đồng.</p>
+                    <p class="card-description">Lập bảng kê xác nhận quá trình chuyển đổi mã HS sản phẩm phù hợp với quy tắc CTC trong C/O.</p>
                 </a>
             </div>
             <div class="dashboard-card" data-module="nguoi">
@@ -102,7 +111,7 @@
                     <i class="fas fa-arrow-right workflow-arrow"></i>
                     <div class="workflow-step">Thu mua từ dân</div>
                     <i class="fas fa-arrow-right workflow-arrow"></i>
-                    <div class="workflow-step">Bảng kê WO</div>
+                    <div class="workflow-step">Bảng kê WO / Phụ lục X</div>
                     <i class="fas fa-arrow-right workflow-arrow"></i>
                     <div class="workflow-step">Bảng kê CTC</div>
                 </div>

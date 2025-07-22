@@ -393,19 +393,14 @@ tbody tr {
 }
 
 /* Hide elements by default - specific module content visibility */
-.module-content {
-    /* display: none; */ /* This should be handled by Django routing/template logic or JS, not globally hidden in base.css */
-}
+/* .module-content ruleset removed because it was empty */
 
 .module-content.active {
     display: block;
 }
 
 /* General container styling for consistent padding if needed */
-.container.mx-auto.px-4.py-8 {
-    /* These are Tailwind-like classes, if you are not using Tailwind, define them or use existing general padding for main-content */
-    /* For now, main-content padding should cover this. If specific pages need more, they can add it. */
-}
+/* .container.mx-auto.px-4.py-8 removed: empty ruleset */
 
 /* Ensure consistent styling for headers if not covered by module-title */
 .text-2xl.font-bold {

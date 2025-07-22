@@ -4371,3 +4371,12 @@ def wo_export_word(request, pk):
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     
     return response
+
+
+# ================= PHỤ LỤC X =================
+def phu_luc_x(request):
+    """Render Phụ lục X page"""
+
+    
+    pass
+    # return render(request, 'phu_luc_x.html')
