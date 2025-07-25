@@ -188,6 +188,16 @@ class Nguoi(models.Model):
         db_table = 'NGUOI'
         db_table_comment = 'Thông tin người bán hoặc mua'
 
+class PhuLucX(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    ngay_lap_giay_to = models.DateField()
+    id_bang_ke_thu_mua_tu_dan = models.ForeignKey(BangKeThuMuaTuDan, models.DO_NOTHING, db_column='id_bang_ke_thu_mua_tu_dan', blank=True, null=True)
+    ten_hang_hoa = models.CharField(blank=True, null=True)
+    ghi_chu = models.TextField(blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = 'PHU_LUC_X'
 
 class VatTu(models.Model):
     ten_sp_chinh = models.CharField()

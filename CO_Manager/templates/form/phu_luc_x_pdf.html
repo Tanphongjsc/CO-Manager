@@ -1,0 +1,179 @@
+{% load humanize %}
+
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Phụ lục X - Bản khai báo xuất xứ của nhà sản xuất</title>
+  {% load static %}
+  <style>
+    /* --- CSS CƠ BẢN --- */
+    * {
+      box-sizing: border-box;
+    }
+
+    body { 
+      font-family: "Times New Roman", Times, serif;
+      font-size: 14px; /* Tăng cỡ chữ cho dễ đọc hơn */
+      color: #000;
+      line-height: 1.5; /* Tăng khoảng cách dòng */
+      text-align: justify;
+      margin: 0;
+    }
+    
+    @page {
+      size: A4; /* Cố định khổ A4 */
+      margin: 2cm; /* Tăng lề cho giống văn bản hành chính */
+    }
+
+    @media print {
+      body {
+        margin: 0;
+        padding: 0;
+      }
+      .no-print { display: none !important; }
+    }
+    
+    .main-container {
+      padding: 0 1cm; /* Thêm padding nếu cần */
+    }
+
+    .document-title {
+      text-align: center;
+      font-weight: bold;
+      margin: 20px 0 5px 0;
+      font-size: 16px;
+      text-transform: uppercase;
+    }
+    
+    .document-subtitle {
+      text-align: center;
+      font-style: italic;
+      font-size: 13px;
+      margin-bottom: 30px;
+    }
+
+    .info-section {
+      margin-bottom: 15px;
+    }
+
+    .info-section p {
+      margin: 8px 0;
+      text-indent: 1.5em; /* Thụt đầu dòng cho các đoạn văn */
+    }
+    
+    .info-section .line-item {
+        text-indent: 0; /* Không thụt đầu dòng cho các mục thông tin */
+    }
+
+    .declaration-paragraph {
+        text-indent: 0; /* Thụt lề đầu dòng cho đoạn cam kết */
+        margin-top: 20px;
+        margin-bottom: 20px;
+    }
+
+    .signature-section {
+      margin-top: 25px;
+      float: right; /* Đưa khối chữ ký sang phải */
+      width: 45%; /* Giới hạn chiều rộng khối chữ ký */
+    }
+
+    .signature-content {
+      text-align: center;
+      line-height: 1.4;
+    }
+    
+    .signature-content p {
+      margin: 5px 0;
+    }
+    
+    .signature-content .date-line {
+      font-style: italic;
+      margin-bottom: 8px;
+    }
+    
+    .signature-content .title-line {
+      font-weight: bold;
+      text-transform: uppercase;
+    }
+    
+    .signature-content .instruction-line {
+      font-style: italic;
+      font-size: 12px;
+    }
+
+    .stamp-and-signature {
+        position: relative;
+        display: block;
+        margin: 15px auto 0;
+        width: 200px; /* Điều chỉnh kích thước con dấu và chữ ký */
+        height: auto;
+    }
+
+    .print-button-container {
+      text-align: center;
+      margin: 40px 0;
+      clear: both; /* Đảm bảo nút in không bị ảnh hưởng bởi float */
+    }
+
+    button {
+      padding: 12px 35px;
+      background: #007bff;
+      color: white;
+      border: none;
+      border-radius: 5px;
+      cursor: pointer;
+      font-size: 14px;
+    }
+  </style>
+</head>
+<body>
+  <div class="main-container">
+
+    <div class="document-title">
+        PHỤ LỤC X
+        <br>
+        BẢN KHAI BÁO XUẤT XỨ CỦA NHÀ SẢN XUẤT/
+        <br>
+        NHÀ CUNG CẤP NGUYÊN LIỆU TRONG NƯỚC
+    </div>
+    <div class="document-subtitle">
+        (ban hành kèm theo thông tư số 05/2018/TT-BCT ngày 03/4/2018 quy định về xuất xứ hàng hoá)
+    </div>
+
+    <div class="info-section">
+        <p class="line-item"><b>Tên nhà sản xuất:</b> Công ty cổ phần Tân Phong </p>
+        <p class="line-item"><b>Mã số doanh nghiệp:</b> 2600274542</p>
+        <br>
+        <p class="line-item"><b>Mặt hàng:</b> {{ phu_luc_x.ten_hang_hoa }}</p>
+        <p class="line-item"><b>Tổng Số lượng:</b> {{ phu_luc_x.so_luong_mua_tu_dan|floatformat:2|intcomma }} kgs</p>
+        <p class="line-item"><b>Tổng trị giá:</b> {{ phu_luc_x.tri_gia_mua_tu_dan|floatformat:2|intcomma }} vnđ</p>
+        <p class="line-item">Theo bảng kê thu mua {{ phu_luc_x.ten_hang_hoa }} ngày {{ phu_luc_x.ngay_bk_thu_mua_tu_dan|date:"d/m/Y" }} tại {{ phu_luc_x.dia_chi }}.</p>
+    </div>
+
+    <p class="declaration-paragraph">
+    Công ty cổ phần Tân Phong xác nhận rằng Nguyên liệu {{ phu_luc_x.ten_hang_hoa }} có HS code {{ phu_luc_x.ma_hs }} khai tại văn bản này được thu mua tại {{ phu_luc_x.dia_chi }}, có xuất xứ việt nam và đạt tiêu chí xuất xứ WO theo quy định tại Chương quy tắc hàng hoá trong điều 7 nghị định 31/2018/NĐ-CP ngày 08/3/2018 quy định về xuất xứ hàng hoá.
+    </p>
+
+    <p class="declaration-paragraph">
+    Công ty cam kết thông tin khai báo trên là đúng và chịu trách nhiệm trước pháp luật về thông tin đã khai.
+    </p>
+
+    <div class="signature-section">
+      <div class="signature-content">
+        <p class="date-line">Phú thọ, ngày {{ phu_luc_x.ngay_lap_giay_to|date:"d" }} tháng {{ phu_luc_x.ngay_lap_giay_to|date:"m" }} năm {{ phu_luc_x.ngay_lap_giay_to|date:"Y" }}</p>
+        <p class="title-line">NGƯỜI ĐẠI DIỆN THEO PHÁP LUẬT CỦA THƯƠNG NHÂN</p>
+        <p class="instruction-line">(ký, đóng dấu, ghi rõ họ tên)</p>
+        
+        <img src="https://kflhmmvetkhuqntuamqt.supabase.co/storage/v1/object/sign/anhchuky/chuky.jpg?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InN0b3JhZ2UtdXJsLXNpZ25pbmcta2V5X2VmMDUzMzhlLWFkNGUtNDExOC1hOWMyLWZhMzM3ZDRkZjVlMCJ9.eyJ1cmwiOiJhbmhjaHVreS9jaHVreS5qcGciLCJpYXQiOjE3NDcwMjEyNjYsImV4cCI6MzMyMzgyMTI2Nn0.eD_DIvcnSxPA3ZuPWFzLHD7V_-DINdTTwOvdkOEjfVs" alt="Dấu và chữ ký" class="stamp-and-signature" />
+        
+      </div>
+    </div>
+
+    <div class="no-print print-button-container">
+      <button onclick="window.print()">IN PHỤ LỤC</button>
+    </div>
+  </div>
+</body>
+</html>

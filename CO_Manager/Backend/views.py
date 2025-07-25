@@ -8,7 +8,8 @@ from django.db import transaction
 from django.forms.models import model_to_dict
 
 from .models import *
-from django.db.models import Q
+from django.db.models import Q, Sum, F, Min, DecimalField
+from django.db.models.functions import Cast
 
 from datetime import datetime, date
 from collections import defaultdict
@@ -28,12 +29,15 @@ import xlsxwriter
 from io import BytesIO
 from num2words import num2words
 from docx import Document
-from docx.shared import Inches, Pt
+from docx.shared import Inches, Pt, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.enum.section import WD_ORIENT
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
+
+
+
 # Các view đã có
 def dashboard(request):
     return render(request, 'dashboard.html', {})
@@ -2997,14 +3001,6 @@ def add_nguoi(request):
         return JsonResponse({
             'status': 'success',
             'message': 'Thêm người thành công',
-            'nguoi': {
-                'id': nguoi.id,
-                'ten': nguoi.ten,
-                'so_cmnd_cccd': nguoi.so_cmnd_cccd or '',
-                'ngay_cap_cmnd_cccd': nguoi.ngay_cap_cmnd_cccd.strftime('%d/%m/%Y') if nguoi.ngay_cap_cmnd_cccd else '',
-                'dia_chi': nguoi.dia_chi or '',
-                'vai_tro': nguoi.vai_tro or ''
-            }
         })
         
     except json.JSONDecodeError:
@@ -4376,7 +4372,389 @@ def wo_export_word(request, pk):
 # ================= PHỤ LỤC X =================
 def phu_luc_x(request):
     """Render Phụ lục X page"""
-
     
-    pass
-    # return render(request, 'phu_luc_x.html')
+    # Sử dụng annotation để tính toán trực tiếp trong database
+    phu_luc_x_qs = PhuLucX.objects.select_related(
+        "id_bang_ke_thu_mua_tu_dan__id_lenh_san_xuat"
+    ).annotate(
+        tong_so_luong=Sum('id_bang_ke_thu_mua_tu_dan__ctbangkethumuatudan__so_luong'),
+        tong_thanh_tien=Sum(
+            Cast('id_bang_ke_thu_mua_tu_dan__ctbangkethumuatudan__so_luong', DecimalField(max_digits=10, decimal_places=3)) * 
+            Cast('id_bang_ke_thu_mua_tu_dan__ctbangkethumuatudan__don_gia', DecimalField(max_digits=15, decimal_places=2))
+        ),
+        dia_chi=Min('id_bang_ke_thu_mua_tu_dan__ctbangkethumuatudan__id_nguoi_ban__dia_chi')
+    ).order_by("id")
+
+    # Lấy ma_hs trong một query duy nhất
+    if phu_luc_x_qs:
+        ids_hang_hoa = {item.id_bang_ke_thu_mua_tu_dan.id_san_pham for item in phu_luc_x_qs}
+        ma_hs_dict = dict(
+            VatTu.objects.filter(id_san_pham__in=ids_hang_hoa)
+            .values_list('id_san_pham', 'ma_hs')
+        )
+
+    # Chuyển đổi sang list một cách đơn giản
+    phu_luc_x = [
+        {
+            'id': item.id,
+            'ngay_lap_giay_to': item.ngay_lap_giay_to,
+            'id_lenh_san_xuat_id': item.id_bang_ke_thu_mua_tu_dan.id_lenh_san_xuat_id,
+            'ten_hang_hoa': item.ten_hang_hoa,
+            'ma_hs': ma_hs_dict.get(item.id_bang_ke_thu_mua_tu_dan.id_san_pham),
+            'ghi_chu': item.ghi_chu,
+            'so_luong_mua_tu_dan': item.tong_so_luong or 0,
+            'tri_gia_mua_tu_dan': item.tong_thanh_tien or 0,
+            'dia_chi': item.dia_chi
+        }
+        for item in phu_luc_x_qs
+    ]
+
+    # Lấy ra id lệnh sản xuất đã được tạo rồi và chưa được tạo
+    existing_bang_ke_ids = set(phu_luc_x_qs.values_list("id_bang_ke_thu_mua_tu_dan",flat=True))
+    non_existing_bang_ke_ids = set(BangKeThuMuaTuDan.objects.exclude(id_bang_ke_thu_mua_tu_dan__in=existing_bang_ke_ids).values_list('id_lenh_san_xuat_id', flat=True))
+
+    context = {
+        'phu_luc_x': phu_luc_x,
+        'ids_lsx_for_view': {item['id_lenh_san_xuat_id'] for item in phu_luc_x},
+        'non_existing_bang_ke_ids': non_existing_bang_ke_ids
+    }
+
+    return render(request, 'phu_luc_x.html', context)
+
+
+def get_purchase_data_for_create(request):
+    """Lấy data thu mua từ dân cho việc tạo mới phụ lục X """
+    
+    id_lenh_san_xuat = request.GET.get('id_lenh_san_xuat')
+    if not id_lenh_san_xuat:
+        return JsonResponse({'success': False, 'error': 'Missing id_lenh_san_xuat'})
+    
+    # Sử dụng subquery để tối ưu hiệu suất
+    existing_bang_ke_ids = PhuLucX.objects.values_list("id_bang_ke_thu_mua_tu_dan", flat=True)
+    
+    # Tối ưu query bằng cách kết hợp select_related và annotate
+    ct_thu_mua_data = CtBangKeThuMuaTuDan.objects.filter(
+        id_bang_ke_thu_mua_tu_dan__id_lenh_san_xuat_id=id_lenh_san_xuat
+    ).exclude(
+        id_bang_ke_thu_mua_tu_dan_id__in=existing_bang_ke_ids
+    ).select_related(
+        'id_bang_ke_thu_mua_tu_dan__id_san_pham',
+        'id_nguoi_ban'
+    ).values(
+        'id_bang_ke_thu_mua_tu_dan',
+        'ten_nguyen_lieu',
+        'id_bang_ke_thu_mua_tu_dan__id_san_pham',
+        'id_bang_ke_thu_mua_tu_dan__ngay_lap_giay_to'
+    ).annotate(
+        tong_so_luong=Sum(
+            Cast('so_luong', DecimalField(max_digits=10, decimal_places=3))
+        ),
+        tong_thanh_tien=Sum(
+            Cast('so_luong', DecimalField(max_digits=10, decimal_places=3)) * 
+            Cast('don_gia', DecimalField(max_digits=15, decimal_places=2))
+        ),
+        dia_chi=Min('id_nguoi_ban__dia_chi')
+    )
+    
+    # Lấy ma_hs trong một query duy nhất
+    if ct_thu_mua_data:
+        ids_hang_hoa = {item['id_bang_ke_thu_mua_tu_dan__id_san_pham'] for item in ct_thu_mua_data}
+        ma_hs_dict = dict(
+            VatTu.objects.filter(id_san_pham__in=ids_hang_hoa)
+            .values_list('id_san_pham', 'ma_hs')
+        )
+        
+        # Gán ma_hs vào kết quả
+        for item in ct_thu_mua_data:
+            item['ma_hs'] = ma_hs_dict.get(item['id_bang_ke_thu_mua_tu_dan__id_san_pham'])
+    
+    return JsonResponse({
+        'success': True, 
+        'dict_ct_thu_mua_tu_dan': list(ct_thu_mua_data)
+    })
+
+@require_POST
+@transaction.atomic
+def phu_luc_x_create(request):
+    
+    try:
+        data = json.loads(request.body)
+
+    except Exception as e:
+        return JsonResponse({'success':False,'message': f'Dữ liệu đầu vào không hợp lệ: {str(e)} !'})
+
+    # Tạo các obj phụ lục x
+    obj_phu_luc_x = [
+        PhuLucX(
+            id_bang_ke_thu_mua_tu_dan_id = item.get('id_bang_ke_thu_mua_tu_dan'),
+            ten_hang_hoa = item.get('ten_hang_hoa'),
+            ghi_chu = item.get("ghi_chu"),
+            ngay_lap_giay_to = item.get("ngay_lap_phu_luc_x")
+        )
+        for item in data
+    ] 
+
+    # Tạo mới hàng loạt các item phụ lục x
+    PhuLucX.objects.bulk_create(obj_phu_luc_x)
+    
+    return JsonResponse({'success': True, "message": "Tạo mới các mục đã chọn thành công"})
+
+@require_POST
+@transaction.atomic
+def phu_luc_x_delete(request, pk):
+    """API XÓA thông tin Phụ lục X """
+
+    if not pk:
+        return JsonResponse({'success':False,'message': f'Thiếu id muốn xóa !'})
+    
+    PhuLucX.objects.filter(id = pk).delete()
+    
+    return JsonResponse({'success': True, "message": "Xóa mục đã chọn thành công"})
+
+
+@require_POST
+@transaction.atomic
+def phu_luc_x_update(request, pk):
+    """API Update lại thông tin Phụ lục X """
+    
+    # Lấy data update
+    try:
+        data = json.loads(request.body)    
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Invalid JSON data, {e}'}, status=400)        
+
+    # Kiểm tra có tồn tại id bản ghi cần update không
+    if not pk:
+        return JsonResponse({'success':False,'message': f'Thiếu id muốn xóa !'})
+
+    # Lấy ra bạn ghi cần update
+    phu_luc_x = get_object_or_404(PhuLucX, pk=pk)
+
+    # Update thông tin
+    phu_luc_x.ten_hang_hoa = data.get("ten_hang_hoa")
+    phu_luc_x.ngay_lap_giay_to = data.get("ngay_lap_giay_to")
+    phu_luc_x.ghi_chu = data.get("ghi_chu")
+
+    # Lưu thông tin
+    phu_luc_x.save()
+    
+    return JsonResponse({'success': True, "message": "Cập nhật thành công"})
+
+
+def phu_luc_x_export(request, pk):
+    """Tối ưu hóa view export - ngắn gọn và hiệu quả"""
+    
+    format_type = request.GET.get('format')
+    if format_type not in ['pdf', 'word']:
+        return JsonResponse({'success': False, 'error': 'Định dạng xuất file không đúng!'})
+    
+    # Lấy dữ liệu với annotation tối ưu
+    phu_luc_x_item = get_object_or_404(
+        PhuLucX.objects.select_related(
+            "id_bang_ke_thu_mua_tu_dan__id_lenh_san_xuat"
+        ).annotate(
+            tong_so_luong=Sum(
+                Cast('id_bang_ke_thu_mua_tu_dan__ctbangkethumuatudan__so_luong', 
+                    DecimalField(max_digits=10, decimal_places=3))
+            ),
+            tong_thanh_tien=Sum(
+                Cast('id_bang_ke_thu_mua_tu_dan__ctbangkethumuatudan__so_luong', 
+                    DecimalField(max_digits=10, decimal_places=3)) * 
+                Cast('id_bang_ke_thu_mua_tu_dan__ctbangkethumuatudan__don_gia', 
+                    DecimalField(max_digits=15, decimal_places=2))
+            ),
+            dia_chi=Min('id_bang_ke_thu_mua_tu_dan__ctbangkethumuatudan__id_nguoi_ban__dia_chi')
+        ),
+        id=pk
+    )
+    
+    # Lấy mã HS
+    ma_hs = VatTu.objects.filter(
+        id_san_pham=phu_luc_x_item.id_bang_ke_thu_mua_tu_dan.id_san_pham
+    ).values_list('ma_hs', flat=True).first() or ''
+    
+    # Xây dựng dữ liệu export
+    phu_luc_x = {
+        'id': phu_luc_x_item.id,
+        'ngay_lap_giay_to': phu_luc_x_item.ngay_lap_giay_to,
+        'ngay_bk_thu_mua_tu_dan': _format_date_range(phu_luc_x_item.id_bang_ke_thu_mua_tu_dan.ngay_lap_giay_to),
+        'id_lenh_san_xuat_id': phu_luc_x_item.id_bang_ke_thu_mua_tu_dan.id_lenh_san_xuat_id,
+        'ten_hang_hoa': phu_luc_x_item.ten_hang_hoa,
+        'ma_hs': ma_hs,
+        'ghi_chu': phu_luc_x_item.ghi_chu,
+        'so_luong_mua_tu_dan': phu_luc_x_item.tong_so_luong or 0,
+        'tri_gia_mua_tu_dan': phu_luc_x_item.tong_thanh_tien or 0,
+        'dia_chi': _format_address(phu_luc_x_item.dia_chi or '')
+    }
+    
+    # Xử lý export theo format
+    if format_type == 'pdf':
+        return render(request, 'form/phu_luc_x_pdf.html', {'phu_luc_x': phu_luc_x})
+    elif format_type == 'word':
+
+        # Tạo file docx trong bộ nhớ
+        file_stream = _create_phu_luc_x_docx(phu_luc_x)
+
+        # Tạo một HttpResponse để trả file về
+        response = HttpResponse(
+            file_stream.read(),
+            content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        )
+        response['Content-Disposition'] = f'attachment; filename="Phu_Luc_X-101030-{phu_luc_x.get("id")}-{phu_luc_x.get("ngay_lap_giay_to")}.docx"'
+    
+    return response
+
+
+def _format_date_range(date_str):
+    """Định dạng chuỗi ngày tháng có dạng range"""
+    if not date_str:
+        return ''
+    
+    date_str = str(date_str).strip()
+    if '-' not in date_str:
+        return date_str
+    
+    parts = date_str.split('-')
+    # Nếu hai phần giống nhau, chỉ lấy một
+    if len(parts) == 2 and parts[0].strip() == parts[1].strip():
+        return parts[0].strip()
+    
+    return date_str.strip('-')
+
+
+def _format_address(address_str):
+    """Định dạng địa chỉ theo cấu trúc xã-huyện-tỉnh"""
+    if not address_str:
+        return ''
+    
+    parts = [part.strip() for part in address_str.strip().split('-') if part.strip()]
+    
+    if len(parts) == 3:
+        return f"xã {parts[0]}, huyện {parts[1]}, tỉnh {parts[2]}"
+    elif len(parts) == 2:
+        return f"xã {parts[0]}, tỉnh {parts[1]}"
+    elif len(parts) == 1:
+        return f"tỉnh {parts[0]}"
+    
+    return address_str
+
+
+def _create_phu_luc_x_docx(data):
+    """
+    Tạo file Word cho Phụ lục X với các định dạng đã được cập nhật.
+    """
+    document = Document()
+
+    # --- 1. Thiết lập lề và font chữ mặc định ---
+    for section in document.sections:
+        section.top_margin = Cm(2)
+        section.bottom_margin = Cm(2)
+        section.left_margin = Cm(2.5) # Tăng lề trái một chút
+        section.right_margin = Cm(2)
+    
+    style = document.styles['Normal']
+    font = style.font
+    font.name = 'Times New Roman'
+    font.size = Pt(14)
+
+    # --- 2. Tiêu đề ---
+    # Sử dụng hàm để tránh lặp code
+    def add_formatted_paragraph(text, size, bold=False, italic=False, align='CENTER'):
+        p = document.add_paragraph()
+        p.alignment = getattr(WD_ALIGN_PARAGRAPH, align)
+        # Giảm khoảng cách giữa các đoạn để tiết kiệm diện tích
+        p.paragraph_format.space_before = Pt(0)
+        p.paragraph_format.space_after = Pt(6)
+        run = p.add_run(text)
+        run.font.size = Pt(size)
+        run.bold = bold
+        run.italic = italic
+        return p
+
+    add_formatted_paragraph('PHỤ LỤC X', 16, bold=True)
+    add_formatted_paragraph('BẢN KHAI BÁO XUẤT XỨ CỦA NHÀ SẢN XUẤT/\nNHÀ CUNG CẤP NGUYÊN LIỆU TRONG NƯỚC', 16, bold=True)
+    add_formatted_paragraph('(ban hành kèm theo thông tư số 05/2018/TT-BCT ngày 03/4/2018 quy định về xuất xứ hàng hoá)', 13, italic=True)
+    
+    # Thêm khoảng trống nhỏ sau tiêu đề
+    document.add_paragraph().paragraph_format.space_after = Pt(12)
+
+    # --- 3. Phần thông tin ---
+    def add_info_line(label, value):
+        p = document.add_paragraph()
+        p.paragraph_format.space_before = Pt(0)
+        p.paragraph_format.space_after = Pt(2) # Giảm khoảng cách dòng
+        p.add_run(label).bold = True
+        p.add_run(value)
+
+    add_info_line('Tên nhà sản xuất: ', 'Công ty cổ phần Tân Phong')
+    add_info_line('Mã số doanh nghiệp: ', '2600274542')
+    document.add_paragraph() # Dòng trống
+
+    add_info_line('Mặt hàng: ', str(data.get('ten_hang_hoa', '')))
+    
+    # Làm tròn 2 chữ số thập phân
+    so_luong_str = f"{data.get('so_luong_mua_tu_dan', 0):,.2f} kgs".replace(',', 'X').replace('.', ',').replace('X', '.')
+    tri_gia_str = f"{data.get('tri_gia_mua_tu_dan', 0):,.2f} vnđ".replace(',', 'X').replace('.', ',').replace('X', '.')
+    add_info_line('Tổng Số lượng: ', so_luong_str)
+    add_info_line('Tổng trị giá: ', tri_gia_str)
+
+    ngay_bk_str = data.get('ngay_bk_thu_mua_tu_dan')
+    
+    add_info_line('', f"Theo bảng kê thu mua {data.get('ten_hang_hoa', '')} ngày {ngay_bk_str} tại {data.get('dia_chi', '')}.")
+    
+    document.add_paragraph() # Dòng trống
+
+    # --- 4. Đoạn cam kết ---
+    def add_declaration_paragraph(text):
+        p = document.add_paragraph(text)
+        p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+        p.paragraph_format.first_line_indent = Cm(0)
+        p.paragraph_format.space_before = Pt(6)
+        p.paragraph_format.space_after = Pt(6)
+        return p
+
+    add_declaration_paragraph(
+        f"Công ty cổ phần Tân Phong xác nhận rằng Nguyên liệu {data.get('ten_hang_hoa', '')} "
+        f"có HS code {data.get('ma_hs', '')} khai tại văn bản này được thu mua tại {data.get('dia_chi', '')}, "
+        "có xuất xứ việt nam và đạt tiêu chí xuất xứ WO theo quy định tại Chương quy tắc hàng hoá "
+        "trong điều 7 nghị định 31/2018/NĐ-CP ngày 08/3/2018 quy định về xuất xứ hàng hoá."
+    )
+    add_declaration_paragraph(
+        "Công ty cam kết thông tin khai báo trên là đúng và chịu trách nhiệm trước pháp luật về thông tin đã khai."
+    )
+
+    # --- 5. Phần chữ ký ---
+    # Sử dụng bảng để căn chỉnh khối chữ ký
+    table = document.add_table(rows=1, cols=2)
+    table.columns[0].width = Cm(8) # Cột trái rỗng để đẩy khối chữ ký sang phải
+    table.columns[1].width = Cm(8) # Cột phải chứa chữ ký
+    
+    sig_cell = table.cell(0, 1)
+    
+    # Định dạng ngày tháng
+    ngay_lap_str = ''
+    if ngay_lap_input := data.get('ngay_lap_giay_to'):
+        ngay_lap_obj = datetime.strptime(str(ngay_lap_input), '%Y-%m-%d')
+        ngay_lap_str = f"Phú thọ, ngày {ngay_lap_obj.strftime('%d')} tháng {ngay_lap_obj.strftime('%m')} năm {ngay_lap_obj.strftime('%Y')}"
+
+    # Thêm các dòng vào ô của bảng
+    p_date = sig_cell.add_paragraph(ngay_lap_str)
+    p_date.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_date.runs[0].italic = True
+    p_date.runs[0].font.size = Pt(12)
+
+    p_title = sig_cell.add_paragraph("Người Đại Diện Theo Pháp Luật Của Thương Nhân")
+    p_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_title.runs[0].bold = True
+    p_title.runs[0].font.size = Pt(14)
+
+    p_instr = sig_cell.add_paragraph("(Ký, đóng dấu, ghi rõ họ tên)")
+    p_instr.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_instr.runs[0].italic = True
+    p_instr.runs[0].font.size = Pt(12)
+
+    # --- 6. Lưu file vào stream ---
+    file_stream = BytesIO()
+    document.save(file_stream)
+    file_stream.seek(0)
+    return file_stream

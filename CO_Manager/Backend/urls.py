@@ -37,6 +37,13 @@ urlpatterns = [
     # Phụ lục X URLs
     path('phu_luc_x/', views.phu_luc_x, name='phu_luc_x'),
 
+    # API Phụ lục X URLs
+    path('api/phu_luc_x/get_purchase_data_for_create/', views.get_purchase_data_for_create, name='get_purchase_data_for_create'),
+    path('api/phu_luc_x/create/', views.phu_luc_x_create, name='api_phu_luc_x_create'),
+    path('api/phu_luc_x/delete/<int:pk>/', views.phu_luc_x_delete, name='api_phu_luc_x_delete'),
+    path('api/phu_luc_x/update/<int:pk>/', views.phu_luc_x_update, name='api_phu_luc_x_update'),
+    path('api/phu_luc_x/export/<int:pk>/', views.phu_luc_x_export, name='api_phu_luc_x_update'),
+
     # Rollback URLs
     path('rollback/', views.rollback, name='rollback'),
     path('rollback/create/', views.rollback_create, name='rollback_create'),
