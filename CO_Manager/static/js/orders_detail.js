@@ -75,8 +75,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     }
                 });
                 
-                // --- THAY ĐỔI BẮT ĐẦU TỪ ĐÂY ---
-
                 let totalMaterialQuantity = 0; // 1. Khởi tạo biến tính tổng
 
                 // Thêm dữ liệu và tính tổng
@@ -103,7 +101,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 `;
                 materialsTable.appendChild(totalRow);
 
-                // --- KẾT THÚC THAY ĐỔI ---
             }
             
             // Hiển thị modal

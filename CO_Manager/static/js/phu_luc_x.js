@@ -223,7 +223,7 @@ $(document).ready(function() {
                 .then(data => {
                     if(data.success) {
                         alert('Xóa thành công!');
-                        $(row).remove();
+                        window.location.reload();
                     } else {
                         alert('Lỗi: ' + data.message);
                     }
