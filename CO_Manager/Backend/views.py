@@ -627,31 +627,64 @@ def get_data_for_ctc_create(request):
     data = json.loads(request.body)
     id_lenh_san_xuat = data.get('id_lenh_san_xuat')
 
-    if id_lenh_san_xuat:
-        bang_ke_thu_mua = BangKeThuMuaTuDan.objects.filter(id_lenh_san_xuat = id_lenh_san_xuat).values()
-        bang_ke_wo = BangKeWo.objects.filter(id_lenh_san_xuat = id_lenh_san_xuat).values()
-        nguyen_vat_lieu = VatTu.objects.filter(
-            id_san_pham__in=[item['id_san_pham'] for item in bang_ke_thu_mua] + 
-                            [item['id_san_pham'] for item in bang_ke_wo]
-        ).values('id_san_pham', 'ten_khac', 'ma_hs', 'don_vi_tinh')
-
-        # Chuyển đổi nguyen_vat_lieu thành dictionary để dễ truy cập
-        nguyen_vat_lieu = {item['id_san_pham']: item for item in nguyen_vat_lieu}
-
-        data = {
-            "bang_ke_thu_mua": {nguyen_vat_lieu[item['id_san_pham']]['ten_khac']: item['ngay_lap_giay_to'] for item in list(bang_ke_thu_mua)},
-            "bang_ke_wo": {nguyen_vat_lieu[item['id_san_pham']]['ten_khac']: item['ngay'] for item in list(bang_ke_wo)}
-        }
-
+    if not id_lenh_san_xuat:
         return JsonResponse({
-            'success': True,
-            'data': data,
-        })
+            'success': False,
+            'message': 'Không tìm thấy mã lệnh sản xuất!'
+        }, status=404)
+
+    # Query tất cả dữ liệu cần thiết trong một lần
+    bang_ke_thu_mua = list(BangKeThuMuaTuDan.objects.filter(
+        id_lenh_san_xuat=id_lenh_san_xuat
+    ).values('id_san_pham', 'ngay_lap_giay_to'))
     
+    bang_ke_wo = list(BangKeWo.objects.filter(
+        id_lenh_san_xuat=id_lenh_san_xuat
+    ).values('id_san_pham', 'ngay'))
+    
+    phu_luc_x = list(PhuLucX.objects.filter(
+        id_bang_ke_thu_mua_tu_dan__id_lenh_san_xuat_id=id_lenh_san_xuat
+    ).select_related('id_bang_ke_thu_mua_tu_dan').values(
+        'id_bang_ke_thu_mua_tu_dan__id_san_pham', 'ngay_lap_giay_to'
+    ))
+
+    # Lấy tất cả id_san_pham một lần
+    all_san_pham_ids = set()
+    all_san_pham_ids.update(item['id_san_pham'] for item in bang_ke_thu_mua)
+    all_san_pham_ids.update(item['id_san_pham'] for item in bang_ke_wo)
+    all_san_pham_ids.update(item['id_bang_ke_thu_mua_tu_dan__id_san_pham'] for item in phu_luc_x)
+
+    # Query VatTu một lần duy nhất
+    nguyen_vat_lieu = {
+        item['id_san_pham']: item['ten_khac'] 
+        for item in VatTu.objects.filter(
+            id_san_pham__in=all_san_pham_ids
+        ).values('id_san_pham', 'ten_khac')
+    }
+
+    # Tạo response data
+    response_data = {
+        "bang_ke_thu_mua": {
+            nguyen_vat_lieu.get(item['id_san_pham'], 'N/A'): item['ngay_lap_giay_to'] 
+            for item in bang_ke_thu_mua
+            if item['id_san_pham'] in nguyen_vat_lieu
+        },
+        "bang_ke_wo": {
+            nguyen_vat_lieu.get(item['id_san_pham'], 'N/A'): item['ngay'] 
+            for item in bang_ke_wo
+            if item['id_san_pham'] in nguyen_vat_lieu
+        },
+        "phu_luc_x": {
+            nguyen_vat_lieu.get(item['id_bang_ke_thu_mua_tu_dan__id_san_pham'], 'N/A'): item['ngay_lap_giay_to'] 
+            for item in phu_luc_x
+            if item['id_bang_ke_thu_mua_tu_dan__id_san_pham'] in nguyen_vat_lieu
+        }
+    }
+
     return JsonResponse({
-        'success': False,
-        'message': 'Không tìm thấy mã lệnh sản xuất!'
-    }, status=404)
+        'success': True,
+        'data': response_data,
+    })
     
 
 def users_management(request):

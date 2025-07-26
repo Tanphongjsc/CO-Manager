@@ -50,8 +50,9 @@ const handleMainTableActions = async (e) => {
     if (ctcData) {
         const mode = button.classList.contains('edit-btn') ? 'edit' : 'view';
         await populateModal(ctcData, mode);
-        if (mode === 'edit' && fields.id_lenh_san_xuat.value) {
+        if (fields.id_lenh_san_xuat.value) { // Luôn fetch data khi mở modal để có dữ liệu mới nhất
             await fetchCtcCreateData(fields.id_lenh_san_xuat.value);
+            updateExistingMaterialRowsWithApiData();
         }
     } else {
         console.warn(`Không tải được dữ liệu cho CTC ID: ${ctcId}.`);
@@ -84,8 +85,8 @@ const handleSave = async (e) => {
                 thanh_tien_khong_xuat_xu_field: cleanValue(getMaterialInputValue('tt_khong_xx')),
                 nuoc_xuat_xu: cleanValue(getMaterialInputValue('nuoc_xx')),
                 ngay_ke_bang_thu_mua: cleanValue(getMaterialInputValue('ngay_btm')),
-                so_ban_khai_bao: cleanValue(getMaterialInputValue('so_kb')),
-                ngay_bang_ke_wo: getMaterialInputValue('ngay_wo'),
+                so_ban_khai_bao: cleanValue(getMaterialInputValue('loai_phu_luc')), // Updated name
+                ngay_bang_ke_wo: getMaterialInputValue('ngay_lap_phu_luc'), // Updated name
                 ghi_chu: cleanValue(getMaterialInputValue('ghi_chu'))
             };
         })
@@ -96,10 +97,7 @@ const handleSave = async (e) => {
         const method = currentCtcId ? 'PUT' : 'POST';
         const response = await fetch(url, {
             method,
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCsrfToken()
-            },
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': getCsrfToken() },
             body: JSON.stringify(payload)
         });
         const result = await response.json();
@@ -122,21 +120,12 @@ const handleAddMaterialManual = () => {
     if (!isEditMode || !materialTableBody) return;
     const newIndex = materialTableBody.querySelectorAll('tr:not(#emptyMaterialRow)').length;
     const newRowData = {
-        ma_hs: '',
-        ngay_ke_bang_thu_mua: '',
-        ngay_bang_ke_wo: '',
         nuoc_xuat_xu: 'Việt Nam',
-        so_ban_khai_bao: 'Phụ lục II',
+        so_ban_khai_bao: 'Phụ lục II', // Default
         don_gia: 0,
         dinh_muc_san_pham_hao_hut: 0,
-        thanh_tien_co_xuat_xu_field: 0,
-        thanh_tien_khong_xuat_xu_field: 0,
-        ghi_chu: ''
     };
     const newRowElement = renderMaterialRow(newRowData, newIndex, true);
-    if (emptyMaterialRow && emptyMaterialRow.style.display !== 'none' && materialTableBody.contains(emptyMaterialRow)) {
-        materialTableBody.removeChild(emptyMaterialRow);
-    }
     materialTableBody.appendChild(newRowElement);
     updateMaterialTableDisplay();
 };
@@ -147,14 +136,14 @@ const handleDeleteMaterial = (e) => {
     const rowToDelete = btn.closest('tr');
     if (rowToDelete && rowToDelete !== emptyMaterialRow) {
         rowToDelete.remove();
-        updateMaterialTableDisplay();
+        // Re-index rows
         materialTableBody.querySelectorAll('tr:not(#emptyMaterialRow)').forEach((row, idx) => {
             row.cells[0].textContent = idx + 1;
             row.querySelectorAll('[name]').forEach(input => {
                 input.name = input.name.replace(/material_\d+/, `material_${idx}`);
             });
-            row.dataset.materialRowUiId = `new_${Date.now()}_${idx}`;
         });
+        updateMaterialTableDisplay();
     }
 };
 
@@ -162,24 +151,18 @@ const handleDeleteMaterial = (e) => {
 
 const handleExport = async (button, format) => {
     const originalText = button.textContent;
+    button.textContent = 'Đang xuất...';
+    button.disabled = true;
     try {
-        button.textContent = 'Đang xuất...';
-        button.disabled = true;
         const ctcId = button.dataset.id;
-        if (!ctcId) {
-            alert(`Không tìm thấy ID CTC để xuất ${format}.`);
-            return;
-        }
+        if (!ctcId) throw new Error(`Không tìm thấy ID CTC để xuất ${format}.`);
         const exportUrl = `/ctc/${ctcId}/export/?format=${format}`;
         const response = await fetch(exportUrl);
         if (!response.ok) throw new Error(`Lỗi server ${response.status}`);
         if (format === 'pdf') {
             const html = await response.text();
             const printWindow = window.open('', '_blank');
-            if (!printWindow) {
-                alert('Vui lòng cho phép pop-up.');
-                return;
-            }
+            if (!printWindow) throw new Error('Vui lòng cho phép pop-up.');
             printWindow.document.write(html);
             printWindow.document.close();
             printWindow.onload = () => printWindow.print();
@@ -193,148 +176,113 @@ const handleExport = async (button, format) => {
         setTimeout(() => {
             button.textContent = originalText;
             button.disabled = false;
-        }, format === 'excel' ? 2000 : 500);
+        }, 1500);
     }
 };
 
 // ===== EVENT LISTENERS SETUP =====
 
 document.addEventListener('DOMContentLoaded', () => {
-    // Khởi tạo dữ liệu về các CTC đã tồn tại
     if (typeof initializeExistingCtcData === 'function') {
         initializeExistingCtcData();
     }
 
-    // Filter buttons
-    buttons.filter?.addEventListener('click', (e) => {
-        e.preventDefault();
-        handleFilter();
-    });
-
+    buttons.filter?.addEventListener('click', (e) => { e.preventDefault(); handleFilter(); });
+    
     buttons.clearFilter?.addEventListener('click', (e) => {
         e.preventDefault();
-        if (filterSelectBox) filterSelectBox.value = '';
+        
+        // Kiểm tra nếu jQuery và Select2 đã được tải
+        if (window.jQuery && jQuery.fn.select2) {
+            // Reset giá trị của Select2 và kích hoạt sự kiện change
+            $('#ctc-ma-lenh-sx-select').val(null).trigger('change');
+        } else if (filterSelectBox) {
+            // Fallback nếu không có jQuery/Select2
+            filterSelectBox.value = '';
+        }
+
+        // Gọi hàm lọc để làm mới bảng
         handleFilter();
     });
 
-    // Main table actions
+
     mainTableBody?.addEventListener('click', handleMainTableActions);
 
-    // Modal buttons
     buttons.addCtc?.addEventListener('click', async (e) => {
         e.preventDefault();
-        await populateModal({
-            id_bang_ke_ctc: null,
-            id_lenh_san_xuat_id: '',
-            id_san_pham: {},
-            chi_tiet_nguyen_lieu: []
-        }, 'edit');
+        await populateModal({ chi_tiet_nguyen_lieu: [] }, 'edit');
     });
 
     buttons.closeModal?.addEventListener('click', confirmCloseModal);
-
-    window.addEventListener('click', (e) => {
-        if (e.target === modal) confirmCloseModal();
-    });
+    window.addEventListener('click', (e) => { if (e.target === modal) confirmCloseModal(); });
 
     buttons.toggleEdit?.addEventListener('click', async () => {
         if (currentCtcId && !isEditMode) {
             const ctcData = await fetchCtcDetails(currentCtcId);
-            if (ctcData) {
-                await populateModal(ctcData, 'edit');
-                if (fields.id_lenh_san_xuat.value) {
-                    await fetchCtcCreateData(fields.id_lenh_san_xuat.value);
-                }
-            }
+            if (ctcData) await populateModal(ctcData, 'edit');
         }
     });
 
     buttons.cancelEdit?.addEventListener('click', async () => {
         if (currentCtcId) {
             const d = await fetchCtcDetails(currentCtcId);
-            if (d) await populateModal(d, 'view');
-            else closeModal();
+            if (d) await populateModal(d, 'view'); else closeModal();
         } else closeModal();
     });
 
     buttons.save?.addEventListener('click', handleSave);
     buttons.addMaterial?.addEventListener('click', handleAddMaterialManual);
+    buttons.exportPdf?.addEventListener('click', function() { handleExport(this, 'pdf'); });
+    buttons.exportExcel?.addEventListener('click', function() { handleExport(this, 'excel'); });
 
-    // Export buttons
-    buttons.exportPdf?.addEventListener('click', function() {
-        handleExport(this, 'pdf');
-    });
-    buttons.exportExcel?.addEventListener('click', function() {
-        handleExport(this, 'excel');
-    });
-
-    // Material table events
     materialTableBody?.addEventListener('click', (e) => {
         if (e.target.closest('.delete-material-btn')) handleDeleteMaterial(e);
     });
 
     materialTableBody?.addEventListener('change', (e) => {
-        if (e.target.classList.contains('material-select') && isEditMode) {
-            const select = e.target;
-            const row = select.closest('tr');
-            const selectedMaterialId = select.value;
+        const target = e.target;
+        if (!isEditMode) return;
+
+        // Khi thay đổi Nguyên liệu
+        if (target.classList.contains('material-select')) {
+            const row = target.closest('tr');
+            const selectedMaterialId = target.value;
             const lenhSxId = fields.id_lenh_san_xuat.value;
             const productId = fields.id_san_pham.value;
 
             let materialDetails = null;
             if (productId && lenhSxId && selectedMaterialId) {
                 const productInfo = getProductDetails(lenhSxId, productId);
-                if (productInfo?.nguyen_vat_lieu) {
-                    materialDetails = Object.values(productInfo.nguyen_vat_lieu).find(m => 
-                        (m.id_san_pham || m.id)?.toString() === selectedMaterialId.toString()
-                    );
-                }
+                materialDetails = productInfo?.nguyen_vat_lieu 
+                    ? Object.values(productInfo.nguyen_vat_lieu).find(m => (m.id_san_pham || m.id)?.toString() === selectedMaterialId) 
+                    : materialData.find(m => (m.id_san_pham || m.id)?.toString() === selectedMaterialId);
             }
-            if (!materialDetails && selectedMaterialId) {
-                materialDetails = materialData.find(m => 
-                    (m.id_san_pham || m.id)?.toString() === selectedMaterialId.toString()
-                );
-            }
+            if (row) fillMaterialRowData(row, materialDetails);
+        }
 
-            if (row && materialDetails) {
-                fillMaterialRowData(row, materialDetails, false);
-            } else if (row) {
-                row.querySelector('input[name$="_ma_hs"]').value = '';
-                row.querySelector('input[name$="_dinh_muc"]').value = '';
-                row.querySelector('input[name$="_ngay_btm"]').value = '';
-                row.querySelector('input[name$="_ngay_wo"]').value = '';
-                calculateThanhTien(row);
-            }
+        // [MỚI] Khi thay đổi Loại Phụ Lục
+        if (target.classList.contains('loai-phu-luc-select')) {
+            const row = target.closest('tr');
+            if (row) updateNgayLapPhuLuc(row);
         }
     });
 
     materialTableBody?.addEventListener('input', (e) => {
         const target = e.target;
-        // Cập nhật điều kiện 'if' để bao gồm cả class 'material-nuoc-xx'
-        if (isEditMode && (
-            target.classList.contains('material-don-gia') || 
-            target.classList.contains('material-dinh-muc') ||
-            target.classList.contains('material-nuoc-xx') // <-- Thêm điều kiện này
-        )) {
+        if (isEditMode && (target.classList.contains('material-don-gia') || target.classList.contains('material-dinh-muc') || target.classList.contains('material-nuoc-xx'))) {
             const row = target.closest('tr');
             if (row) calculateThanhTien(row);
         }
     });
 
-    // Form field events
     fields.id_lenh_san_xuat?.addEventListener('change', async function() {
         const lenhSxId = this.value;
         populateProductDropdown(lenhSxId);
-        ['id_san_pham', 'ma_hs', 'don_vi_tinh', 'so_luong'].forEach(fieldKey => {
-            if(fields[fieldKey]) fields[fieldKey].value = '';
-        });
+        ['id_san_pham', 'ma_hs', 'don_vi_tinh', 'so_luong'].forEach(k => { if(fields[k]) fields[k].value = ''; });
         resetMaterialTable();
-
+        ctcCreateApiData = null;
         if (lenhSxId && isEditMode) {
             await fetchCtcCreateData(lenhSxId);
-            updateExistingMaterialRowsWithApiData();
-        } else {
-            ctcCreateApiData = null;
         }
     });
 
@@ -346,7 +294,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (fields.ma_hs) fields.ma_hs.value = selectedOpt?.dataset.maHs || '';
         if (fields.don_vi_tinh) fields.don_vi_tinh.value = selectedOpt?.dataset.dvt || '';
         if (fields.so_luong) fields.so_luong.value = selectedOpt?.dataset.soLuongSp || '';
-
         resetMaterialTable();
 
         if (isEditMode && productId && materialTableBody) {
@@ -354,18 +301,13 @@ document.addEventListener('DOMContentLoaded', () => {
             if (productDetails?.nguyen_vat_lieu) {
                 const materialsForProduct = Object.values(productDetails.nguyen_vat_lieu);
                 if (materialsForProduct.length > 0) {
-                    if (emptyMaterialRow && materialTableBody.contains(emptyMaterialRow)) materialTableBody.removeChild(emptyMaterialRow);
                     materialsForProduct.forEach((nvl, index) => {
                         const newRowElement = renderMaterialRow({
                             id_nguyen_lieu: nvl.id_san_pham || nvl.id,
-                            ten_nguyen_lieu: nvl.ten_khac || nvl.ten_sp_chinh,
-                            ma_hs: nvl.ma_hs,
-                            nuoc_xuat_xu: 'Việt Nam',
-                            so_ban_khai_bao: 'Phụ lục II',
                             don_gia: nvl.don_gia || 0,
                         }, index, true);
                         materialTableBody.appendChild(newRowElement);
-                        fillMaterialRowData(newRowElement, nvl, true);
+                        fillMaterialRowData(newRowElement, nvl);
                     });
                 }
             }

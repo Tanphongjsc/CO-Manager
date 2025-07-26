@@ -5,7 +5,27 @@
 {% block title %}Bảng kê CTC - Hệ thống quản lý{% endblock %}
 
 {% block css %}
+    {# Thêm CSS cho Select2 #}
+    <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="{% static 'css/ctc_management.css' %}">
+    
+    {# Thêm một chút style để Select2 hiển thị đẹp hơn trong layout này #}
+    <style>
+        .select2-container--default .select2-selection--single {
+            height: 38px;
+            border: 1px solid #ced4da;
+            border-radius: 0.25rem;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__rendered {
+            line-height: 36px;
+        }
+        .select2-container--default .select2-selection--single .select2-selection__arrow {
+            height: 36px;
+        }
+        .search-filter-item .select2-container {
+            width: 300px !important; /* Ghi đè chiều rộng mặc định */
+        }
+    </style>
 {% endblock %}
 
 {% block content %}
@@ -17,6 +37,7 @@
             <div class="search-filter-item">
                 <label for="ctc-ma-lenh-sx-select">Mã lệnh sản xuất:</label>
                 <div class="filter-controls">
+                    {# Đây là thẻ select sẽ được chuyển thành Select2 #}
                     <select id="ctc-ma-lenh-sx-select" class="form-control">
                         <option value="">-- Tất cả lệnh sản xuất --</option>
                         {% for lxs in lenh_san_xuat_options.values %}
@@ -55,7 +76,7 @@
             </thead>
             <tbody>
                 {% for ctc_item in ctc_list %}
-                <tr data-lenh-sx-id="{{ ctc_item.id_lenh_san_xuat_id|default_if_none:'' }}" data-san-pham-id="{{ ctc_item.id_san_pham.id_san_pham|default_if_none:'' }}">     {# Thêm data-lenh-sx-id và data-san-pham-id vào đây #}
+                <tr data-lenh-sx-id="{{ ctc_item.id_lenh_san_xuat_id|default_if_none:'' }}" data-san-pham-id="{{ ctc_item.id_san_pham.id_san_pham|default_if_none:'' }}">
                     <td>{{ ctc_item.id_bang_ke_ctc }}</td>
                     <td>{{ ctc_item.id_lenh_san_xuat_id|default_if_none:'' }}</td>
                     <td>{{ ctc_item.id_san_pham.ten_khac|default_if_none:'' }}</td>
@@ -86,7 +107,7 @@
     </div>
 </div>
 
-{# Modal #}
+{# Modal (Không thay đổi) #}
 <div id="ctcModal" class="modal">
     <div class="modal-content">
         <div class="modal-header">
@@ -98,11 +119,8 @@
                 <button id="cancelEditBtn" type="button" class="btn btn-secondary" style="display: none;"><i class="fas fa-times"></i> Hủy</button>
             </div>
         </div>
-
-        {# Form sẽ được thêm class 'view-mode' hoặc 'edit-mode' bởi JS #}
         <form id="ctcForm">
             <h5 class="section-title"><i class="fas fa-clipboard-list"></i> Thông tin chung CTC</h5>
-            
             <div class="info-item-standalone">
                 <label for="modal_id_lenh_san_xuat">ID Lệnh Sản Xuất:</label>
                 <select id="modal_id_lenh_san_xuat" name="id_lenh_san_xuat" class="form-control">
@@ -112,13 +130,11 @@
                     {% endfor %}
                 </select>
             </div>
-
             <div class="detail-info-grid">
                 <div class="info-item">
                     <label for="modal_id_san_pham">Tên hàng hóa (Sản phẩm):</label>
                     <select id="modal_id_san_pham" name="id_san_pham" class="form-control">
                         <option value="">-- Chọn hàng hóa --</option>
-                        {# Options được JS thêm vào #}
                     </select>
                 </div>
                 <div class="info-item">
@@ -142,7 +158,6 @@
                     <input type="text" id="modal_so_to_hai_quan" name="so_to_hai_quan" class="form-control">
                 </div>
             </div>
-
             <h5 class="section-title"><i class="fas fa-cogs"></i> Chi tiết nguyên liệu <span id="materialCount" class="count-badge"></span></h5>
             <div class="material-table-container">
                 <table id="materialTable" class="material-table">
@@ -157,8 +172,8 @@
                             <th>Thành tiền (không XX)</th>
                             <th>Nước XX</th>
                             <th>Ngày kê BTM</th>
-                            <th>Số bản KB</th>
-                            <th>Ngày bảng kê WO</th>
+                            <th>Loại phụ lục</th>
+                            <th>Ngày lập phụ lục</th>
                             <th>Ghi chú</th>
                             <th class="action-buttons-cell">Thao tác</th> 
                         </tr>
@@ -178,7 +193,6 @@
                 </button>
             </div>
         </form>
-
         <div class="modal-footer">
             <button id="saveCCTCBtn" type="submit" form="ctcForm" class="btn btn-primary"><i class="fas fa-save"></i> Lưu</button>
             <button id="closeModalBtn" type="button" class="btn btn-secondary"><i class="fas fa-times"></i> Đóng</button>
@@ -186,7 +200,7 @@
     </div>
 </div>
 
-{# Data Islands for JavaScript (Giữ nguyên) #}
+{# Data Islands for JavaScript #}
 <script id="lenh-san-xuat-data" type="application/json">
     {
         {% for i, item in lenh_san_xuat_options.items %}
@@ -201,7 +215,24 @@
 {% endblock %}
 
 {% block javascript %}
+    {# Thêm thư viện jQuery và Select2 JS #}
+    {# Lưu ý: jQuery phải được thêm vào TRƯỚC Select2 #}
+    <script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.slim.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+    {# Các script tùy chỉnh của bạn #}
     <script src="{% static 'js/ctc_core.js' %}"></script>
     <script src="{% static 'js/ctc_data_handler.js' %}"></script>
     <script src="{% static 'js/ctc_events.js' %}"></script>
+
+    {# Script để khởi tạo Select2 #}
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // Áp dụng Select2 cho dropdown
+            $('#ctc-ma-lenh-sx-select').select2({
+                placeholder: "-- Lọc theo lệnh sản xuất --",
+                allowClear: false // Bỏ tùy chọn hiển thị nút xóa (x)
+            });
+        });
+    </script>
 {% endblock %}
