@@ -20,6 +20,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const cccdCmndInput = document.getElementById('cccd_cmnd');
     const ngayTaoInput = document.getElementById('ngay_tao');
     const ghiChuInput = document.getElementById('ghi_chu');
+    const coHoaDonCheckbox = document.getElementById('co_hoa_don'); // Thêm checkbox
     
     // Read-only fields
     const maDonHangInput = document.getElementById('ma_don_hang');
@@ -61,14 +62,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // Store original values
         storeOriginalValues();
         
-        // Load purchase details for table
-        const idBangKeThuMua = idBangKeThuMuaInput ? idBangKeThuMuaInput.value : null;
-        if (idBangKeThuMua) {
-            loadPurchaseDetails(idBangKeThuMua);
-        }
-        
         // Set initial edit mode
         setEditMode(false);
+
+        calculateTotalsOnLoad();
     }
 
     // Sửa chữa function storeOriginalValues
@@ -83,7 +80,8 @@ document.addEventListener('DOMContentLoaded', () => {
             nguoi_phu_trach: nguoiPhuTrachSelect ? nguoiPhuTrachSelect.value : '',
             cccd_cmnd: cccdCmndInput ? cccdCmndInput.value : '',
             ngay_tao: ngayTaoInput ? ngayTaoInput.value : '',
-            ghi_chu: ghiChuInput ? ghiChuInput.value : ''
+            ghi_chu: ghiChuInput ? ghiChuInput.value : '',
+            co_hoa_don: coHoaDonCheckbox ? coHoaDonCheckbox.checked : false // Thêm checkbox vào originalValues
         };
     }
 
@@ -100,12 +98,13 @@ document.addEventListener('DOMContentLoaded', () => {
             noiKhaiThacInput,
             nguoiPhuTrachSelect,
             ngayTaoInput,
-            ghiChuInput
+            ghiChuInput,
+            coHoaDonCheckbox // Thêm checkbox vào danh sách có thể chỉnh sửa
         ];
 
         editableFields.forEach(field => {
             if (field) { // Kiểm tra element tồn tại
-                if (field.tagName === 'SELECT') {
+                if (field.tagName === 'SELECT' || field.type === 'checkbox') {
                     field.disabled = !editMode;
                 } else {
                     field.readOnly = !editMode;
@@ -120,7 +119,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        // Toggle button visibility - SỬA CHỮA LOGIC NÀY
+        // Toggle button visibility
         if (editBtn) editBtn.style.display = editMode ? 'none' : 'inline-block';
         if (saveBtn) saveBtn.style.display = editMode ? 'inline-block' : 'none';
         if (cancelEditBtn) cancelEditBtn.style.display = editMode ? 'inline-block' : 'none';
@@ -143,13 +142,101 @@ document.addEventListener('DOMContentLoaded', () => {
     function handleExportPdf() {
         const woId = document.getElementById('wo_id').value;
         if (!woId) return alert('Không tìm thấy ID bảng kê WO');
-        window.open(`/wo/${woId}/export/pdf/`, '_blank');
+        
+        // Kiểm tra checkbox có hóa đơn - SỬA LOGIC KIỂM TRA
+        if (coHoaDonCheckbox && coHoaDonCheckbox.checked) {
+            // Nếu có hóa đơn, xuất bình thường (luồng cũ)
+            window.open(`/wo/${woId}/export/pdf/`, '_blank');
+        } else {
+            // Nếu không có hóa đơn, hiển thị popup chọn nguyên liệu (luồng mới)
+            showMaterialSelectionPopup('pdf');
+        }
     }
 
     function handleExportWord() {
         const woId = document.getElementById('wo_id').value;
         if (!woId) return alert('Không tìm thấy ID bảng kê WO');
-        window.open(`/wo/${woId}/export/word/`, '_blank');
+        
+        // Kiểm tra checkbox có hóa đơn - SỬA LOGIC KIỂM TRA
+        if (coHoaDonCheckbox && coHoaDonCheckbox.checked) {
+            // Nếu có hóa đơn, xuất bình thường (luồng cũ)
+            window.open(`/wo/${woId}/export/word/`, '_blank');
+        } else {
+            // Nếu không có hóa đơn, hiển thị popup chọn nguyên liệu (luồng mới)
+            showMaterialSelectionPopup('word');
+        }
+    }
+
+    // Hàm hiển thị popup chọn nguyên liệu
+    async function showMaterialSelectionPopup(exportType) {
+        const woId = document.getElementById('wo_id').value;
+        
+        try {
+            showLoading();
+            const response = await fetch(`/wo/${woId}/get-similar-materials/`, {
+                method: 'GET',
+                headers: {
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                }
+            });
+
+            const data = await response.json();
+            
+            if (response.ok && data.status === 'success') {
+                populateMaterialList(data.materials, exportType);
+                document.getElementById('materialSelectionPopup').style.display = 'block';
+            } else {
+                alert(data.message || 'Lỗi khi tải danh sách nguyên liệu');
+            }
+        } catch (error) {
+            console.error('Lỗi khi tải danh sách nguyên liệu:', error);
+            alert('Đã xảy ra lỗi khi tải danh sách nguyên liệu');
+        } finally {
+            hideLoading();
+        }
+    }
+
+    // Hàm hiển thị danh sách nguyên liệu trong popup
+    function populateMaterialList(materials, exportType) {
+        const materialList = document.getElementById('materialList');
+        materialList.innerHTML = '';
+        
+        // Thêm nguyên liệu hiện tại (luôn được chọn)
+        const currentWoId = document.getElementById('wo_id').value;
+        const currentMaterialDiv = document.createElement('div');
+        currentMaterialDiv.className = 'material-item';
+        currentMaterialDiv.innerHTML = `
+            <input type="checkbox" id="material_${currentWoId}" value="${currentWoId}" checked disabled>
+            <div class="material-info">
+                <div class="material-name">${tenNguyenLieuInput.value} (Hiện tại)</div>
+                <div class="material-details">
+                    Lệnh SX: ${maLenhSxInput.value} | 
+                    Số lượng: ${soLuongInput.value} KGM
+                </div>
+            </div>
+        `;
+        materialList.appendChild(currentMaterialDiv);
+        
+        // Thêm các nguyên liệu cùng loại
+        materials.forEach(material => {
+            const materialDiv = document.createElement('div');
+            materialDiv.className = 'material-item';
+            materialDiv.innerHTML = `
+                <input type="checkbox" id="material_${material.id}" value="${material.id}">
+                <div class="material-info">
+                    <div class="material-name">${material.ten_nguyen_lieu}</div>
+                    <div class="material-details">
+                        Lệnh SX: ${material.ma_lenh_sx} | 
+                        Số lượng: ${material.so_luong} KGM | 
+                        Ngày: ${material.ngay}
+                    </div>
+                </div>
+            `;
+            materialList.appendChild(materialDiv);
+        });
+        
+        // Lưu export type để sử dụng khi xuất file
+        materialList.dataset.exportType = exportType;
     }
 
     function handleEdit() {
@@ -187,7 +274,7 @@ document.addEventListener('DOMContentLoaded', () => {
             noi_khai_thac: noiKhaiThacInput.value.trim(),
             id_nguoi: nguoiPhuTrachSelect.value || null,
             ngay: ngayTaoInput.value,
-            
+            co_hoa_don: coHoaDonCheckbox ? coHoaDonCheckbox.checked : false // Thêm trường co_hoa_don
         };
 
         showLoading();
@@ -231,7 +318,7 @@ document.addEventListener('DOMContentLoaded', () => {
             nguoiPhuTrachSelect.value = originalValues.nguoi_phu_trach;
             cccdCmndInput.value = originalValues.cccd_cmnd;
             ngayTaoInput.value = originalValues.ngay_tao;
-            
+            if (coHoaDonCheckbox) coHoaDonCheckbox.checked = originalValues.co_hoa_don; // Khôi phục checkbox
             
             // Update table display with restored values
             updateTableDisplay();
@@ -252,124 +339,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    async function loadPurchaseDetails(purchaseId) {
-        showLoading();
-        try {
-            const response = await fetch(`/api/wo/purchase_details/${purchaseId}/`);
-            const data = await response.json();
-            
-            if (data.status === 'success' && data.details) {
-                purchaseDetailData = data.details;
-                populateTable(data.details);
-            } else {
-                console.error('Failed to load purchase details:', data.message);
-                purchaseDetailData = [];
-                populateTable([]);
-            }
-        } catch (error) {
-            console.error('Error loading purchase details:', error);
-            // Create mock data for testing if API fails
-            purchaseDetailData = createMockPurchaseDetails();
-            populateTable(purchaseDetailData);
-        } finally {
-            hideLoading();
-        }
-    }
-
-    function createMockPurchaseDetails() {
-        // Temporary mock data - same as create page
-        return [
-            {
-                ngay_mua_hang: '2024-12-10',
-                ten_nguoi_ban: 'An Văn Thao',
-                dia_chi: 'Hà Long - Hà Trung - Thanh Hóa',
-                so_cmnd_cccd: '038059011122',
-                so_luong: 8500,
-                don_gia: 11500,
-                ghi_chu: ''
-            },
-            {
-                ngay_mua_hang: '2024-12-15',
-                ten_nguoi_ban: 'Lê Duy Hoàn',
-                dia_chi: 'Hà Long - Hà Trung - Thanh Hóa',
-                so_cmnd_cccd: '038200009918',
-                so_luong: 10350,
-                don_gia: 11500,
-                ghi_chu: ''
-            }
-        ];
-    }
-
-    function populateTable(details) {
-        woTableBody.innerHTML = '';
-        
-        let tongSoLuong = 0;
-        let tongThanhTien = 0;
-
-        details.forEach(detail => {
-            const row = document.createElement('tr');
-
-            const ngayMuaHang = detail.ngay_mua_hang ?
-                new Date(detail.ngay_mua_hang).toLocaleDateString('vi-VN') : '';
-
-            const cccdInfo = detail.so_cmnd_cccd || '';
-
-            const soLuong = parseFloat(detail.so_luong || 0);
-            const donGia = parseFloat(detail.don_gia || 0);
-            const tongTriGia = soLuong * donGia;
-
-            tongSoLuong += soLuong;
-            tongThanhTien += tongTriGia;
-
-            row.innerHTML = `
-                <td>${ngayMuaHang}</td>
-                <td>${detail.ten_nguoi_ban || ''}</td>
-                <td>${detail.dia_chi || ''}</td>
-                <td>${cccdInfo}</td>
-                <td class="ten-nguyen-lieu">${tenNguyenLieuInput.value}</td>
-                <td class="ma-hs">${maHsInput.value}</td>
-                <td class="noi-khai-thac">${noiKhaiThacInput.value}</td>
-                <td style="text-align: right;" data-so-luong="${soLuong}">
-                    ${soLuong.toLocaleString('vi-VN', { minimumFractionDigits: 3 })}
-                </td>
-                <td style="text-align: right;">${donGia.toLocaleString('vi-VN')}</td>
-                <td style="text-align: right;" data-thanh-tien="${tongTriGia}">
-                    ${tongTriGia.toLocaleString('vi-VN')}
-                </td>
-                <td>${detail.ghi_chu || ''}</td>
-            `;
-
-            woTableBody.appendChild(row);
-        });
-
-        // Add total row
-        if (details.length > 0) {
-            const totalRow = document.createElement('tr');
-            totalRow.style.fontWeight = 'bold';
-            totalRow.style.backgroundColor = '#f8f9fa';
-
-            totalRow.innerHTML = `
-                <td></td>
-                <td style="text-align: center;">Tổng cộng</td>
-                <td></td>
-                <td></td>
-                <td></td>
-                <td></td>
-                <td></td>
-                <td style="text-align: right;">
-                    ${tongSoLuong.toLocaleString('vi-VN', { minimumFractionDigits: 3 })} ${donViTinhInput.value}
-                </td>
-                <td></td>
-                <td style="text-align: right;">
-                    ${tongThanhTien.toLocaleString('vi-VN')}
-                </td>
-                <td></td>
-            `;
-
-            woTableBody.appendChild(totalRow);
-        }
-    }
-
     function updateTableDisplay() {
         const rows = woTableBody.querySelectorAll('tr');
         let tongSoLuong = 0;
@@ -387,12 +356,54 @@ document.addEventListener('DOMContentLoaded', () => {
             if (maHsCell) maHsCell.textContent = maHsInput.value;
             if (noiKhaiThacCell) noiKhaiThacCell.textContent = noiKhaiThacInput.value;
 
+            // Tính tổng số lượng và thành tiền
             const soLuongCell = row.cells[7];
             const thanhTienCell = row.cells[9];
 
             if (soLuongCell && thanhTienCell) {
-                const soLuong = parseFloat(soLuongCell.dataset.soLuong || 0);
-                const thanhTien = parseFloat(thanhTienCell.dataset.thanhTien || 0);
+                const soLuong = parseFloat(soLuongCell.dataset.soLuong || soLuongCell.textContent.replace(/[^\d.,]/g, '').replace(',', '.')) || 0;
+                const thanhTien = parseFloat(thanhTienCell.dataset.thanhTien || thanhTienCell.textContent.replace(/[^\d]/g, '')) || 0;
+                tongSoLuong += soLuong;
+                tongThanhTien += thanhTien;
+            }
+        });
+
+        // Update total row - Sửa chỗ này để dùng KGM thay vì kg
+        const totalRow = woTableBody.querySelector('tr:last-child');
+        if (totalRow && totalRow.cells[1] && totalRow.cells[1].textContent.includes('Tổng cộng')) {
+            // Cập nhật tổng số lượng với đơn vị KGM
+            const tongSoLuongCell = totalRow.cells[7];
+            if (tongSoLuongCell) {
+                tongSoLuongCell.innerHTML = `${tongSoLuong.toLocaleString('vi-VN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} KGM`;
+            }
+            
+            // Cập nhật tổng thành tiền
+            const tongThanhTienCell = totalRow.cells[9];
+            if (tongThanhTienCell) {
+                tongThanhTienCell.textContent = tongThanhTien.toLocaleString('vi-VN');
+            }
+        }
+    }
+
+    function calculateTotalsOnLoad() {
+        const rows = woTableBody.querySelectorAll('tr');
+        let tongSoLuong = 0;
+        let tongThanhTien = 0;
+
+        rows.forEach(row => {
+            // Skip total row
+            if (row.cells[1] && row.cells[1].textContent.includes('Tổng cộng')) return;
+
+            const soLuongCell = row.cells[7];
+            const thanhTienCell = row.cells[9];
+
+            if (soLuongCell && thanhTienCell) {
+                // Lấy giá trị từ data attribute hoặc parse từ text
+                const soLuong = parseFloat(soLuongCell.dataset.soLuong) || 
+                            parseFloat(soLuongCell.textContent.replace(/[^\d.,]/g, '').replace(',', '.')) || 0;
+                const thanhTien = parseFloat(thanhTienCell.dataset.thanhTien) || 
+                                parseFloat(thanhTienCell.textContent.replace(/[^\d]/g, '')) || 0;
+                
                 tongSoLuong += soLuong;
                 tongThanhTien += thanhTien;
             }
@@ -401,8 +412,16 @@ document.addEventListener('DOMContentLoaded', () => {
         // Update total row
         const totalRow = woTableBody.querySelector('tr:last-child');
         if (totalRow && totalRow.cells[1] && totalRow.cells[1].textContent.includes('Tổng cộng')) {
-            totalRow.cells[7].innerHTML = `${tongSoLuong.toLocaleString('vi-VN', { minimumFractionDigits: 3 })} ${donViTinhInput.value}`;
-            totalRow.cells[9].textContent = tongThanhTien.toLocaleString('vi-VN');
+            const tongSoLuongCell = totalRow.cells[7];
+            const tongThanhTienCell = totalRow.cells[9];
+            
+            if (tongSoLuongCell) {
+                tongSoLuongCell.innerHTML = `${tongSoLuong.toLocaleString('vi-VN', { minimumFractionDigits: 3, maximumFractionDigits: 3 })} KGM`;
+            }
+            
+            if (tongThanhTienCell) {
+                tongThanhTienCell.textContent = tongThanhTien.toLocaleString('vi-VN');
+            }
         }
     }
 
@@ -416,5 +435,102 @@ document.addEventListener('DOMContentLoaded', () => {
         // Hide loading indicator if exists
         const loading = document.getElementById('loading');
         if (loading) loading.style.display = 'none';
+    }
+
+    // Các hàm xử lý popup (sẽ được gọi từ HTML)
+    window.closeMaterialPopup = function() {
+        document.getElementById('materialSelectionPopup').style.display = 'none';
+    }
+
+    window.exportSelectedMaterials = async function() {
+        const checkboxes = document.querySelectorAll('#materialList input[type="checkbox"]:checked');
+        const selectedIds = Array.from(checkboxes).map(cb => cb.value);
+        const exportType = document.getElementById('materialList').dataset.exportType;
+        
+        if (selectedIds.length === 0) {
+            alert('Vui lòng chọn ít nhất một nguyên liệu');
+            return;
+        }
+
+        try {
+            showLoading();
+            
+            if (exportType === 'pdf') {
+                // XỬ LÝ PDF BẰNG AJAX (GIỐNG wo_export_pdf)
+                const response = await fetch('/wo/export-multiple/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    },
+                    body: JSON.stringify({
+                        wo_ids: selectedIds,
+                        export_type: 'pdf'
+                    })
+                });
+
+                if (response.ok) {
+                    // Lấy HTML content trả về và mở trong tab mới để in PDF
+                    const htmlContent = await response.text();
+                    const printWindow = window.open('', '_blank');
+                    printWindow.document.write(htmlContent);
+                    printWindow.document.close();
+                    
+                    // Đóng popup
+                    closeMaterialPopup();
+                } else {
+                    const errorData = await response.json();
+                    alert(errorData.message || 'Lỗi khi xuất PDF');
+                }
+            } else {
+                // XỬ LÝ WORD BẰNG DOWNLOAD FILE (GIỮ NGUYÊN)
+                const response = await fetch('/wo/export-multiple/', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                    },
+                    body: JSON.stringify({
+                        wo_ids: selectedIds,
+                        export_type: 'word'
+                    })
+                });
+
+                if (response.ok) {
+                    // Tạo blob và download file
+                    const blob = await response.blob();
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    
+                    // Lấy tên file từ header hoặc tạo tên mặc định
+                    const contentDisposition = response.headers.get('Content-Disposition');
+                    let filename = `Bang_ke_WO_nhieu_nguyen_lieu.docx`;
+                    if (contentDisposition) {
+                        const filenameMatch = contentDisposition.match(/filename="([^"]+)"/);
+                        if (filenameMatch) {
+                            filename = filenameMatch[1];
+                        }
+                    }
+                    
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    window.URL.revokeObjectURL(url);
+                    
+                    // Đóng popup
+                    closeMaterialPopup();
+                } else {
+                    const errorData = await response.json();
+                    alert(errorData.message || 'Lỗi khi xuất file Word');
+                }
+            }
+        } catch (error) {
+            console.error('Lỗi khi xuất file:', error);
+            alert('Đã xảy ra lỗi khi xuất file');
+        } finally {
+            hideLoading();
+        }
     }
 });

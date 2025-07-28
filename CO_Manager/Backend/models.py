@@ -31,6 +31,9 @@ class BangKeThuMuaTuDan(models.Model):
     id_lenh_san_xuat = models.ForeignKey('LenhSanXuat', models.DO_NOTHING, db_column='id_lenh_san_xuat')
     id_san_pham = models.CharField()
     ngay_lap_giay_to = models.CharField(blank=True, null=True)
+    dia_chi_to_chuc_thu_mua = models.CharField(blank=True, null=True)
+    nguoi_thu_mua = models.CharField(blank=True, null=True)
+    hoa_don = models.BooleanField(blank=True, null=True)
 
     class Meta:
         managed = False
@@ -169,3 +172,18 @@ class VatTu(models.Model):
         managed = False
         db_table = 'VAT_TU'
         db_table_comment = 'Bảng chứa nguyên vật liệu & Sản phẩm Link từ Cloudify sang'
+
+class CtLenhSanXuatOriginal(models.Model):
+    id_ct_lenh_san_xuat = models.BigAutoField(primary_key=True)
+    id_lenh_san_xuat = models.ForeignKey('LenhSanXuat', models.DO_NOTHING, db_column='id_lenh_san_xuat')
+    id_san_pham = models.ForeignKey('VatTu', models.DO_NOTHING, db_column='id_san_pham')
+    ten_san_pham = models.CharField(blank=True, null=True)
+    id_nguyen_vat_lieu = models.ForeignKey('VatTu', models.DO_NOTHING, db_column='id_nguyen_vat_lieu', related_name='ctlenhsanxuatoriginal_id_nguyen_vat_lieu_set')
+    so_luong_san_pham = models.FloatField(blank=True, null=True)
+    so_luong_nguyen_vat_lieu = models.FloatField(blank=True, null=True)
+    ghi_chu = models.TextField(blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = 'CT_LENH_SAN_XUAT_ORIGINAL'
+        db_table_comment = 'Dữ liệu chi tiết lệnh sản xuất gốc được đồng bộ từ Cloudify (sử dụng cho việc sản xuất của nhà máy)'

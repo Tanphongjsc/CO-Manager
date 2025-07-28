@@ -5,10 +5,11 @@
 
 {% block css %}
 <link rel="stylesheet" href="{% static 'css/purchase_create.css' %}">
+
 {% endblock %}
 
 {% block content %}
-<div class="page-header">TẠO MỚI BẢNG KÊ THU MUA TỪ DÂN</div>
+<div class="page-header">TẠO MỚI BẢNG KÊ THU MUA TỪ DÂN + BẢNG KÊ WO</div>
 
 <!-- Error message -->
 {% if error %}
@@ -17,7 +18,10 @@
 
 <form id="purchaseForm" method="post">
     {% csrf_token %}
+    
+    <!-- PHẦN THÔNG TIN THU MUA TỪ DÂN -->
     <div class="form-section">
+        <h3 class="section-title">THÔNG TIN BẢNG KÊ THU MUA TỪ DÂN</h3>
         <div class="form-row">
             <div class="form-group">
                 <label for="ma_don_hang">Mã đơn hàng <span class="required">*</span></label>
@@ -41,6 +45,13 @@
                 </select>
             </div>
             <div class="form-group">
+                <label for="co_hoa_don">Có hóa đơn?</label>
+                <input type="checkbox" id="co_hoa_don" name="co_hoa_don" class="form-check-input">
+            </div>
+        </div>
+        
+        <div class="form-row">
+            <div class="form-group">
                 <label for="so_luong_san_pham_xuat">Số lượng sản phẩm xuất</label>
                 <input type="number" id="so_luong_san_pham_xuat" name="so_luong_san_pham_xuat" class="form-control" readonly step="0.01">
             </div>
@@ -59,8 +70,81 @@
         </div>
     </div>
 
+    <!-- PHẦN THÔNG TIN BẢNG KÊ WO -->
+    <div class="form-section">
+        <h3 class="section-title">THÔNG TIN BẢNG KÊ WO</h3>
+        <div class="form-row">
+            <div class="form-group">
+                <label for="ten_hang_hoa">Tên hàng hóa (từ bảng kê thu mua) <span class="required">*</span></label>
+                <input type="text" id="ten_hang_hoa" name="ten_hang_hoa" class="form-control" required readonly>
+            </div>
+            <div class="form-group">
+                <label for="ten_nguyen_lieu_wo">Tên nguyên liệu WO <span class="required">*</span></label>
+                <input type="text" id="ten_nguyen_lieu_wo" name="ten_nguyen_lieu_wo" class="form-control" required>
+            </div>
+            <div class="form-group">
+                <label for="ma_hs">Mã HS của hàng hóa (6 số)</label>
+                <input type="text" id="ma_hs" name="ma_hs" class="form-control" maxlength="6" readonly>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="wo_so_luong">Số lượng</label>
+                <input type="number" id="wo_so_luong" name="wo_so_luong" class="form-control" step="0.01" min="0" readonly>
+            </div>
+            <div class="form-group">
+                <label for="don_vi_tinh">Đơn vị tính</label>
+                <input type="text" id="don_vi_tinh" name="don_vi_tinh" class="form-control" value="KGM">
+            </div>
+            <div class="form-group">
+                <label for="tri_gia_fob">Trị giá (FOB)</label>
+                <input type="number" id="tri_gia_fob" name="tri_gia_fob" class="form-control" step="0.01" min="0">
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="to_khai_hai_quan">Tờ khai hải quan xuất khẩu số</label>
+                <input type="text" id="to_khai_hai_quan" name="to_khai_hai_quan" class="form-control">
+            </div>
+            <div class="form-group">
+                <label for="dia_chi_thu_mua_wo">Địa chỉ nơi tổ chức thu mua (WO)</label>
+                <textarea id="dia_chi_thu_mua_wo" name="dia_chi_thu_mua_wo" class="form-control" rows="2"></textarea>
+            </div>
+            <div class="form-group">
+                <label for="noi_khai_thac">Nơi khai thác/đánh bắt/nuôi trồng</label>
+                <textarea id="noi_khai_thac" name="noi_khai_thac" class="form-control" rows="2"></textarea>
+            </div>
+        </div>
+
+        <div class="form-row">
+            <div class="form-group">
+                <label for="nguoi_phu_trach">Người phụ trách thu mua</label>
+                <select id="nguoi_phu_trach" name="nguoi_phu_trach" class="form-control">
+                    <option value="">-- Chọn người phụ trách --</option>
+                    {% for nguoi in nguoi_list %}
+                        <option value="{{ nguoi.id }}" data-cmnd="{{ nguoi.so_cmnd_cccd|default:'' }}">
+                            {{ nguoi.ten }}
+                        </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="form-group">
+                <label for="cccd_cmnd">CCCD/CMND số</label>
+                <input type="text" id="cccd_cmnd" name="cccd_cmnd" class="form-control" readonly>
+            </div>
+            <div class="form-group">
+                <label for="ngay_tao_wo">Ngày tạo bảng kê WO</label>
+                <input type="date" id="ngay_tao_wo" name="ngay_tao_wo" class="form-control">
+            </div>
+        </div>
+    </div>
+
+    <!-- BẢNG NHẬP LIỆU THU MUA -->
     <div class="table-section">
         <div class="table-header">
+            <h3>BẢNG NHẬP LIỆU THU MUA</h3>
             <button type="button" id="addRowBtn" class="btn btn-success" disabled>+ Thêm dòng mới</button>
         </div>
         <div class="table-responsive">
@@ -80,6 +164,52 @@
                     </tr>
                 </thead>
                 <tbody id="purchaseTableBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- BẢNG XEM TRƯỚC WO -->
+    <div class="table-section">
+        <div class="table-header">
+            <h3>BẢNG XEM TRƯỚC WO</h3>
+        </div>
+        <div class="table-responsive">
+            <table class="data-table" id="woTable">
+                <thead>
+                    <tr>
+                        <th rowspan="2">Ngày tháng năm mua hàng</th>
+                        <th colspan="3">Người bán</th>
+                        <th colspan="6">Nguyên liệu thu mua trong nước</th>
+                        <th rowspan="2">Ghi chú</th>
+                    </tr>
+                    <tr>
+                        <th>Tên người bán</th>
+                        <th>Địa chỉ</th>
+                        <th>Số định danh cá nhân (số CCCD)</th>
+                        <th>Tên nguyên liệu</th>
+                        <th>Mã HS</th>
+                        <th>Nơi khai thác/đánh bắt/nuôi trồng</th>
+                        <th>Số lượng và Đơn vị tính (kg)</th>
+                        <th>Đơn giá (VND)</th>
+                        <th>Tổng trị giá (VND)</th>
+                    </tr>
+                    <tr class="column-numbers">
+                        <td>(1)</td>
+                        <td>(2)</td>
+                        <td>(3)</td>
+                        <td>(4)</td>
+                        <td>(5)</td>
+                        <td>(6)</td>
+                        <td>(7)</td>
+                        <td>(8)</td>
+                        <td>(9)</td>
+                        <td>(10)</td>
+                        <td>(11)</td>
+                    </tr>
+                </thead>
+                <tbody id="woTableBody">
+                    <!-- Data will be populated from purchase records -->
+                </tbody>
             </table>
         </div>
     </div>
@@ -126,4 +256,5 @@
 
 {% block javascript %}
 <script src="{% static 'js/purchase_create.js' %}"></script>
+
 {% endblock %}

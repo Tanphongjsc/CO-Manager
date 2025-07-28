@@ -55,17 +55,21 @@ urlpatterns = [
     path('api/nguoi/add/', views.add_nguoi, name='add_nguoi'),
     path('purchase/<int:pk>/export-pdf/', views.purchase_export_pdf, name='purchase_export_pdf'),
     path('purchase/<int:pk>/export-excel/', views.purchase_export_excel, name='purchase_export_excel'),
+    path('api/purchase/non-invoice-materials/', views.api_purchase_non_invoice_materials, name='api_purchase_non_invoice_materials'),
+    path('purchase/export-non-invoice/', views.purchase_export_non_invoice, name='purchase_export_non_invoice'),
 
     # WO URLs
     path("wo/", views.wo_ledger, name="wo_ledger"),
     path("wo/<int:pk>/", views.wo_ledger_detail, name="wo_ledger_detail"), 
-    path("wo/create/", views.create_wo_record, name="wo_create"),
+    #path("wo/create/", views.create_wo_record, name="wo_create"),
     # WO API URLs
     path("api/wo/delete/<int:pk>/", views.delete_wo_record, name="wo_delete"),
-    path("api/get_lenh_san_xuat_wo/", views.get_lenh_san_xuat_for_wo, name="get_lenh_san_xuat_wo"),
-    path("api/get_lenh_sx_by_don_hang_wo/<str:ma_don_hang>/", views.get_lenh_sx_by_don_hang_wo, name="get_lenh_sx_by_don_hang_wo"),
-    path("api/get_purchase_records_by_lenh_sx_wo/<str:ma_lenh_sx>/", views.get_purchase_records_by_lenh_sx_wo, name="get_purchase_records_by_lenh_sx_wo"),
-    path("api/wo/purchase_details/<int:purchase_id>/", views.get_purchase_details_wo, name="get_purchase_details_wo"),
+    # path("api/get_lenh_san_xuat_wo/", views.get_lenh_san_xuat_for_wo, name="get_lenh_san_xuat_wo"),
+    # path("api/get_lenh_sx_by_don_hang_wo/<str:ma_don_hang>/", views.get_lenh_sx_by_don_hang_wo, name="get_lenh_sx_by_don_hang_wo"),
+    # path("api/get_purchase_records_by_lenh_sx_wo/<str:ma_lenh_sx>/", views.get_purchase_records_by_lenh_sx_wo, name="get_purchase_records_by_lenh_sx_wo"),
+    # path("api/wo/purchase_details/<int:purchase_id>/", views.get_purchase_details_wo, name="get_purchase_details_wo"),
     path("wo/<int:pk>/export/pdf/", views.wo_export_pdf, name="wo_export_pdf"),
     path("wo/<int:pk>/export/word/", views.wo_export_word, name="wo_export_word"),  
+    path('wo/<int:pk>/get-similar-materials/', views.get_similar_materials, name='get_similar_materials'),
+    path('wo/export-multiple/', views.export_multiple_wo, name='export_multiple_wo'),
 ]

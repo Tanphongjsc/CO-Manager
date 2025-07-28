@@ -42,6 +42,12 @@
                 <label for="ngay_to">Ngày đến</label>
                 <input type="date" id="ngay_to" name="ngay_to" class="form-control" value="{{ record.ngay_to }}" readonly>
             </div>
+            <div class="form-group">
+                <label for="hoa_don">
+                    <input type="checkbox" id="hoa_don" name="hoa_don" value="1" {% if record.hoa_don %}checked{% endif %} disabled>
+                    Có hóa đơn
+                </label>
+            </div>
         </div>
     </div>
 
@@ -163,6 +169,138 @@
         <button type="submit" id="saveBtn" class="btn btn-primary" style="display: none;">Lưu</button>
     </div>
 </form>
+
+<div id="exportNonInvoiceModal" class="modal" style="display: none;">
+    <div class="modal-content" style="max-width: 800px;">
+        <div class="modal-header">
+            <h3>Xuất bảng kê thu mua không có hóa đơn</h3>
+            <span class="close-export">&times;</span>
+        </div>
+        <div class="modal-body">
+            <div class="form-group">
+                <label for="export_dia_chi_thu_mua">Địa chỉ tổ chức thu mua <span class="required">*</span></label>
+                <input type="text" id="export_dia_chi_thu_mua" class="form-control" 
+                       placeholder="Ví dụ: Khu 15, Thị trấn Hùng Sơn, Huyện Lâm Thao, Phú Thọ" required>
+            </div>
+            <div class="form-group">
+                <label for="export_nguoi_thu_mua">Người phụ trách thu mua <span class="required">*</span></label>
+                <select id="export_nguoi_thu_mua" class="form-control" required>
+                    <option value="">-- Chọn người thu mua --</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Chọn nguyên liệu để xuất:</label>
+                <div id="nguyen_lieu_list" class="checkbox-list">
+                    <!-- Danh sách nguyên liệu sẽ được load bằng JavaScript -->
+                </div>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label for="export_ngay_lap">Ngày lập</label>
+                    <input type="number" id="export_ngay_lap" class="form-control" min="1" max="31" placeholder="dd">
+                </div>
+                <div class="form-group">
+                    <label for="export_thang_lap">Tháng lập</label>
+                    <input type="number" id="export_thang_lap" class="form-control" min="1" max="12" placeholder="mm">
+                </div>
+                <div class="form-group">
+                    <label for="export_nam_lap">Năm lập</label>
+                    <input type="number" id="export_nam_lap" class="form-control" min="0000" max="9999" placeholder="yyyy">
+                </div>
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" id="cancelExportBtn" class="btn btn-secondary">Hủy</button>
+            <button type="button" id="exportSelectedExcelBtn" class="btn btn-success">Xuất Excel</button>
+            <button type="button" id="exportSelectedPdfBtn" class="btn btn-danger">Xuất PDF</button>
+        </div>
+    </div>
+</div>
+
+<style>
+.checkbox-list {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    padding: 10px;
+    border-radius: 4px;
+    background-color: #fafafa;
+}
+
+.checkbox-list label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: normal;
+    padding: 5px;
+    border-radius: 3px;
+    cursor: pointer;
+}
+
+.checkbox-list label:hover {
+    background-color: #e3f2fd;
+}
+
+.checkbox-list input[type="checkbox"] {
+    margin-right: 8px;
+}
+
+.modal-content {
+    max-height: 90vh;
+    overflow-y: auto;
+}
+
+.form-row {
+    display: flex;
+    gap: 10px;
+}
+
+.form-row .form-group {
+    flex: 1;
+}
+
+.modal {
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    overflow: auto;
+    background-color: rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
+    border-bottom: 1px solid #ddd;
+}
+
+.modal-body {
+    padding: 20px;
+}
+
+.modal-footer {
+    padding: 15px 20px;
+    border-top: 1px solid #ddd;
+    text-align: right;
+}
+
+.close-export {
+    color: #aaa;
+    font-size: 28px;
+    font-weight: bold;
+    cursor: pointer;
+}
+
+.close-export:hover {
+    color: #000;
+}
+</style>
 
 <!-- Modal thêm người mới -->
 <div id="addPersonModal" class="modal" style="display: none;">

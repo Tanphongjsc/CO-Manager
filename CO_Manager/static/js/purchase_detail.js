@@ -16,7 +16,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeModal = document.querySelector('.close');
     const cancelPersonBtn = document.getElementById('cancelPersonBtn');
     const savePersonBtn = document.getElementById('savePersonBtn');
-
+    const hoaDonCheckbox = document.getElementById('hoa_don');
     // State variables
     let isEditMode = false;
     let originalData = {};
@@ -42,9 +42,21 @@ document.addEventListener('DOMContentLoaded', () => {
             handleSave();
         });
         cancelEditBtn.addEventListener('click', handleCancelEdit);
-        exportExcelBtn.addEventListener('click', handleExportExcel);
-        exportPdfBtn.addEventListener('click', handleExportPdf);
+        exportExcelBtn.addEventListener('click', handleExportRequest.bind(null, 'excel'));
+        exportPdfBtn.addEventListener('click', handleExportRequest.bind(null, 'pdf'));
+
+        // Modal export events  
+        const closeExportModal = document.querySelector('.close-export');
+        const cancelExportBtn = document.getElementById('cancelExportBtn');
+        const exportSelectedPdfBtn = document.getElementById('exportSelectedPdfBtn');
+        const exportSelectedExcelBtn = document.getElementById('exportSelectedExcelBtn');
+        const exportNonInvoiceModal = document.getElementById('exportNonInvoiceModal');
         
+        if (closeExportModal) closeExportModal.addEventListener('click', closeExportNonInvoiceModal);
+        if (cancelExportBtn) cancelExportBtn.addEventListener('click', closeExportNonInvoiceModal);
+        if (exportSelectedPdfBtn) exportSelectedPdfBtn.addEventListener('click', () => handleExportNonInvoice('pdf'));
+        if (exportSelectedExcelBtn) exportSelectedExcelBtn.addEventListener('click', () => handleExportNonInvoice('excel'));
+    
         // Modal events
         closeModal.addEventListener('click', closePersonModal);
         cancelPersonBtn.addEventListener('click', closePersonModal);
@@ -52,6 +64,265 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Calculate totals on input change
         document.addEventListener('input', handleInputChange);
+    }
+
+    function handleExportRequest(type) {
+        const recordId = document.getElementById('purchaseDetailForm').dataset.recordId;
+        if (!recordId) return alert("Không tìm thấy mã bảng kê.");
+        
+        // Kiểm tra checkbox hóa đơn
+        const hoaDonCheckbox = document.getElementById('hoa_don');
+        const hasInvoice = hoaDonCheckbox && hoaDonCheckbox.checked;
+        
+        if (hasInvoice) {
+            // Xuất file form có hóa đơn (giữ nguyên logic cũ)
+            if (type === 'excel') {
+                window.open(`/purchase/${recordId}/export-excel/`, '_blank');
+            } else {
+                window.open(`/purchase/${recordId}/export-pdf/`, '_blank');
+            }
+        } else {
+            // Hiển thị modal để chọn nguyên liệu không có hóa đơn
+            openExportNonInvoiceModal(type);
+        }
+    }
+
+    async function openExportNonInvoiceModal(exportType) {
+        const modal = document.getElementById('exportNonInvoiceModal');
+        if (!modal) return;
+        
+        // Lưu loại export để dùng sau
+        modal.setAttribute('data-export-type', exportType);
+        
+        try {
+            // THÊM: Lấy ma_lenh_sx từ form hiện tại
+            const maLenhSx = document.getElementById('ma_lenh_sx').value || 
+                            document.querySelector('[data-ma-lenh-sx]')?.dataset.maLenhSx ||
+                            document.querySelector('.form-info').textContent.match(/Mã lệnh SX:\s*(\S+)/)?.[1];
+            
+            if (!maLenhSx) {
+                alert('Không tìm thấy mã lệnh sản xuất');
+                return;
+            }
+            
+            // Load danh sách nguyên liệu không có hóa đơn theo lệnh sản xuất
+            const response = await fetch(`/api/purchase/non-invoice-materials/?ma_lenh_sx=${maLenhSx}`);
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                // Hiển thị danh sách nguyên liệu
+                const nguyenLieuList = document.getElementById('nguyen_lieu_list');
+                nguyenLieuList.innerHTML = '';
+                
+                // Lấy nguyên liệu hiện tại
+                const currentMaterial = document.getElementById('ten_nguyen_lieu').value;
+                
+                data.materials.forEach(material => {
+                    const div = document.createElement('div');
+                    div.innerHTML = `
+                        <label>
+                            <input type="checkbox" value="${material.id}" ${material.name === currentMaterial ? 'checked' : ''}>
+                            ${material.name} (${material.total_quantity} ${material.unit})
+                        </label>
+                    `;
+                    nguyenLieuList.appendChild(div);
+                });
+                
+                // Lưu ma_lenh_sx vào modal để dùng khi export
+                modal.setAttribute('data-ma-lenh-sx', maLenhSx);
+                
+                // Load danh sách người mua
+                await loadNguoiMuaList();
+                
+                modal.style.display = 'flex';
+                const today = new Date();
+                document.getElementById('export_ngay_lap').value = today.getDate();
+                document.getElementById('export_thang_lap').value = today.getMonth() + 1;
+                document.getElementById('export_nam_lap').value = today.getFullYear();
+            } else {
+                alert(data.message || 'Có lỗi khi tải danh sách nguyên liệu');
+            }
+        } catch (error) {
+            console.error('Error loading non-invoice materials:', error);
+            alert('Có lỗi khi tải danh sách nguyên liệu');
+        }
+    }
+
+    function resetExportModal() {
+        // Reset các input field
+        const diaChiInput = document.getElementById('export_dia_chi_thu_mua');
+        const nguoiThuMuaSelect = document.getElementById('export_nguoi_thu_mua');
+        const ngayLapInput = document.getElementById('export_ngay_lap');
+        const thangLapInput = document.getElementById('export_thang_lap');
+        const namLapInput = document.getElementById('export_nam_lap');
+        
+        if (diaChiInput) {
+            diaChiInput.value = '';
+            diaChiInput.removeAttribute('readonly'); // Đảm bảo không bị readonly
+            diaChiInput.removeAttribute('disabled');  // Đảm bảo không bị disabled
+        }
+        
+        if (nguoiThuMuaSelect) {
+            nguoiThuMuaSelect.value = '';
+            nguoiThuMuaSelect.removeAttribute('disabled');
+        }
+        
+        if (ngayLapInput) ngayLapInput.value = '';
+        if (thangLapInput) thangLapInput.value = '';
+        if (namLapInput) namLapInput.value = '';
+        
+        // Reset checkboxes
+        const checkboxes = document.querySelectorAll('#nguyen_lieu_list input[type="checkbox"]');
+        checkboxes.forEach(checkbox => {
+            checkbox.checked = false;
+            checkbox.removeAttribute('disabled');
+        });
+    }
+    
+    async function loadNguoiMuaList() {
+        try {
+            const response = await fetch('/api/nguoi/list/');
+            const data = await response.json();
+            
+            if (data.status === 'success') {
+                const nguoiMuaSelect = document.getElementById('export_nguoi_thu_mua');
+                nguoiMuaSelect.innerHTML = '<option value="">-- Chọn người thu mua --</option>';
+                
+                // Lọc người có vai trò là "Người mua" 
+                const nguoiMuaList = data.nguoi_list.filter(n => n.vai_tro === 'Người mua');
+                
+                nguoiMuaList.forEach(nguoi => {
+                    const option = document.createElement('option');
+                    option.value = nguoi.id;
+                    option.textContent = nguoi.ten;
+                    option.setAttribute('data-cmnd', nguoi.so_cmnd_cccd || '');
+                    nguoiMuaSelect.appendChild(option);
+                });
+            }
+        } catch (error) {
+            console.error('Error loading nguoi mua list:', error);
+        }
+    }
+
+    function closeExportNonInvoiceModal() {
+        const modal = document.getElementById('exportNonInvoiceModal');
+        if (modal) {
+            modal.style.display = 'none';
+            resetExportModal(); // Gọi function reset
+        }
+    }
+
+    async function handleExportNonInvoice(type) {
+        // Validate form
+        const diaChiThuMua = document.getElementById('export_dia_chi_thu_mua').value.trim();
+        const nguoiThuMua = document.getElementById('export_nguoi_thu_mua').value;
+        const selectedMaterials = Array.from(document.querySelectorAll('#nguyen_lieu_list input[type="checkbox"]:checked'))
+            .map(cb => cb.value);
+        
+        // Lấy thông tin ngày tháng năm lập
+        const ngayLap = document.getElementById('export_ngay_lap').value;
+        const thangLap = document.getElementById('export_thang_lap').value;
+        const namLap = document.getElementById('export_nam_lap').value;
+        
+        // THÊM: Lấy ma_lenh_sx từ modal
+        const modal = document.getElementById('exportNonInvoiceModal');
+        const maLenhSx = modal.getAttribute('data-ma-lenh-sx');
+        
+        if (!diaChiThuMua) {
+            alert('Vui lòng nhập địa chỉ thu mua');
+            return;
+        }
+        
+        if (!nguoiThuMua) {
+            alert('Vui lòng chọn người thu mua');
+            return;
+        }
+        
+        if (selectedMaterials.length === 0) {
+            alert('Vui lòng chọn ít nhất một nguyên liệu');
+            return;
+        }
+        
+        if (!maLenhSx) {
+            alert('Không tìm thấy mã lệnh sản xuất');
+            return;
+        }
+        
+        if (type === 'pdf') {
+            // Xử lý PDF bằng AJAX giống như purchase_export_pdf
+            const formData = new FormData();
+            formData.append('dia_chi_thu_mua', diaChiThuMua);
+            formData.append('nguoi_thu_mua', nguoiThuMua);
+            formData.append('selected_materials', JSON.stringify(selectedMaterials));
+            formData.append('export_type', type);
+            formData.append('ngay_lap', ngayLap);
+            formData.append('thang_lap', thangLap);
+            formData.append('nam_lap', namLap);
+            formData.append('ma_lenh_sx', maLenhSx); // THÊM dòng này
+            formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+            
+            try {
+                const response = await fetch('/purchase/export-non-invoice/', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                if (response.ok) {
+                    const htmlContent = await response.text();
+                    
+                    // Mở cửa sổ mới để hiển thị PDF
+                    const newWindow = window.open('', '_blank');
+                    newWindow.document.write(htmlContent);
+                    newWindow.document.close();
+                    
+                    closeExportNonInvoiceModal();
+                } else {
+                    alert('Có lỗi xảy ra khi xuất file PDF');
+                }
+            } catch (error) {
+                console.error('Error exporting PDF:', error);
+                alert('Có lỗi xảy ra khi xuất file PDF');
+            }
+        } else {
+            // Xử lý Excel bằng form submit
+            const form = document.createElement('form');
+            form.method = 'POST';
+            form.action = '/purchase/export-non-invoice/';
+            form.style.display = 'none';
+            
+            // Thêm CSRF token
+            const csrfInput = document.createElement('input');
+            csrfInput.type = 'hidden';
+            csrfInput.name = 'csrfmiddlewaretoken';
+            csrfInput.value = document.querySelector('[name=csrfmiddlewaretoken]').value;
+            form.appendChild(csrfInput);
+            
+            // Thêm các field khác
+            const fields = {
+                'dia_chi_thu_mua': diaChiThuMua,
+                'nguoi_thu_mua': nguoiThuMua,
+                'selected_materials': JSON.stringify(selectedMaterials),
+                'export_type': type,
+                'ngay_lap': ngayLap,
+                'thang_lap': thangLap,
+                'nam_lap': namLap,
+                'ma_lenh_sx': maLenhSx // THÊM dòng này
+            };
+            
+            Object.keys(fields).forEach(key => {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = key;
+                input.value = fields[key];
+                form.appendChild(input);
+            });
+            
+            document.body.appendChild(form);
+            form.submit();
+            document.body.removeChild(form);
+            
+            closeExportNonInvoiceModal();
+        }
     }
 
     async function loadNguoiList() {
@@ -99,10 +370,12 @@ document.addEventListener('DOMContentLoaded', () => {
         // Lưu giá trị ngày từ - đến ban đầu
         originalData.ngayFrom = ngayFromInput ? ngayFromInput.value : '';
         originalData.ngayTo = ngayToInput ? ngayToInput.value : '';
+        
+        // THÊM MỚI: Lưu giá trị checkbox hóa đơn
+        originalData.hoaDon = hoaDonCheckbox ? hoaDonCheckbox.checked : false;
+        
         rowCounter = originalData.rows.length;
     }
-
-
 
     function toggleEditMode() {
         isEditMode = !isEditMode;
@@ -128,6 +401,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (ngayFromInput) ngayFromInput.removeAttribute('readonly');
         if (ngayToInput) ngayToInput.removeAttribute('readonly');
         
+        // THÊM MỚI: Enable checkbox hóa đơn
+        if (hoaDonCheckbox) hoaDonCheckbox.removeAttribute('disabled');
+        
         // Setup person selects for existing rows
         setupPersonSelects();
         
@@ -151,6 +427,9 @@ document.addEventListener('DOMContentLoaded', () => {
         if (ngayFromInput) ngayFromInput.setAttribute('readonly', 'readonly');
         if (ngayToInput) ngayToInput.setAttribute('readonly', 'readonly');
 
+        // THÊM MỚI: Disable checkbox hóa đơn
+        if (hoaDonCheckbox) hoaDonCheckbox.setAttribute('disabled', 'disabled');
+
         isEditMode = false;
     }
 
@@ -161,13 +440,16 @@ document.addEventListener('DOMContentLoaded', () => {
             // Clear existing options
             select.innerHTML = '<option value="">-- Chọn người --</option>';
             
+            // Lọc chỉ lấy người bán
+            const nguoiBanList = nguoiList.filter(n => n.vai_tro === 'Người bán');
+            
             // Add người options
-            nguoiList.forEach(nguoi => {
+            nguoiBanList.forEach(nguoi => {
                 const option = document.createElement('option');
                 option.value = nguoi.id;
                 option.textContent = nguoi.ten;
                 option.setAttribute('data-cmnd', nguoi.so_cmnd_cccd || '');
-                option.setAttribute('data-ngaycap', nguoi.ngay_cap_cmnd_cccd || ''); // ✅ Đã có sẵn
+                option.setAttribute('data-ngaycap', nguoi.ngay_cap_cmnd_cccd || '');
                 option.setAttribute('data-diachi', nguoi.dia_chi || '');
                 
                 // Set selected if matches original value
@@ -322,6 +604,9 @@ document.addEventListener('DOMContentLoaded', () => {
         const row = document.createElement('tr');
         row.setAttribute('data-row-id', rowCounter);
 
+        // Lọc chỉ lấy người bán
+        const nguoiBanList = nguoiList.filter(n => n.vai_tro === 'Người bán');
+
         row.innerHTML = `
             <td>${rowCounter}</td>
             <td>
@@ -332,7 +617,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 <span class="display-value"></span>
                 <select class="edit-input form-control person-select" name="ten_nguoi_ban_${rowCounter}" data-original-value="">
                     <option value="">-- Chọn người --</option>
-                    ${nguoiList.map(n => `<option value="${n.id}" data-cmnd="${n.so_cmnd_cccd || ''}" data-ngaycap="${n.ngay_cap_cmnd_cccd || ''}" data-diachi="${n.dia_chi || ''}">${n.ten}</option>`).join('')}
+                    ${nguoiBanList.map(n => `<option value="${n.id}" data-cmnd="${n.so_cmnd_cccd || ''}" data-ngaycap="${n.ngay_cap_cmnd_cccd || ''}" data-diachi="${n.dia_chi || ''}">${n.ten}</option>`).join('')}
                     <option value="add_new">+ Thêm người mới</option>
                 </select>
                 <div class="person-info">
@@ -415,7 +700,6 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-
     function removeRow(button) {
         const row = button.closest('tr');
         row.remove();
@@ -473,6 +757,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         if (ngayToInput && originalData.ngayTo !== undefined) {
             ngayToInput.value = originalData.ngayTo;
+        }
+        
+        // THÊM MỚI: Khôi phục checkbox hóa đơn
+        if (hoaDonCheckbox && originalData.hoaDon !== undefined) {
+            hoaDonCheckbox.checked = originalData.hoaDon;
         }
 
         purchaseTableBody.innerHTML = '';
@@ -570,7 +859,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         const formData = new FormData(purchaseDetailForm);
-        
+        // Xử lý checkbox - nếu không được check thì gửi giá trị false
+        const hoaDonCheckbox = document.getElementById('hoa_don');
+        if (hoaDonCheckbox && !hoaDonCheckbox.checked) {
+            formData.set('hoa_don', '0');
+        }
         try {
             const response = await fetch(window.location.href, {
                 method: 'POST',
@@ -633,19 +926,6 @@ document.addEventListener('DOMContentLoaded', () => {
         if (e.target.matches('input, select')) {
             e.target.style.borderColor = '';
         }
-    }
-
-    // Export functions
-    function handleExportExcel() {
-        const recordId = document.getElementById('purchaseDetailForm').dataset.recordId;
-        if (!recordId) return alert("Không tìm thấy mã bảng kê.");
-        window.open(`/purchase/${recordId}/export-excel/`, '_blank');
-    }
-
-    function handleExportPdf() {
-        const recordId = document.getElementById('purchaseDetailForm').dataset.recordId;
-        if (!recordId) return alert("Không tìm thấy mã bảng kê.");
-        window.open(`/purchase/${recordId}/export-pdf/`, '_blank');
     }
 
     // Modal functions
@@ -719,12 +999,15 @@ document.addEventListener('DOMContentLoaded', () => {
             // Clear and rebuild options
             select.innerHTML = '<option value="">-- Chọn người --</option>';
             
-            nguoiList.forEach(nguoi => {
+            // Lọc chỉ lấy người bán
+            const nguoiBanList = nguoiList.filter(n => n.vai_tro === 'Người bán');
+            
+            nguoiBanList.forEach(nguoi => {
                 const option = document.createElement('option');
                 option.value = nguoi.id;
                 option.textContent = nguoi.ten;
                 option.setAttribute('data-cmnd', nguoi.so_cmnd_cccd || '');
-                option.setAttribute('data-ngaycap', nguoi.ngay_cap_cmnd_cccd || ''); // ✅ Thêm ngày cấp
+                option.setAttribute('data-ngaycap', nguoi.ngay_cap_cmnd_cccd || '');
                 option.setAttribute('data-diachi', nguoi.dia_chi || '');
                 
                 if (nguoi.ten === originalValue) {
@@ -741,7 +1024,7 @@ document.addEventListener('DOMContentLoaded', () => {
             select.appendChild(addNewOption);
             
             // Restore selected value if it still exists
-            if (currentValue && nguoiList.find(n => n.id == currentValue)) {
+            if (currentValue && nguoiBanList.find(n => n.id == currentValue)) {
                 select.value = currentValue;
                 handlePersonSelectChange(select);
             }

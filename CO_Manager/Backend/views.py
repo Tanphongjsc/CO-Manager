@@ -5,7 +5,7 @@ from django.http import JsonResponse, HttpResponse
 from django.utils import timezone
 from django.db import transaction
 from django.forms.models import model_to_dict
-
+from django.template.loader import render_to_string
 from .models import *
 from django.db.models import Q
 
@@ -2122,7 +2122,6 @@ def purchase(request):
 
     return render(request, 'purchase.html', context)
 
-
 def purchase_detail(request, pk):
     """Purchase from people detail view with edit functionality"""
     try:
@@ -2203,6 +2202,7 @@ def purchase_detail(request, pk):
             'ngay_from': ngay_from,
             'ngay_to': ngay_to,
             'don_vi_tinh': don_vi_tinh,
+            'hoa_don': record.hoa_don if hasattr(record, 'hoa_don') else False,
         }
         
         # Get nguoi list for dropdown
@@ -2224,6 +2224,10 @@ def purchase_detail(request, pk):
 def handle_purchase_detail_update(request, record):
     """Handle purchase detail update"""
     try:
+        # Xử lý checkbox hóa đơn
+        hoa_don_value = request.POST.get('hoa_don', '0')
+        record.hoa_don = hoa_don_value == '1'
+        
         # Update main record date range if provided
         ngay_tu_raw = request.POST.get('ngay_from', '')
         ngay_den_raw = request.POST.get('ngay_to', '')
@@ -2233,6 +2237,9 @@ def handle_purchase_detail_update(request, record):
             ngay_den_fmt = datetime.strptime(ngay_den_raw, "%Y-%m-%d").strftime("%d/%m/%Y")
             ngay_lap_giay_to = f"{ngay_tu_fmt} - {ngay_den_fmt}"
             record.ngay_lap_giay_to = ngay_lap_giay_to
+            record.save()
+        else:
+            # Lưu chỉ thay đổi checkbox nếu không có ngày tháng
             record.save()
         
         # Get material name from VatTu
@@ -2424,13 +2431,21 @@ def purchase_delete(request, pk):
             'message': f'Lỗi khi xóa: {str(e)}'
         })
 
-
 def purchase_create(request):
-    """Create new purchase from people records"""
+    """Create new purchase from people records and optionally WO record"""
     don_hang_list = LenhSanXuat.objects.values_list('id_don_hang', flat=True).distinct()
     
+    # Get nguoi list for WO section
+    nguoi_list = Nguoi.objects.filter(vai_tro='Người mua').values(
+        'id', 'ten', 'so_cmnd_cccd', 'ngay_cap_cmnd_cccd', 'dia_chi', 'vai_tro'
+    )
+    
     if request.method == 'GET':
-        return render(request, 'purchase_create.html', {'don_hang_list': don_hang_list})
+        context = {
+            'don_hang_list': don_hang_list,
+            'nguoi_list': list(nguoi_list)
+        }
+        return render(request, 'purchase_create.html', context)
     
     # POST request processing
     ma_lenh_sx = request.POST.get('ma_lenh_sx')
@@ -2439,7 +2454,8 @@ def purchase_create(request):
     if not ma_lenh_sx or not id_san_pham:
         return render(request, 'purchase_create.html', {
             'error': 'Vui lòng chọn lệnh sản xuất và nguyên liệu',
-            'don_hang_list': don_hang_list
+            'don_hang_list': don_hang_list,
+            'nguoi_list': list(nguoi_list)
         })
     
     # Get production order
@@ -2448,7 +2464,8 @@ def purchase_create(request):
     except LenhSanXuat.DoesNotExist:
         return render(request, 'purchase_create.html', {
             'error': f'Không tìm thấy lệnh sản xuất với mã: {ma_lenh_sx}',
-            'don_hang_list': don_hang_list
+            'don_hang_list': don_hang_list,
+            'nguoi_list': list(nguoi_list)
         })
     
     # Check if purchase record already exists for this material and production order
@@ -2460,8 +2477,11 @@ def purchase_create(request):
     if existing_record:
         return render(request, 'purchase_create.html', {
             'error': 'Đã tồn tại bảng kê thu mua cho nguyên liệu này',
-            'don_hang_list': don_hang_list
+            'don_hang_list': don_hang_list,
+            'nguoi_list': list(nguoi_list)
         })
+
+    # Parse date range
     ngay_tu_raw = request.POST.get('ngay_from', '')
     ngay_den_raw = request.POST.get('ngay_to', '')
 
@@ -2470,28 +2490,93 @@ def purchase_create(request):
 
     ngay_lap_giay_to = f"{ngay_tu_fmt} - {ngay_den_fmt}" if ngay_tu_fmt and ngay_den_fmt else ''
 
-    # Create main purchase record
-    purchase_record = BangKeThuMuaTuDan(
-        id_lenh_san_xuat=lenh_sx,
-        id_san_pham=id_san_pham,
-        ngay_lap_giay_to=ngay_lap_giay_to
-    )
-    purchase_record.save()
-    
-    # Process purchase details
-    success = _process_purchase_details(request, purchase_record)
-    
-    if success:
-        return redirect('purchase')
-    else:
-        # Delete the main record if detail processing failed
-        purchase_record.delete()
+    # Get invoice status
+    co_hoa_don = request.POST.get('co_hoa_don') == 'on'
+
+    # Create main purchase record with transaction
+    try:
+        with transaction.atomic():
+            # Create purchase record
+            purchase_record = BangKeThuMuaTuDan(
+                id_lenh_san_xuat=lenh_sx,
+                id_san_pham=id_san_pham,
+                ngay_lap_giay_to=ngay_lap_giay_to,
+                hoa_don=co_hoa_don  # Add invoice field
+            )
+            purchase_record.save()
+            
+            # Process purchase details
+            purchase_success = _process_purchase_details(request, purchase_record)
+            
+            if not purchase_success:
+                raise Exception("Không thể tạo chi tiết bảng kê thu mua")
+            
+            # Always create WO record (không cần checkbox create_wo nữa)
+            wo_success, wo_record = _create_wo_from_purchase(request, purchase_record)
+            if not wo_success:
+                raise Exception("Không thể tạo bảng kê WO")
+            
+            return redirect('purchase')
+            
+    except Exception as e:
         return render(request, 'purchase_create.html', {
-            'error': 'Không thể tạo bảng kê thu mua. Vui lòng kiểm tra lại dữ liệu.',
-            'don_hang_list': don_hang_list
+            'error': f'Lỗi khi tạo bảng kê: {str(e)}',
+            'don_hang_list': don_hang_list,
+            'nguoi_list': list(nguoi_list)
         })
-
-
+    
+def _create_wo_from_purchase(request, purchase_record):
+    """Create WO record from purchase record data"""
+    try:
+        # Parse WO specific data from form
+        ngay_wo_str = request.POST.get('ngay_tạo_wo')
+        ngay_wo_obj = date.today()
+        if ngay_wo_str:
+            try:
+                ngay_wo_obj = datetime.strptime(ngay_wo_str, '%Y-%m-%d').date()
+            except:
+                pass
+        
+        # Get nguoi for WO
+        nguoi_obj = None
+        id_nguoi_wo = request.POST.get('nguoi_phu_trach')
+        if id_nguoi_wo:
+            try:
+                nguoi_obj = Nguoi.objects.get(id=id_nguoi_wo)
+            except Nguoi.DoesNotExist:
+                pass
+        
+        # Get material info for WO
+        ten_nguyen_lieu, don_vi_tinh, ma_hs, ty_le_thu_hoi = get_vat_tu_info_general(purchase_record.id_san_pham)
+        
+        # Get rollback quantity for WO calculation
+        rollback_record = BangKeTruLuiNguyenLieu.objects.filter(
+            id_lenh_san_xuat=purchase_record.id_lenh_san_xuat,
+            id_san_pham=purchase_record.id_san_pham
+        ).first()
+        so_luong_san_pham_xuat = rollback_record.so_luong_san_pham_xuat if rollback_record else 0
+        
+        # Create WO record
+        wo_record = BangKeWo.objects.create(
+            id_lenh_san_xuat=purchase_record.id_lenh_san_xuat,
+            id_san_pham=purchase_record.id_san_pham,
+            id_nguoi=nguoi_obj,
+            id_bang_ke_thu_mua_tu_dan=purchase_record.id_bang_ke_thu_mua_tu_dan,
+            to_khai_hai_quan=request.POST.get('to_khai_hai_quan', ''),
+            dia_chi_thu_mua=request.POST.get('dia_chi_thu_mua_wo', ''),
+            noi_khai_thac=request.POST.get('noi_khai_thac', ''),
+            so_luong=so_luong_san_pham_xuat,  # Use rollback quantity
+            tri_gia_fob=_safe_float_conversion(request.POST.get('tri_gia_fob', 0)),
+            ten_hang_hoa=request.POST.get('ten_nguyen_lieu_wo', ten_nguyen_lieu),
+            ngay=ngay_wo_obj,
+        )
+        
+        return True, wo_record
+        
+    except Exception as e:
+        print(f"Error creating WO record: {e}")
+        return False, None
+    
 def _process_purchase_details(request, purchase_record):
     """Process purchase detail records"""
     # Get form data arrays
@@ -2555,7 +2640,6 @@ def _process_purchase_details(request, purchase_record):
     
     return detail_created
 
-
 @require_GET
 def get_lenh_sx_by_don_hang(request, ma_don_hang):
     """Trả danh sách lệnh sản xuất theo mã đơn hàng"""
@@ -2581,10 +2665,11 @@ def get_purchase_materials_by_lenh_sx_api(request, ma_lenh_sx):
     try:
         lenh_sx = LenhSanXuat.objects.get(id_lenh_san_xuat=ma_lenh_sx)
         
-        # Get all materials from rollback records for this production order (chỉ lấy NVL - KHÔ)
+        # Get all materials from rollback records for this production order (lấy tất cả ngoại trừ NVL - THÔ)
         rollback_materials = BangKeTruLuiNguyenLieu.objects.filter(
-            id_lenh_san_xuat=lenh_sx,
-            id_san_pham__in=VatTu.objects.filter(nhom_vthh='NVL - KHÔ').values_list('id_san_pham', flat=True)
+            id_lenh_san_xuat=lenh_sx
+        ).exclude(
+            id_san_pham__in=VatTu.objects.filter(nhom_vthh='NVL - THÔ').values_list('id_san_pham', flat=True)
         )
         
         # Get materials that already have purchase records
@@ -2604,9 +2689,11 @@ def get_purchase_materials_by_lenh_sx_api(request, ma_lenh_sx):
                 vat_tu = VatTu.objects.get(id_san_pham=material.id_san_pham, nhom_vthh='NVL - KHÔ')
                 ten_nguyen_lieu = vat_tu.ten_khac or vat_tu.ten_sp_chinh
                 ty_le_thu_hoi = vat_tu.ty_le_thu_hoi or 0
+                ma_hs = vat_tu.ma_hs or ''
             except VatTu.DoesNotExist:
                 ten_nguyen_lieu = material.ten_nguyen_lieu or f"Sản phẩm {material.id_san_pham}"
                 ty_le_thu_hoi = 0
+                ma_hs = ''
             
             # Get production order output quantity từ bảng kê trừ lùi
             so_luong_san_pham_xuat = material.so_luong_san_pham_xuat or 0
@@ -2622,7 +2709,8 @@ def get_purchase_materials_by_lenh_sx_api(request, ma_lenh_sx):
                 'so_luong_san_pham_xuat': so_luong_san_pham_xuat,
                 'ty_le_thu_hoi': ty_le_thu_hoi,
                 'ty_le_thu_hoi_percent': f"{int(ty_le_thu_hoi * 100)}%" if ty_le_thu_hoi else "0%",
-                'so_luong_san_xuat_toi_thieu': round(so_luong_san_xuat_toi_thieu, 2) if so_luong_san_xuat_toi_thieu else 0
+                'so_luong_san_xuat_toi_thieu': round(so_luong_san_xuat_toi_thieu, 2) if so_luong_san_xuat_toi_thieu else 0,
+                'ma_hs': ma_hs,
             }
             materials_data.append(material_data)
         
@@ -2752,6 +2840,473 @@ def add_nguoi(request):
 def _get_production_order_output_quantity(material):
     """Get production order output quantity from rollback record"""
     return material.so_luong_san_pham_xuat or 0
+
+@require_GET
+def api_purchase_non_invoice_materials(request):
+    """API để lấy danh sách nguyên liệu không có hóa đơn theo lệnh sản xuất"""
+    try:
+        # Lấy ma_lenh_sx từ request parameter
+        ma_lenh_sx = request.GET.get('ma_lenh_sx')
+        
+        if not ma_lenh_sx:
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Thiếu mã lệnh sản xuất'
+            })
+        
+        # Kiểm tra lệnh sản xuất có tồn tại không
+        try:
+            lenh_sx = LenhSanXuat.objects.get(id_lenh_san_xuat=ma_lenh_sx)
+        except LenhSanXuat.DoesNotExist:
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Không tìm thấy lệnh sản xuất'
+            })
+        
+        # Lấy các bảng kê thu mua không có hóa đơn theo lệnh sản xuất cụ thể
+        non_invoice_records = BangKeThuMuaTuDan.objects.filter(
+            hoa_don=False,
+            id_lenh_san_xuat=lenh_sx
+        )
+        
+        materials_dict = {}
+        
+        for record in non_invoice_records:
+            try:
+                vat_tu = VatTu.objects.get(id_san_pham=record.id_san_pham)
+                ten_nguyen_lieu = vat_tu.ten_khac or vat_tu.ten_sp_chinh
+                don_vi_tinh = vat_tu.don_vi_tinh or 'Kg'
+                
+                if record.id_san_pham not in materials_dict:
+                    materials_dict[record.id_san_pham] = {
+                        'id': record.id_san_pham,
+                        'name': ten_nguyen_lieu,
+                        'unit': don_vi_tinh,
+                        'total_quantity': 0,
+                        'records': []
+                    }
+                
+                # Tính tổng số lượng từ chi tiết
+                total_qty = CtBangKeThuMuaTuDan.objects.filter(
+                    id_bang_ke_thu_mua_tu_dan=record
+                ).aggregate(total=models.Sum('so_luong'))['total'] or 0
+                
+                materials_dict[record.id_san_pham]['total_quantity'] += total_qty
+                materials_dict[record.id_san_pham]['records'].append(record.id_bang_ke_thu_mua_tu_dan)
+                
+            except VatTu.DoesNotExist:
+                continue
+        
+        materials_list = list(materials_dict.values())
+        
+        return JsonResponse({
+            'status': 'success',
+            'materials': materials_list,
+            'ma_lenh_sx': ma_lenh_sx,
+            'ma_don_hang': lenh_sx.id_don_hang
+        })
+        
+    except Exception as e:
+        return JsonResponse({
+            'status': 'error',
+            'message': str(e)
+        })
+
+@require_POST
+def purchase_export_non_invoice(request):
+    """Xuất file bảng kê thu mua không có hóa đơn theo lệnh sản xuất"""
+    try:
+        dia_chi_thu_mua = request.POST.get('dia_chi_thu_mua', '').strip()
+        nguoi_thu_mua_id = request.POST.get('nguoi_thu_mua', '').strip()
+        selected_materials = json.loads(request.POST.get('selected_materials', '[]'))
+        export_type = request.POST.get('export_type', 'pdf')
+        ngay_lap = request.POST.get('ngay_lap', '')
+        thang_lap = request.POST.get('thang_lap', '')
+        nam_lap = request.POST.get('nam_lap', '')
+        ma_lenh_sx = request.POST.get('ma_lenh_sx', '').strip()  # Thêm mã lệnh sản xuất
+        
+        if not dia_chi_thu_mua or not nguoi_thu_mua_id or not selected_materials or not ma_lenh_sx:
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Thiếu thông tin bắt buộc (địa chỉ thu mua, người thu mua, nguyên liệu, mã lệnh SX)'
+            })
+        
+        # Lấy thông tin người thu mua
+        try:
+            nguoi_thu_mua = Nguoi.objects.get(id=nguoi_thu_mua_id)
+        except Nguoi.DoesNotExist:
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Không tìm thấy người thu mua'
+            })
+        
+        # Lấy thông tin lệnh sản xuất
+        try:
+            lenh_sx = LenhSanXuat.objects.get(id_lenh_san_xuat=ma_lenh_sx)
+        except LenhSanXuat.DoesNotExist:
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Không tìm thấy lệnh sản xuất'
+            })
+        
+        # Lấy dữ liệu chi tiết theo nguyên liệu đã chọn và lệnh sản xuất
+        chi_tiet_list = []
+        tong_so_luong = 0
+        tong_thanh_tien = 0
+        don_vi_tinh = 'Kg'  # Default
+        
+        # Lấy ngày từ và ngày đến từ dữ liệu
+        ngay_from = None
+        ngay_to = None
+        
+        for material_id in selected_materials:
+            # Lấy thông tin nguyên liệu
+            try:
+                vat_tu = VatTu.objects.get(id_san_pham=material_id)
+                ten_nguyen_lieu = vat_tu.ten_khac or vat_tu.ten_sp_chinh
+                don_vi_tinh = vat_tu.don_vi_tinh or 'Kg'
+            except VatTu.DoesNotExist:
+                continue
+            
+            # Lấy các bảng kê của nguyên liệu này theo lệnh sản xuất cụ thể
+            bang_ke_records = BangKeThuMuaTuDan.objects.filter(
+                id_san_pham=material_id,
+                hoa_don=False,
+                id_lenh_san_xuat=lenh_sx  # Thêm filter theo lệnh sản xuất
+            )
+            
+            for bang_ke in bang_ke_records:
+                # Lấy chi tiết của từng bảng kê
+                details = CtBangKeThuMuaTuDan.objects.filter(
+                    id_bang_ke_thu_mua_tu_dan=bang_ke
+                ).select_related('id_nguoi_ban').order_by('ngay_mua_hang')
+                
+                for detail in details:
+                    # Cập nhật ngày từ - đến
+                    if detail.ngay_mua_hang:
+                        if ngay_from is None or detail.ngay_mua_hang < ngay_from:
+                            ngay_from = detail.ngay_mua_hang
+                        if ngay_to is None or detail.ngay_mua_hang > ngay_to:
+                            ngay_to = detail.ngay_mua_hang
+                    
+                    chi_tiet_item = {
+                        'ngay_mua_hang_display': detail.ngay_mua_hang.strftime('%d/%m/%Y') if detail.ngay_mua_hang else '',
+                        'ten_nguoi_ban': detail.id_nguoi_ban.ten if detail.id_nguoi_ban else '',
+                        'dia_chi': detail.id_nguoi_ban.dia_chi if detail.id_nguoi_ban else '',
+                        'so_cmnd_cccd': detail.id_nguoi_ban.so_cmnd_cccd if detail.id_nguoi_ban else '',
+                        'ten_hang': ten_nguyen_lieu,
+                        'don_vi_tinh': don_vi_tinh,
+                        'so_luong': detail.so_luong or 0,
+                        'don_gia': detail.don_gia or 0,
+                        'thanh_tien': (detail.so_luong or 0) * (detail.don_gia or 0),
+                        'ghi_chu': detail.ghi_chu or ''
+                    }
+                    
+                    chi_tiet_list.append(chi_tiet_item)
+                    tong_so_luong += chi_tiet_item['so_luong']
+                    tong_thanh_tien += chi_tiet_item['thanh_tien']
+        
+        # Tạo context cho template
+        context = {
+            'ma_lenh_sx': ma_lenh_sx,
+            'ma_don_hang': lenh_sx.id_don_hang,
+            'ngay_from': ngay_from.strftime('%d/%m/%Y') if ngay_from else '',
+            'ngay_to': ngay_to.strftime('%d/%m/%Y') if ngay_to else '',
+            'dia_chi_to_chuc_thu_mua': dia_chi_thu_mua,
+            'nguoi_thu_mua': nguoi_thu_mua.ten,
+            'cmnd_nguoi_thu_mua': nguoi_thu_mua.so_cmnd_cccd or '',
+            'chi_tiet_list': chi_tiet_list,
+            'tong_so_luong': tong_so_luong,
+            'tong_thanh_tien': tong_thanh_tien,
+            'don_vi_tinh': don_vi_tinh,
+            'ngay_lap': ngay_lap,
+            'thang_lap': thang_lap,
+            'nam_lap': nam_lap,
+            'nguoi_lap_bang_ke': nguoi_thu_mua.ten,
+            'tong_thanh_tien_chu': convert_number_to_vietnamese_words(int(tong_thanh_tien))
+        }
+        
+        if export_type == 'excel':
+            return export_non_invoice_excel(context)
+        else:
+            # Render PDF như purchase_export_pdf
+            return render(request, 'purchase_non_invoice_pdf.html', context)
+            
+    except Exception as e:
+        return JsonResponse({
+            'status': 'error',
+            'message': str(e)
+        })
+
+def export_non_invoice_excel(context):
+    """Xuất Excel bảng kê không có hóa đơn"""
+    output = BytesIO()
+    workbook = xlsxwriter.Workbook(output, {'in_memory': True})
+    worksheet = workbook.add_worksheet("BK thu mua ko hóa đơn")
+    
+    # Define formats
+    title_format = workbook.add_format({
+        'font_name': 'Times New Roman',
+        'font_size': 14,
+        'bold': True,
+        'align': 'center',
+        'valign': 'vcenter'
+    })
+    
+    header_format = workbook.add_format({
+        'font_name': 'Times New Roman',
+        'font_size': 11,
+        'align': 'left',
+        'valign': 'vcenter'
+    })
+    
+    table_header_format = workbook.add_format({
+        'font_name': 'Times New Roman',
+        'font_size': 11,
+        'bold': True,
+        'align': 'center',
+        'valign': 'vcenter',
+        'border': 1,
+        'bg_color': '#F2F2F2'
+    })
+    
+    cell_format = workbook.add_format({
+        'font_name': 'Times New Roman',
+        'font_size': 11,
+        'align': 'center',
+        'valign': 'vcenter',
+        'border': 1
+    })
+    
+    cell_left_format = workbook.add_format({
+        'font_name': 'Times New Roman',
+        'font_size': 11,
+        'align': 'left',
+        'valign': 'vcenter',
+        'border': 1
+    })
+    
+    cell_right_format = workbook.add_format({
+        'font_name': 'Times New Roman',
+        'font_size': 11,
+        'align': 'right',
+        'valign': 'vcenter',
+        'border': 1,
+        'num_format': '#,##0'
+    })
+    
+    signature_format = workbook.add_format({
+        'font_name': 'Times New Roman',
+        'font_size': 11,
+        'bold': True,
+        'align': 'center',
+        'valign': 'vcenter'
+    })
+    
+    # Set column widths
+    worksheet.set_column('A:A', 3)   # STT
+    worksheet.set_column('B:B', 12)  # Ngày
+    worksheet.set_column('C:C', 18)  # Tên người bán
+    worksheet.set_column('D:D', 25)  # Địa chỉ
+    worksheet.set_column('E:E', 12)  # CMND
+    worksheet.set_column('F:F', 15)  # Tên hàng
+    worksheet.set_column('G:G', 8)   # Đơn vị
+    worksheet.set_column('H:H', 10)  # Số lượng
+    worksheet.set_column('I:I', 12)  # Đơn giá
+    worksheet.set_column('J:J', 15)  # Thành tiền
+    worksheet.set_column('K:K', 12)  # Ghi chú
+    
+    # Mẫu số và thông tin đầu trang
+    row = 0
+    worksheet.merge_range(f'A{row+1}:C{row+3}', 
+        'Mẫu số: 01/TNDN\n(Ban hành kèm theo Thông tư số\n78/2014/TT-BTC của Bộ Tài chính)', 
+        workbook.add_format({
+            'font_name': 'Times New Roman',
+            'font_size': 11,
+            'align': 'center',
+            'valign': 'vcenter',
+            'border': 1,
+            'text_wrap': True
+        }))
+    
+    # Title - dịch xuống để không đè lên mẫu số
+    row = 4
+    worksheet.merge_range(f'A{row}:K{row+1}', 
+        'BẢNG KÊ THU MUA HÀNG HÓA, DỊCH VỤ\nMUA VÀO KHÔNG CÓ HÓA ĐƠN', 
+        workbook.add_format({
+            'font_name': 'Times New Roman',
+            'font_size': 14,
+            'bold': True,
+            'align': 'center',
+            'valign': 'vcenter',
+            'text_wrap': True
+        }))
+    
+    # Thông tin từ ngày đến ngày
+    row = 6
+    worksheet.merge_range(f'A{row}:K{row}', 
+        f"Từ ngày    {context.get('ngay_from', '')}    đến ngày    {context.get('ngay_to', '')}", 
+        workbook.add_format({
+            'font_name': 'Times New Roman',
+            'font_size': 11,
+            'align': 'center',
+            'valign': 'vcenter'
+        }))
+    
+    # Company info
+    row = 8
+    worksheet.write(f'A{row}', '- Tên doanh nghiệp: CÔNG TY CỔ PHẦN TÂN PHONG', header_format)
+    row += 1
+    worksheet.write(f'A{row}', '- Mã số thuế: 2600274542', header_format)
+    row += 1
+    worksheet.write(f'A{row}', '- Địa chỉ: Khu 15, Thị trấn Hùng Sơn, Huyện Lâm Thao, Phú Thọ', header_format)
+    row += 1
+    worksheet.write(f'A{row}', f"- Địa chỉ nơi tổ chức thu mua: {context.get('dia_chi_to_chuc_thu_mua', '')}", header_format)
+    row += 1
+    worksheet.write(f'A{row}', f"- Người phụ trách thu mua: {context.get('nguoi_thu_mua', '')}", header_format)
+    
+    # Table headers - tạo header có 2 dòng
+    row += 2
+    
+    # Dòng header đầu tiên
+    worksheet.merge_range(f'A{row}:A{row+1}', 'STT', table_header_format)
+    worksheet.merge_range(f'B{row}:E{row}', 'Người bán', table_header_format)
+    worksheet.merge_range(f'F{row}:J{row}', 'Hàng hóa mua vào', table_header_format)
+    worksheet.merge_range(f'K{row}:K{row+1}', 'Ghi chú', table_header_format)
+    
+    # Dòng header thứ hai
+    row += 1
+    worksheet.write(f'B{row}', 'Ngày tháng năm\nmua hàng', 
+        workbook.add_format({
+            'font_name': 'Times New Roman',
+            'font_size': 11,
+            'bold': True,
+            'align': 'center',
+            'valign': 'vcenter',
+            'border': 1,
+            'bg_color': '#F2F2F2',
+            'text_wrap': True
+        }))
+    worksheet.write(f'C{row}', 'Tên người bán', table_header_format)
+    worksheet.write(f'D{row}', 'Địa chỉ', table_header_format)
+    worksheet.write(f'E{row}', 'Số CCCD', table_header_format)
+    worksheet.write(f'F{row}', 'Tên mặt hàng', table_header_format)
+    worksheet.write(f'G{row}', 'Đơn vị\ntính', 
+        workbook.add_format({
+            'font_name': 'Times New Roman',
+            'font_size': 11,
+            'bold': True,
+            'align': 'center',
+            'valign': 'vcenter',
+            'border': 1,
+            'bg_color': '#F2F2F2',
+            'text_wrap': True
+        }))
+    worksheet.write(f'H{row}', 'Số lượng', table_header_format)
+    worksheet.write(f'I{row}', 'Đơn giá', table_header_format)
+    worksheet.write(f'J{row}', 'Tổng giá\nthành toàn', 
+        workbook.add_format({
+            'font_name': 'Times New Roman',
+            'font_size': 11,
+            'bold': True,
+            'align': 'center',
+            'valign': 'vcenter',
+            'border': 1,
+            'bg_color': '#F2F2F2',
+            'text_wrap': True
+        }))
+        
+    # Dòng số thứ tự
+    row += 1
+    for col in range(11):  # A đến K
+        worksheet.write(row, col, col + 1, table_header_format)
+    
+    # Data rows
+    row += 1
+    for idx, detail in enumerate(context['chi_tiet_list'], 1):
+        worksheet.write(row, 0, idx, cell_format)
+        worksheet.write(row, 1, detail['ngay_mua_hang_display'], cell_format)
+        worksheet.write(row, 2, detail['ten_nguoi_ban'], cell_left_format)
+        worksheet.write(row, 3, detail['dia_chi'], cell_left_format)
+        worksheet.write(row, 4, detail['so_cmnd_cccd'], cell_format)
+        worksheet.write(row, 5, detail['ten_hang'], cell_left_format)
+        worksheet.write(row, 6, detail['don_vi_tinh'], cell_format)
+        worksheet.write(row, 7, detail['so_luong'], cell_right_format)
+        worksheet.write(row, 8, detail['don_gia'], cell_right_format)
+        worksheet.write(row, 9, detail['thanh_tien'], cell_right_format)
+        worksheet.write(row, 10, detail['ghi_chu'], cell_left_format)
+        row += 1
+    
+    # Total row - tách riêng không đè vào dữ liệu
+    row += 1
+    worksheet.merge_range(f'A{row}:K{row}', 
+        f"- Tổng giá trị hàng hóa mua vào: {context['tong_so_luong']:,.3f} {context['don_vi_tinh']} = {context['tong_thanh_tien']:,.0f} VND", 
+        workbook.add_format({
+            'font_name': 'Times New Roman', 
+            'font_size': 12, 
+            'bold': True,
+            'align': 'left'
+        }))
+    
+    # Ngày lập
+    row += 3
+    worksheet.merge_range(f'I{row}:K{row}', 
+        f"Ngày {context.get('ngay_lap', '')} tháng {context.get('thang_lap', '')} năm {context.get('nam_lap', '')}", 
+        workbook.add_format({
+            'font_name': 'Times New Roman',
+            'font_size': 11,
+            'align': 'center'
+        }))
+    
+    # Signatures
+    row += 2
+    worksheet.merge_range(f'A{row}:D{row}', 'Người lập\nbảng kê\n(Ký, ghi rõ họ tên)', 
+        workbook.add_format({
+            'font_name': 'Times New Roman',
+            'font_size': 11,
+            'bold': True,
+            'align': 'center',
+            'valign': 'vcenter',
+            'text_wrap': True
+        }))
+    worksheet.merge_range(f'E{row}:H{row}', 'Xác nhận của\nchính quyền địa phương\n(Ký tên, đóng dấu)', 
+        workbook.add_format({
+            'font_name': 'Times New Roman',
+            'font_size': 11,
+            'bold': True,
+            'align': 'center',
+            'valign': 'vcenter',
+            'text_wrap': True
+        }))
+    worksheet.merge_range(f'I{row}:K{row}', 'Giám đốc\ndoanh nghiệp\n(Ký tên, đóng dấu)', 
+        workbook.add_format({
+            'font_name': 'Times New Roman',
+            'font_size': 11,
+            'bold': True,
+            'align': 'center',
+            'valign': 'vcenter',
+            'text_wrap': True
+        }))
+    
+    # Tên người ký
+    row += 5
+    worksheet.merge_range(f'A{row}:D{row}', context.get('nguoi_lap_bang_ke', ''), signature_format)
+    worksheet.merge_range(f'E{row}:H{row}', context.get('chu_tich_ubnd', ''), signature_format)
+    worksheet.merge_range(f'I{row}:K{row}', context.get('giam_doc', ''), signature_format)
+    
+    workbook.close()
+    output.seek(0)
+    
+    # Create HTTP response
+    response = HttpResponse(
+        output.getvalue(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    
+    filename = f"BangKeThuMuaKhongHoaDon_{datetime.now().strftime('%Y%m%d_%H%M%S')}.xlsx"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    
+    return response
 
 @require_GET
 def purchase_export_pdf(request, pk):
@@ -3129,7 +3684,6 @@ def wo_ledger(request):
 
     return render(request, 'wo_management.html', context)
 
-
 def wo_ledger_detail(request, pk):
     """WO ledger detail view with edit functionality - SỬA CHỮA"""
     try:
@@ -3152,7 +3706,7 @@ def wo_ledger_detail(request, pk):
         ).first()
         so_luong_san_pham_xuat = rollback_record.so_luong_san_pham_xuat if rollback_record else 0
 
-        # Get purchase record info (for readonly fields)
+        # Get purchase record info (for readonly fields) - THÊM TRƯỜNG HÓA ĐƠN
         try:
             purchase_record = BangKeThuMuaTuDan.objects.get(
                 id_bang_ke_thu_mua_tu_dan=wo_record.id_bang_ke_thu_mua_tu_dan
@@ -3162,11 +3716,15 @@ def wo_ledger_detail(request, pk):
                 ten_hang_hoa_goc = vat_tu_purchase.ten_khac or ''
             except:
                 ten_hang_hoa_goc = f"Sản phẩm {purchase_record.id_san_pham}"
+            
+            # LẤY THÔNG TIN HÓA ĐƠN
+            co_hoa_don = purchase_record.hoa_don if hasattr(purchase_record, 'hoa_don') else False
         except:
             purchase_record = None
             ten_hang_hoa_goc = ten_nguyen_lieu_goc
+            co_hoa_don = False
 
-        # Format record data - LOGIC GIỐNG PHẦN TẠO MỚI
+        # Format record data - LOGIC GIỐNG PHẦN TẠO MỚI + THÊM TRƯỜNG HÓA ĐƠN
         formatted_record = {
             'id': wo_record.id,
             'id_bang_ke_thu_mua_tu_dan': wo_record.id_bang_ke_thu_mua_tu_dan,
@@ -3193,6 +3751,9 @@ def wo_ledger_detail(request, pk):
             'nguoi_phu_trach_id': wo_record.id_nguoi.id if wo_record.id_nguoi else None,
             'ten_nguoi': wo_record.id_nguoi.ten if wo_record.id_nguoi else '',
             'cccd_cmnd': wo_record.id_nguoi.so_cmnd_cccd if wo_record.id_nguoi else '',
+            
+            # THÊM TRƯỜNG HÓA ĐƠN
+            'co_hoa_don': co_hoa_don,
         }
         
         # Get nguoi list for dropdown (Người mua)
@@ -3205,7 +3766,7 @@ def wo_ledger_detail(request, pk):
         try:
             detail_records = CtBangKeThuMuaTuDan.objects.filter(
                 id_bang_ke_thu_mua_tu_dan=wo_record.id_bang_ke_thu_mua_tu_dan
-            ).select_related('id_nguoi_ban')
+            ).select_related('id_nguoi_ban').order_by('id_ct_bang_ke_thu_mua_tu_dan')
             
             for detail in detail_records:
                 nguoi = detail.id_nguoi_ban
@@ -3223,11 +3784,12 @@ def wo_ledger_detail(request, pk):
                     'dia_chi': nguoi.dia_chi if nguoi else '',
                     'so_cmnd_cccd': cccd_info,
                     'so_luong': detail.so_luong or 0,
-                    'don_gia': detail.don_gia or 0,  # Trả về số thay vì format
+                    'don_gia': detail.don_gia or 0,
                     'thanh_tien': (detail.so_luong or 0) * (detail.don_gia or 0),
                     'ghi_chu': detail.ghi_chu or '',
                 })
-        except:
+        except Exception as e:
+            print(f"Error loading purchase details: {e}")
             pass
         
         context = {
@@ -3248,9 +3810,8 @@ def wo_ledger_detail(request, pk):
     
     return render(request, 'wo_detail.html', context)
 
-
 def handle_wo_detail_update(request, wo_record):
-    """Handle WO detail update - SỬA CHỮA MAPPING"""
+    """Handle WO detail update - SỬA CHỮA MAPPING + THÊM HÓA ĐƠN"""
     try:
         data = json.loads(request.body)
         
@@ -3284,6 +3845,17 @@ def handle_wo_detail_update(request, wo_record):
                 wo_record.id_nguoi = None
         else:
             wo_record.id_nguoi = None
+        
+        # XỬ LÝ CẬP NHẬT TRƯỜNG HÓA ĐƠN CHO BẢNG KÊ THU MUA
+        co_hoa_don = data.get('co_hoa_don', False)
+        try:
+            purchase_record = BangKeThuMuaTuDan.objects.get(
+                id_bang_ke_thu_mua_tu_dan=wo_record.id_bang_ke_thu_mua_tu_dan
+            )
+            purchase_record.hoa_don = co_hoa_don
+            purchase_record.save()
+        except BangKeThuMuaTuDan.DoesNotExist:
+            pass
             
         wo_record.save()
 
@@ -3293,6 +3865,7 @@ def handle_wo_detail_update(request, wo_record):
             'data': {
                 'id': wo_record.id,
                 'tri_gia_fob': wo_record.tri_gia_fob or 0,
+                'co_hoa_don': co_hoa_don,
             }
         })
 
@@ -3301,6 +3874,642 @@ def handle_wo_detail_update(request, wo_record):
             'status': 'error',
             'message': f'Lỗi khi cập nhật: {str(e)}'
         }, status=400)
+
+# THÊM FUNCTION MỚI: Lấy danh sách nguyên liệu cùng loại (không có hóa đơn)
+@require_GET
+def get_similar_materials(request, pk):
+    """Get similar materials without invoice for combined export - SỬA LOGIC"""
+    try:
+        wo_record = BangKeWo.objects.select_related('id_lenh_san_xuat').get(pk=pk)
+        
+        # Lấy lệnh sản xuất hiện tại
+        current_lenh_sx = wo_record.id_lenh_san_xuat
+        
+        # BƯỚC 1: Tìm tất cả bảng kê thu mua KHÔNG CÓ HÓA ĐƠN và cùng lệnh sản xuất
+        purchase_records_no_invoice = BangKeThuMuaTuDan.objects.filter(
+            id_lenh_san_xuat=current_lenh_sx,
+            hoa_don=False  # Chỉ lấy những bản ghi không có hóa đơn
+        ).exclude(
+            # Loại trừ bảng kê thu mua hiện tại
+            id_bang_ke_thu_mua_tu_dan=wo_record.id_bang_ke_thu_mua_tu_dan
+        )
+        
+        # BƯỚC 2: Từ danh sách bảng kê thu mua không có hóa đơn, tìm các WO record tương ứng
+        materials = []
+        
+        for purchase_record in purchase_records_no_invoice:
+            try:
+                # Tìm WO record tương ứng với bảng kê thu mua này
+                similar_wo = BangKeWo.objects.select_related('id_lenh_san_xuat', 'id_nguoi').get(
+                    id_bang_ke_thu_mua_tu_dan=purchase_record.id_bang_ke_thu_mua_tu_dan,
+                    id_lenh_san_xuat=current_lenh_sx
+                )
+                
+                # Lấy tên nguyên liệu từ VatTu
+                try:
+                    vat_tu = VatTu.objects.get(id_san_pham=similar_wo.id_san_pham)
+                    ten_nguyen_lieu = similar_wo.ten_hang_hoa or vat_tu.ten_khac or vat_tu.ten_sp_chinh
+                except VatTu.DoesNotExist:
+                    ten_nguyen_lieu = similar_wo.ten_hang_hoa or f"Sản phẩm {similar_wo.id_san_pham}"
+                
+                materials.append({
+                    'id': similar_wo.id,
+                    'ten_nguyen_lieu': ten_nguyen_lieu,
+                    'ma_lenh_sx': similar_wo.id_lenh_san_xuat.id_lenh_san_xuat,
+                    'so_luong': similar_wo.so_luong or 0,
+                    'ngay': similar_wo.ngay.strftime('%d/%m/%Y') if similar_wo.ngay else '',
+                    'nguoi_phu_trach': similar_wo.id_nguoi.ten if similar_wo.id_nguoi else '',
+                })
+                
+            except BangKeWo.DoesNotExist:
+                # Nếu không tìm thấy WO record tương ứng thì bỏ qua
+                continue
+        
+        return JsonResponse({
+            'status': 'success',
+            'materials': materials
+        })
+        
+    except BangKeWo.DoesNotExist:
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Không tìm thấy bảng kê WO'
+        }, status=404)
+    except Exception as e:
+        return JsonResponse({
+            'status': 'error',
+            'message': f'Lỗi khi tải danh sách nguyên liệu: {str(e)}'
+        }, status=500)
+
+@require_POST
+def export_multiple_wo(request):
+    """Export multiple WO records to single file"""
+    try:
+        data = json.loads(request.body)
+        wo_ids = data.get('wo_ids', [])
+        export_type = data.get('export_type', 'pdf')  # 'pdf' or 'word'
+        
+        if not wo_ids:
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Không có nguyên liệu nào được chọn'
+            }, status=400)
+        
+        # Lấy danh sách WO records
+        wo_records = BangKeWo.objects.filter(
+            id__in=wo_ids
+        ).select_related('id_lenh_san_xuat', 'id_nguoi').order_by('ngay', 'id')
+        
+        if not wo_records:
+            return JsonResponse({
+                'status': 'error',
+                'message': 'Không tìm thấy bảng kê WO nào'
+            }, status=404)
+        
+        # Tổng hợp dữ liệu từ nhiều WO
+        combined_data = prepare_combined_wo_data(wo_records)
+        
+        if export_type == 'word':
+            return export_combined_wo_word(combined_data, wo_records)
+        else:  # PDF
+            return export_combined_wo_pdf(combined_data, wo_records, request)  # THÊM request parameter
+            
+    except Exception as e:
+        return JsonResponse({
+            'status': 'error',
+            'message': f'Lỗi khi xuất file: {str(e)}'
+        }, status=500)
+    
+def prepare_combined_wo_data(wo_records):
+    """Prepare combined data from multiple WO records - SỬA LOGIC BỎ SEPARATOR"""
+    all_purchase_details = []
+    total_quantity = 0
+    total_amount = 0
+    
+    # Lấy thông tin chung từ WO đầu tiên
+    first_wo = wo_records.first()
+    
+    # Get material info từ VatTu của WO đầu tiên
+    try:
+        vat_tu = VatTu.objects.get(id_san_pham=first_wo.id_san_pham)
+        ten_nguyen_lieu_chung = vat_tu.ten_khac or vat_tu.ten_sp_chinh
+        ma_hs = vat_tu.ma_hs or ''
+        don_vi_tinh = vat_tu.don_vi_tinh or 'KGM'
+    except VatTu.DoesNotExist:
+        ten_nguyen_lieu_chung = f"Sản phẩm {first_wo.id_san_pham}"
+        ma_hs = ''
+        don_vi_tinh = 'KGM'
+    
+    # Tổng hợp dữ liệu từ tất cả WO - BỎ SEPARATOR
+    for wo_record in wo_records:
+        try:
+            # LẤY TÊN NGUYÊN LIỆU RIÊNG CHO TỪNG WO
+            try:
+                vat_tu_wo = VatTu.objects.get(id_san_pham=wo_record.id_san_pham)
+                ten_nguyen_lieu_wo = wo_record.ten_hang_hoa or vat_tu_wo.ten_khac or vat_tu_wo.ten_sp_chinh
+            except VatTu.DoesNotExist:
+                ten_nguyen_lieu_wo = wo_record.ten_hang_hoa or f"Sản phẩm {wo_record.id_san_pham}"
+            
+            detail_records = CtBangKeThuMuaTuDan.objects.filter(
+                id_bang_ke_thu_mua_tu_dan=wo_record.id_bang_ke_thu_mua_tu_dan
+            ).select_related('id_nguoi_ban').order_by('ngay_mua_hang')
+            
+            # BỎ SEPARATOR - CHUYỂN THẲNG VÀO LOOP CHI TIẾT
+            for detail in detail_records:
+                nguoi = detail.id_nguoi_ban
+                
+                # Format CCCD với ngày cấp
+                cccd_info = ''
+                if nguoi and nguoi.so_cmnd_cccd:
+                    cccd_info = nguoi.so_cmnd_cccd
+                    if nguoi.ngay_cap_cmnd_cccd:
+                        cccd_info += f" cấp ngày {nguoi.ngay_cap_cmnd_cccd.strftime('%d/%m/%Y')}"
+                
+                thanh_tien = (detail.so_luong or 0) * (detail.don_gia or 0)
+                total_quantity += (detail.so_luong or 0)
+                total_amount += thanh_tien
+                
+                all_purchase_details.append({
+                    'is_separator': False,
+                    'ngay_mua_hang': detail.ngay_mua_hang.strftime('%d/%m/%Y') if detail.ngay_mua_hang else '',
+                    'ten_nguoi_ban': nguoi.ten if nguoi else '',
+                    'dia_chi': nguoi.dia_chi if nguoi else '',
+                    'so_cmnd_cccd': cccd_info,
+                    'so_luong': detail.so_luong or 0,
+                    'don_gia': detail.don_gia or 0,
+                    'thanh_tien': thanh_tien,
+                    'ghi_chu': detail.ghi_chu or '',
+                    'ten_nguyen_lieu': ten_nguyen_lieu_wo,
+                    'noi_khai_thac': wo_record.noi_khai_thac or '',
+                    'wo_id': wo_record.id,
+                })
+        except Exception as e:
+            print(f"Error loading purchase details for WO {wo_record.id}: {e}")
+            continue
+    
+    # Format record data từ WO đầu tiên (THÔNG TIN CHUNG) - BỎ THÔNG TIN LỆNH SX VÀ ĐƠN HÀNG
+    formatted_record = {
+        'ten_thuong_nhan': 'Công ty cổ phần Tân Phong',
+        'ma_so_thue': '2600274542',
+        'ten_nguyen_lieu': first_wo.ten_hang_hoa or ten_nguyen_lieu_chung,
+        'ten_hang_hoa': ten_nguyen_lieu_chung,
+        'ma_hs': ma_hs,
+        'so_luong_wo': first_wo.so_luong or 0,
+        'don_vi_tinh': don_vi_tinh,
+        'tri_gia_fob': first_wo.tri_gia_fob or 0,
+        'to_khai_hai_quan': first_wo.to_khai_hai_quan or '',
+        'dia_chi_thu_mua': first_wo.dia_chi_thu_mua or '',
+        'noi_khai_thac': first_wo.noi_khai_thac or '',
+        'ten_nguoi': first_wo.id_nguoi.ten if first_wo.id_nguoi else '',
+        'cccd_cmnd': first_wo.id_nguoi.so_cmnd_cccd if first_wo.id_nguoi else '',
+        'ngay_display': first_wo.ngay.strftime('%d tháng %m năm %Y') if first_wo.ngay else datetime.now().strftime('%d tháng %m năm %Y'),
+    }
+    
+    return {
+        'record': formatted_record,
+        'purchase_details': all_purchase_details,
+        'total_quantity': total_quantity,
+        'total_amount': total_amount,
+        'wo_records': wo_records,
+    }
+
+def export_combined_wo_pdf(combined_data, wo_records, request):
+    """Export combined WO data as PDF (HTML for printing) - DÙNG AJAX GIỐNG wo_export_pdf"""
+    context = combined_data.copy()
+    context['wo_records'] = wo_records
+    
+    # SỬA: TRẢ VỀ RENDER TEMPLATE TRỰC TIẾP (GIỐNG wo_export_pdf)
+    return render(request, 'wo_export_pdf_non_invoice.html', context)
+
+def export_combined_wo_word(combined_data, wo_records):
+    """Export combined WO data as Word document"""
+    try:
+        from docx import Document
+        from docx.shared import Inches, Pt
+        from docx.enum.text import WD_ALIGN_PARAGRAPH
+        from docx.enum.table import WD_TABLE_ALIGNMENT
+        from docx.enum.section import WD_ORIENT
+        from docx.oxml.ns import qn
+        from docx.oxml import OxmlElement
+    except ImportError:
+        return JsonResponse({
+            'status': 'error',
+            'message': 'Thiếu thư viện python-docx. Vui lòng cài đặt: pip install python-docx'
+        }, status=500)
+
+    record = combined_data['record']
+    purchase_details = combined_data['purchase_details']
+    total_quantity = combined_data['total_quantity']
+    total_amount = combined_data['total_amount']
+
+    # Create Word document
+    doc = Document()
+    
+    # Set document margins to A4 Landscape
+    sections = doc.sections
+    for section in sections:
+        section.orientation = WD_ORIENT.LANDSCAPE
+        section.page_width = Inches(11.69)
+        section.page_height = Inches(8.27)
+        section.top_margin = Inches(0.5)
+        section.bottom_margin = Inches(0.5)
+        section.left_margin = Inches(0.5)
+        section.right_margin = Inches(0.5)
+
+    # Header - Phụ lục II (căn giữa)
+    header1 = doc.add_paragraph()
+    header1.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    header1.space_after = Pt(0)
+    run1 = header1.add_run('Phụ lục II')
+    run1.font.name = 'Times New Roman'
+    run1.font.size = Pt(12)
+    run1.bold = True
+
+    # Main title (căn giữa)
+    header2 = doc.add_paragraph()
+    header2.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    header2.space_after = Pt(0)
+    run2 = header2.add_run('BẢNG KÊ KHAI HÀNG HÓA XUẤT KHẨU ĐẠT TIÊU CHÍ "WO"')
+    run2.font.name = 'Times New Roman'
+    run2.font.size = Pt(14)
+    run2.bold = True
+
+    # Subtitle (căn giữa, in đậm, cỡ 14)
+    sub_para1 = doc.add_paragraph()
+    sub_para1.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    sub_para1.space_after = Pt(0)
+    run_sub1 = sub_para1.add_run('(sử dụng nguyên liệu thu mua trong nước, không có hóa đơn giá trị gia tăng)')
+    run_sub1.font.name = 'Times New Roman'
+    run_sub1.font.size = Pt(14)
+    run_sub1.bold = True
+
+    # Subtitles tiếp theo
+    sub_para2 = doc.add_paragraph()
+    sub_para2.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    sub_para2.space_after = Pt(0)
+    run_sub2 = sub_para2.add_run('(ban hành kèm theo Thông tư số 74/2023/TT-BCT ngày 29/12/2023')
+    run_sub2.font.name = 'Times New Roman'
+    run_sub2.font.size = Pt(13)
+    run_sub2.italic = True
+
+    sub_para3 = doc.add_paragraph()
+    sub_para3.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    sub_para3.space_after = Pt(0)
+    run_sub3 = sub_para3.add_run('Của Bộ trưởng Bộ Công Thương sửa đổi, bổ sung một số điều của Thông tư 05/2018/TT-BCT)')
+    run_sub3.font.name = 'Times New Roman'
+    run_sub3.font.size = Pt(13)
+    run_sub3.italic = True
+
+    # Company info - Sử dụng bảng 3 cột như trong mẫu
+    info_table = doc.add_table(rows=5, cols=3)
+    info_table.alignment = WD_TABLE_ALIGNMENT.LEFT
+    
+    # Xóa borders của bảng info
+    def remove_table_borders(table):
+        tbl = table._tbl
+        for row in tbl.tr_lst:
+            for cell in row.tc_lst:
+                tcPr = cell.tcPr
+                tcBorders = OxmlElement('w:tcBorders')
+                for border_name in ['top', 'left', 'bottom', 'right']:
+                    border = OxmlElement(f'w:{border_name}')
+                    border.set(qn('w:val'), 'nil')
+                    tcBorders.append(border)
+                tcPr.append(tcBorders)
+    
+    remove_table_borders(info_table)
+    
+    # Set column widths
+    info_table.columns[0].width = Inches(3.0)
+    info_table.columns[1].width = Inches(2.5) 
+    info_table.columns[2].width = Inches(2.2)
+
+    # Fill company info theo layout mẫu với dữ liệu tổng hợp
+    # Row 1
+    info_table.cell(0, 0).text = 'Tên Thương nhân: Công ty cổ phần Tân Phong'
+    info_table.cell(0, 1).text = ''
+    info_table.cell(0, 2).text = 'Tiêu chí áp dụng: WO'
+    
+    # Row 2  
+    info_table.cell(1, 0).text = f'Mã số thuế: 2600274542'
+    info_table.cell(1, 1).text = ''
+    info_table.cell(1, 2).text = f'Tên hàng hóa: {record["ten_hang_hoa"] or ""}'
+    
+    # Row 3
+    info_table.cell(2, 0).text = f'Tờ khai hải quan xuất khẩu số: {record["to_khai_hai_quan"] or ""}'
+    info_table.cell(2, 1).text = ''
+    info_table.cell(2, 2).text = f'Mã HS của hàng hóa (6 số): {record["ma_hs"]}'
+    
+    # Row 4
+    info_table.cell(3, 0).text = f'Địa chỉ nơi tổ chức thu mua: {record["dia_chi_thu_mua"] or ""}'
+    info_table.cell(3, 1).text = ''
+    info_table.cell(3, 2).text = f'Số lượng: {record["so_luong_wo"]} {record["don_vi_tinh"]}'
+    
+    # Row 5
+    info_table.cell(4, 0).text = f'Người phụ trách thu mua (Tên, số định danh cá nhân): {record["ten_nguoi"]}'
+    info_table.cell(4, 1).text = f'CCCD số: {record["cccd_cmnd"]}'
+    info_table.cell(4, 2).text = f'Trị giá (FOB): {record["tri_gia_fob"]} USD'
+
+    # Set font cho info table
+    for row in info_table.rows:
+        for cell in row.cells:
+            for paragraph in cell.paragraphs:
+                for run in paragraph.runs:
+                    run.font.name = 'Times New Roman'
+                    run.font.size = Pt(11)
+
+    # Add space
+    doc.add_paragraph()
+
+    # Main data table
+    data_rows = [detail for detail in purchase_details if not detail.get('is_separator')]
+    
+    table = doc.add_table(rows=4 + len(purchase_details), cols=11)  # +4 for headers and total
+    table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    
+    # Set table borders và headers
+    def set_table_borders(table):
+        tbl = table._tbl
+        for row in tbl.tr_lst:
+            for cell in row.tc_lst:
+                tcPr = cell.tcPr
+                tcBorders = OxmlElement('w:tcBorders')
+                
+                for border_name in ['top', 'left', 'bottom', 'right']:
+                    border = OxmlElement(f'w:{border_name}')
+                    border.set(qn('w:val'), 'single')
+                    border.set(qn('w:sz'), '4')
+                    border.set(qn('w:space'), '0')
+                    border.set(qn('w:color'), '000000')
+                    tcBorders.append(border)
+                
+                tcPr.append(tcBorders)
+    
+    set_table_borders(table)
+    
+    # Header row 1 - Merge cells như mẫu
+    table.cell(0, 0).text = 'Ngày tháng năm mua hàng'
+    
+    # Merge cells cho "Người bán" (cột 1-3)
+    table.cell(0, 1).merge(table.cell(0, 3))
+    table.cell(0, 1).text = 'Người bán'
+    
+    # Merge cells cho "Nguyên liệu thu mua trong nước" (cột 4-9)
+    table.cell(0, 4).merge(table.cell(0, 9))
+    table.cell(0, 4).text = 'Nguyên liệu thu mua trong nước'
+    
+    table.cell(0, 10).text = 'Ghi chú'
+
+    # Header row 2 - Chi tiết cột
+    table.cell(1, 0).text = ''
+    table.cell(1, 1).text = 'Tên người bán'
+    table.cell(1, 2).text = 'Địa chỉ'
+    table.cell(1, 3).text = 'Số định danh cá nhân (số CCCD) và ngày cấp'
+    table.cell(1, 4).text = 'Tên nguyên liệu'
+    table.cell(1, 5).text = 'Mã HS'
+    table.cell(1, 6).text = 'Nơi khai thác/đánh bắt/nuôi trồng'
+    table.cell(1, 7).text = 'Số lượng và Đơn vị tính (kg)'
+    table.cell(1, 8).text = 'Đơn giá (VND)'
+    table.cell(1, 9).text = 'Tổng trị giá (VND)'
+    table.cell(1, 10).text = ''
+
+    # Header row 3 - Số thứ tự cột
+    column_numbers = ['(1)', '(2)', '(3)', '(4)', '(5)', '(6)', '(7)', '(8)', '(9)', '(10)', '(11)']
+    for i, num in enumerate(column_numbers):
+        table.cell(2, i).text = num
+
+    # Format headers
+    for i in range(3):
+        for j in range(11):
+            try:
+                cell = table.cell(i, j)
+                for paragraph in cell.paragraphs:
+                    paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    for run in paragraph.runs:
+                        run.font.name = 'Times New Roman'
+                        run.font.size = Pt(10)
+                        if i < 2:
+                            run.bold = True
+                        else:
+                            run.italic = True
+            except:
+                continue
+
+    # Fill data rows - SỬA LOGIC TÊN NGUYÊN LIỆU
+    row_index = 3  # Bắt đầu từ hàng thứ 4 (sau 3 hàng header)
+    
+    for detail in purchase_details:
+        # BỎ CHECK SEPARATOR - CHỈ XỬ LÝ DATA ROWS
+        # Tạo hàng dữ liệu với format số lượng đúng
+        data_values = [
+            detail['ngay_mua_hang'],
+            detail['ten_nguoi_ban'],
+            detail['dia_chi'],
+            detail['so_cmnd_cccd'],
+            detail['ten_nguyen_lieu'],
+            record['ma_hs'],
+            detail['noi_khai_thac'],
+            f"{detail['so_luong']:,.3f}",  # SỬA: FORMAT SỐ LƯỢNG 12,312.000
+            f"{detail['don_gia']:,}",
+            f"{detail['thanh_tien']:,}",
+            detail['ghi_chu']
+        ]
+        
+        for col_idx, value in enumerate(data_values):
+            cell = table.cell(row_index, col_idx)
+            cell.text = str(value)
+            
+            # Format data cells
+            for paragraph in cell.paragraphs:
+                if col_idx in [0, 3]:  # Ngày và CCCD center
+                    paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                elif col_idx in [7, 8, 9]:  # Số liệu right align
+                    paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+                else:  # Còn lại left align
+                    paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                    
+                for run in paragraph.runs:
+                    run.font.name = 'Times New Roman'
+                    run.font.size = Pt(10)
+        
+        row_index += 1
+
+    # Total row - SỬA CHỈ ĐỂ TỔNG CỘNG Ở CỘT TÊN NGƯỜI BÁN
+    total_row_idx = row_index  # Sử dụng row_index hiện tại
+    
+    table.cell(total_row_idx, 0).text = ''
+    table.cell(total_row_idx, 1).text = 'Tổng cộng'  # CHỈ ĐỂ Ở CỘT TÊN NGƯỜI BÁN
+    table.cell(total_row_idx, 2).text = ''
+    table.cell(total_row_idx, 3).text = ''
+    table.cell(total_row_idx, 4).text = ''
+    table.cell(total_row_idx, 5).text = ''
+    table.cell(total_row_idx, 6).text = ''
+    
+    table.cell(total_row_idx, 7).text = f"{total_quantity:,.3f} KGM"  # FORMAT SỐ LƯỢNG ĐÚNG
+    table.cell(total_row_idx, 8).text = ''
+    table.cell(total_row_idx, 9).text = f"{total_amount:,}"
+    table.cell(total_row_idx, 10).text = ''
+    
+    # Format total row
+    for col_idx in [1, 7, 9]:  # SỬA: THÊM CỘT 1 (TÊN NGƯỜI BÁN)
+        cell = table.cell(total_row_idx, col_idx)
+        for paragraph in cell.paragraphs:
+            if col_idx == 1:
+                paragraph.alignment = WD_ALIGN_PARAGRAPH.LEFT  # Tổng cộng căn trái
+            else:
+                paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+            for run in paragraph.runs:
+                run.font.name = 'Times New Roman'
+                run.font.size = Pt(10)
+                run.bold = True
+
+    # Footer signature section
+    conclusion_para = doc.add_paragraph()
+    conclusion_para.space_after = Pt(0)  # Remove spacing
+    conclusion_run = conclusion_para.add_run('Kết luận: Hàng hóa đáp ứng tiêu chí "WO"')
+    conclusion_run.font.name = 'Times New Roman'
+    conclusion_run.font.size = Pt(10)
+    conclusion_run.bold = True
+
+    commitment_para = doc.add_paragraph()
+    commitment_para.space_after = Pt(0)  # Remove spacing
+    commitment_run = commitment_para.add_run('Công ty cam kết số liệu, thông tin khai báo trên là đúng và chịu trách nhiệm trước pháp luật về thông tin, số liệu đã khai.')
+    commitment_run.font.name = 'Times New Roman'
+    commitment_run.font.size = Pt(10)
+
+    # Signature section - Căn theo vị trí cột số lượng/đơn giá với độ rộng chuẩn
+    # SỬA: Dùng ngày hiện tại thay vì ngày từ record
+    ngay_display = datetime.now().strftime('Ngày %d tháng %m năm %Y')
+    
+    # Tạo bảng để căn chỉnh chữ ký theo đúng vị trí cột 7-9 (số lượng, đơn giá, tổng trị giá)
+    signature_table = doc.add_table(rows=1, cols=11)
+    signature_table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    
+    # Set same column widths as main table
+    widths = [Inches(0.8), Inches(1.0), Inches(1.2), Inches(1.3), Inches(1.0), 
+              Inches(0.6), Inches(1.0), Inches(0.8), Inches(0.9), Inches(1.0), Inches(0.8)]
+    for i, width in enumerate(widths):
+        signature_table.columns[i].width = width
+    
+    # Xóa borders của bảng signature
+    def remove_signature_table_borders(table):
+        tbl = table._tbl
+        for row in tbl.tr_lst:
+            for cell in row.tc_lst:
+                tcPr = cell.tcPr
+                tcBorders = OxmlElement('w:tcBorders')
+                for border_name in ['top', 'left', 'bottom', 'right']:
+                    border = OxmlElement(f'w:{border_name}')
+                    border.set(qn('w:val'), 'nil')
+                    tcBorders.append(border)
+                tcPr.append(tcBorders)
+    
+    remove_signature_table_borders(signature_table)
+    
+    # Merge cột 7-9 (vị trí số lượng, đơn giá, tổng trị giá) để đặt chữ ký
+    signature_table.cell(0, 7).merge(signature_table.cell(0, 9))
+    
+    # Đặt nội dung ngày vào cột đã merge
+    signature_table.cell(0, 7).text = ngay_display
+    
+    # Format ngày
+    cell = signature_table.cell(0, 7)
+    for paragraph in cell.paragraphs:
+        paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        paragraph.space_after = Pt(0)  # Remove spacing
+        for run in paragraph.runs:
+            run.font.name = 'Times New Roman'
+            run.font.size = Pt(10)
+            run.italic = True
+
+    # Tạo bảng thứ 2 cho chức danh
+    signature_table2 = doc.add_table(rows=1, cols=11)
+    signature_table2.alignment = WD_TABLE_ALIGNMENT.CENTER
+    
+    # Set same column widths as main table
+    for i, width in enumerate(widths):
+        signature_table2.columns[i].width = width
+    
+    remove_signature_table_borders(signature_table2)
+    
+    # Merge cột 7-9 cho chức danh
+    signature_table2.cell(0, 7).merge(signature_table2.cell(0, 9))
+    signature_table2.cell(0, 7).text = 'Người đại diện theo pháp luật của thương nhân'
+    
+    # Format chức danh
+    cell = signature_table2.cell(0, 7)
+    for paragraph in cell.paragraphs:
+        paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        paragraph.space_after = Pt(0)  # Remove spacing
+        for run in paragraph.runs:
+            run.font.name = 'Times New Roman'
+            run.font.size = Pt(10)
+            run.bold = True
+
+    # Tạo bảng thứ 3 cho ghi chú ký
+    signature_table3 = doc.add_table(rows=1, cols=11)
+    signature_table3.alignment = WD_TABLE_ALIGNMENT.CENTER
+    
+    # Set same column widths as main table
+    for i, width in enumerate(widths):
+        signature_table3.columns[i].width = width
+    
+    remove_signature_table_borders(signature_table3)
+    
+    # Merge cột 7-9 cho ghi chú ký
+    signature_table3.cell(0, 7).merge(signature_table3.cell(0, 9))
+    signature_table3.cell(0, 7).text = '(Ký, đóng dấu, ghi rõ họ, tên)'
+    
+    # Format ghi chú ký
+    cell = signature_table3.cell(0, 7)
+    for paragraph in cell.paragraphs:
+        paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        paragraph.space_after = Pt(0)  # Remove spacing
+        for run in paragraph.runs:
+            run.font.name = 'Times New Roman'
+            run.font.size = Pt(10)
+            run.italic = True
+
+    # Space for signature - giảm spacing
+    for i in range(4):
+        signature_space = doc.add_paragraph()
+        signature_space.space_after = Pt(0)  # Remove spacing
+
+    # Notes section - Remove spacing
+    note_title = doc.add_paragraph()
+    note_title.space_after = Pt(0)  # Remove spacing
+    note_title_run = note_title.add_run('Ghi chú:')
+    note_title_run.font.name = 'Times New Roman'
+    note_title_run.font.size = Pt(10)
+    note_title_run.bold = True
+
+    note1 = doc.add_paragraph()
+    note1.space_after = Pt(0)  # Remove spacing
+    note1_run = note1.add_run('- Mẫu Bảng kê khai này áp dụng trong trường hợp nguyên liệu được thu mua trong nước để sản xuất ra hàng hóa xuất khẩu nhưng không có hóa đơn giá trị gia tăng.')
+    note1_run.font.name = 'Times New Roman'
+    note1_run.font.size = Pt(10)
+
+    note2 = doc.add_paragraph()
+    note2.space_after = Pt(0)  # Remove spacing
+    note2_run = note2.add_run('- Thương nhân nộp bản sao các chứng từ (đóng dấu sao y bản chính): Quy trình sản xuất hàng hóa, Giấy CCCD của người bán nguyên liệu; Giấy xác nhận của người bán nguyên liệu về vùng nuôi trồng, khai thác, số lượng và trị giá bán cho thương nhân (nếu có) để đối chiếu với thông tin kê khai.')
+    note2_run.font.name = 'Times New Roman'
+    note2_run.font.size = Pt(10)
+
+    # Save to BytesIO
+    buffer = BytesIO()
+    doc.save(buffer)
+    buffer.seek(0)
+
+    # Create response
+    response = HttpResponse(
+        buffer.getvalue(),
+        content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+    )
+
+    filename = f'Bang_ke_WO_nhieu_nguyen_lieu_{len(wo_records)}_records.docx'
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+
+    return response
 
 @require_http_methods(["DELETE"])
 @csrf_exempt
@@ -3321,234 +4530,234 @@ def delete_wo_record(request, pk):
         }, status=400)
 
 
-def create_wo_record(request):
-    """Create new WO record"""
-    if request.method == 'GET':
-        # Get distinct order list for initial dropdown
-        don_hang_list = LenhSanXuat.objects.values_list('id_don_hang', flat=True).distinct().order_by('id_don_hang')
+# def create_wo_record(request):
+#     """Create new WO record"""
+#     if request.method == 'GET':
+#         # Get distinct order list for initial dropdown
+#         don_hang_list = LenhSanXuat.objects.values_list('id_don_hang', flat=True).distinct().order_by('id_don_hang')
         
-        # Get nguoi list with role filter
-        nguoi_list = Nguoi.objects.filter(vai_tro='Người mua').values(
-            'id', 'ten', 'so_cmnd_cccd', 'ngay_cap_cmnd_cccd', 'dia_chi', 'vai_tro'
-        )
+#         # Get nguoi list with role filter
+#         nguoi_list = Nguoi.objects.filter(vai_tro='Người mua').values(
+#             'id', 'ten', 'so_cmnd_cccd', 'ngay_cap_cmnd_cccd', 'dia_chi', 'vai_tro'
+#         )
         
-        context = {
-            'don_hang_list': list(don_hang_list),
-            'nguoi_list': list(nguoi_list)
-        }
+#         context = {
+#             'don_hang_list': list(don_hang_list),
+#             'nguoi_list': list(nguoi_list)
+#         }
         
-        return render(request, 'wo_create.html', context)
+#         return render(request, 'wo_create.html', context)
     
-    elif request.method == 'POST':
-        # Handle create new WO
-        try:
-            data = json.loads(request.body)
-            id_bang_ke_thu_mua_tu_dan = data.get('id_bang_ke_thu_mua_tu_dan')
+#     elif request.method == 'POST':
+#         # Handle create new WO
+#         try:
+#             data = json.loads(request.body)
+#             id_bang_ke_thu_mua_tu_dan = data.get('id_bang_ke_thu_mua_tu_dan')
             
-            if not id_bang_ke_thu_mua_tu_dan:
-                return JsonResponse({
-                    'status': 'error',
-                    'message': 'Vui lòng chọn bảng kê thu mua từ dân'
-                }, status=400)
+#             if not id_bang_ke_thu_mua_tu_dan:
+#                 return JsonResponse({
+#                     'status': 'error',
+#                     'message': 'Vui lòng chọn bảng kê thu mua từ dân'
+#                 }, status=400)
             
-            # Get purchase record
-            purchase_record = get_object_or_404(BangKeThuMuaTuDan, pk=id_bang_ke_thu_mua_tu_dan)
+#             # Get purchase record
+#             purchase_record = get_object_or_404(BangKeThuMuaTuDan, pk=id_bang_ke_thu_mua_tu_dan)
             
-            # Check if WO already exists
-            if BangKeWo.objects.filter(id_bang_ke_thu_mua_tu_dan=id_bang_ke_thu_mua_tu_dan).exists():
-                return JsonResponse({
-                    'status': 'error',
-                    'message': 'Bảng kê WO cho bản ghi này đã tồn tại'
-                }, status=400)
+#             # Check if WO already exists
+#             if BangKeWo.objects.filter(id_bang_ke_thu_mua_tu_dan=id_bang_ke_thu_mua_tu_dan).exists():
+#                 return JsonResponse({
+#                     'status': 'error',
+#                     'message': 'Bảng kê WO cho bản ghi này đã tồn tại'
+#                 }, status=400)
             
-            # Handle date
-            ngay_str = data.get('ngay')
-            ngay_obj = date.today()
-            if ngay_str:
-                try:
-                    ngay_obj = datetime.strptime(ngay_str, '%Y-%m-%d').date()
-                except:
-                    pass
+#             # Handle date
+#             ngay_str = data.get('ngay')
+#             ngay_obj = date.today()
+#             if ngay_str:
+#                 try:
+#                     ngay_obj = datetime.strptime(ngay_str, '%Y-%m-%d').date()
+#                 except:
+#                     pass
             
-            # Handle nguoi
-            nguoi_obj = None
-            id_nguoi = data.get('id_nguoi')
-            if id_nguoi:
-                try:
-                    nguoi_obj = Nguoi.objects.get(id=id_nguoi)
-                except Nguoi.DoesNotExist:
-                    pass
+#             # Handle nguoi
+#             nguoi_obj = None
+#             id_nguoi = data.get('id_nguoi')
+#             if id_nguoi:
+#                 try:
+#                     nguoi_obj = Nguoi.objects.get(id=id_nguoi)
+#                 except Nguoi.DoesNotExist:
+#                     pass
             
-            # Create WO record
-            wo_record = BangKeWo.objects.create(
-                id_lenh_san_xuat=purchase_record.id_lenh_san_xuat,
-                id_san_pham=purchase_record.id_san_pham,
-                id_nguoi=nguoi_obj,
-                id_bang_ke_thu_mua_tu_dan=id_bang_ke_thu_mua_tu_dan,
-                to_khai_hai_quan=data.get('to_khai_hai_quan', ''),
-                dia_chi_thu_mua=data.get('dia_chi_thu_mua', ''),
-                noi_khai_thac=data.get('noi_khai_thac', ''),
-                so_luong=data.get('so_luong_wo', 0),
-                tri_gia_fob=data.get('tri_gia_fob', 0),
-                ten_hang_hoa=data.get('ten_nguyen_lieu', ''),  # Tên hàng hóa từ bảng kê thu mua
-                ngay=ngay_obj,
-                #ghi_chu=data.get('ghi_chu', ''),
-            )
+#             # Create WO record
+#             wo_record = BangKeWo.objects.create(
+#                 id_lenh_san_xuat=purchase_record.id_lenh_san_xuat,
+#                 id_san_pham=purchase_record.id_san_pham,
+#                 id_nguoi=nguoi_obj,
+#                 id_bang_ke_thu_mua_tu_dan=id_bang_ke_thu_mua_tu_dan,
+#                 to_khai_hai_quan=data.get('to_khai_hai_quan', ''),
+#                 dia_chi_thu_mua=data.get('dia_chi_thu_mua', ''),
+#                 noi_khai_thac=data.get('noi_khai_thac', ''),
+#                 so_luong=data.get('so_luong_wo', 0),
+#                 tri_gia_fob=data.get('tri_gia_fob', 0),
+#                 ten_hang_hoa=data.get('ten_nguyen_lieu', ''),  # Tên hàng hóa từ bảng kê thu mua
+#                 ngay=ngay_obj,
+#                 #ghi_chu=data.get('ghi_chu', ''),
+#             )
             
-            return JsonResponse({
-                'status': 'success',
-                'message': 'Tạo bảng kê WO thành công',
-                'data': {
-                    'id': wo_record.id,
-                    'redirect_url': f'/wo/'
-                }
-            })
+#             return JsonResponse({
+#                 'status': 'success',
+#                 'message': 'Tạo bảng kê WO thành công',
+#                 'data': {
+#                     'id': wo_record.id,
+#                     'redirect_url': f'/wo/'
+#                 }
+#             })
             
-        except Exception as e:
-            return JsonResponse({
-                'status': 'error',
-                'message': f'Lỗi khi tạo: {str(e)}'
-            }, status=400)
+#         except Exception as e:
+#             return JsonResponse({
+#                 'status': 'error',
+#                 'message': f'Lỗi khi tạo: {str(e)}'
+#             }, status=400)
 
 
 # ==================== API ENDPOINTS ====================
 
-def get_lenh_san_xuat_for_wo(request):
-    """API endpoint to get production orders for WO filtering"""
-    ma_don_hang = request.GET.get('ma_don_hang')
+# def get_lenh_san_xuat_for_wo(request):
+#     """API endpoint to get production orders for WO filtering"""
+#     ma_don_hang = request.GET.get('ma_don_hang')
     
-    if not ma_don_hang:
-        return JsonResponse({'lenh_sx_list': []})
+#     if not ma_don_hang:
+#         return JsonResponse({'lenh_sx_list': []})
     
-    try:
-        # Get production orders that have WO records
-        lenh_sx_with_wo = BangKeWo.objects.filter(
-            id_lenh_san_xuat__id_don_hang=ma_don_hang
-        ).values_list('id_lenh_san_xuat__id_lenh_san_xuat', flat=True).distinct()
+#     try:
+#         # Get production orders that have WO records
+#         lenh_sx_with_wo = BangKeWo.objects.filter(
+#             id_lenh_san_xuat__id_don_hang=ma_don_hang
+#         ).values_list('id_lenh_san_xuat__id_lenh_san_xuat', flat=True).distinct()
         
-        return JsonResponse({
-            'lenh_sx_list': list(lenh_sx_with_wo)
-        })
-    except Exception as e:
-        return JsonResponse({
-            'lenh_sx_list': [],
-            'error': str(e)
-        }, status=400)
+#         return JsonResponse({
+#             'lenh_sx_list': list(lenh_sx_with_wo)
+#         })
+#     except Exception as e:
+#         return JsonResponse({
+#             'lenh_sx_list': [],
+#             'error': str(e)
+#         }, status=400)
 
 
-def get_lenh_sx_by_don_hang_wo(request, ma_don_hang):
-    """API endpoint to get production orders by order ID"""
-    try:
-        lenh_sx_list = LenhSanXuat.objects.filter(
-            id_don_hang=ma_don_hang
-        ).values_list('id_lenh_san_xuat', flat=True)
+# def get_lenh_sx_by_don_hang_wo(request, ma_don_hang):
+#     """API endpoint to get production orders by order ID"""
+#     try:
+#         lenh_sx_list = LenhSanXuat.objects.filter(
+#             id_don_hang=ma_don_hang
+#         ).values_list('id_lenh_san_xuat', flat=True)
         
-        return JsonResponse({
-            'status': 'success',
-            'data': list(lenh_sx_list)
-        })
-    except Exception as e:
-        return JsonResponse({
-            'status': 'error',
-            'message': f'Lỗi: {str(e)}'
-        })
+#         return JsonResponse({
+#             'status': 'success',
+#             'data': list(lenh_sx_list)
+#         })
+#     except Exception as e:
+#         return JsonResponse({
+#             'status': 'error',
+#             'message': f'Lỗi: {str(e)}'
+#         })
 
 
-def get_purchase_records_by_lenh_sx_wo(request, ma_lenh_sx):
-    """API endpoint to get available purchase records by production order"""
-    try:
-        # Sửa: Lấy purchase records chưa có WO
-        existing_wo_purchase_ids = BangKeWo.objects.values_list('id_bang_ke_thu_mua_tu_dan', flat=True)
+# def get_purchase_records_by_lenh_sx_wo(request, ma_lenh_sx):
+#     """API endpoint to get available purchase records by production order"""
+#     try:
+#         # Sửa: Lấy purchase records chưa có WO
+#         existing_wo_purchase_ids = BangKeWo.objects.values_list('id_bang_ke_thu_mua_tu_dan', flat=True)
         
-        purchase_records = BangKeThuMuaTuDan.objects.filter(
-            id_lenh_san_xuat__id_lenh_san_xuat=ma_lenh_sx
-        ).exclude(
-            id_bang_ke_thu_mua_tu_dan__in=existing_wo_purchase_ids
-        ).select_related('id_lenh_san_xuat')
+#         purchase_records = BangKeThuMuaTuDan.objects.filter(
+#             id_lenh_san_xuat__id_lenh_san_xuat=ma_lenh_sx
+#         ).exclude(
+#             id_bang_ke_thu_mua_tu_dan__in=existing_wo_purchase_ids
+#         ).select_related('id_lenh_san_xuat')
         
-        formatted_records = []
-        for record in purchase_records:
-            # Get material info
-            try:
-                vat_tu = VatTu.objects.get(id_san_pham=record.id_san_pham)
-                ten_nguyen_lieu = vat_tu.ten_khac or ''
-                ma_hs = vat_tu.ma_hs or ''
-                don_vi_tinh = vat_tu.don_vi_tinh or 'KGM'
-            except VatTu.DoesNotExist:
-                ten_nguyen_lieu = f"Sản phẩm {record.id_san_pham}"
-                ma_hs = ''
-                don_vi_tinh = 'KGM'
+#         formatted_records = []
+#         for record in purchase_records:
+#             # Get material info
+#             try:
+#                 vat_tu = VatTu.objects.get(id_san_pham=record.id_san_pham)
+#                 ten_nguyen_lieu = vat_tu.ten_khac or ''
+#                 ma_hs = vat_tu.ma_hs or ''
+#                 don_vi_tinh = vat_tu.don_vi_tinh or 'KGM'
+#             except VatTu.DoesNotExist:
+#                 ten_nguyen_lieu = f"Sản phẩm {record.id_san_pham}"
+#                 ma_hs = ''
+#                 don_vi_tinh = 'KGM'
             
-            # Get rollback quantity
-            rollback_record = BangKeTruLuiNguyenLieu.objects.filter(
-                id_lenh_san_xuat=record.id_lenh_san_xuat,
-                id_san_pham=record.id_san_pham
-            ).first()
-            so_luong_san_pham_xuat = rollback_record.so_luong_san_pham_xuat if rollback_record else 0
+#             # Get rollback quantity
+#             rollback_record = BangKeTruLuiNguyenLieu.objects.filter(
+#                 id_lenh_san_xuat=record.id_lenh_san_xuat,
+#                 id_san_pham=record.id_san_pham
+#             ).first()
+#             so_luong_san_pham_xuat = rollback_record.so_luong_san_pham_xuat if rollback_record else 0
             
-            formatted_records.append({
-                'id_bang_ke_thu_mua_tu_dan': record.id_bang_ke_thu_mua_tu_dan,
-                'ma_lenh_sx': record.id_lenh_san_xuat.id_lenh_san_xuat,
-                'ma_don_hang': record.id_lenh_san_xuat.id_don_hang,
-                'ten_nguyen_lieu': ten_nguyen_lieu,
-                'ma_hs': ma_hs,
-                'don_vi_tinh': don_vi_tinh,
-                'so_luong_san_pham_xuat': so_luong_san_pham_xuat,
-                #'ngay_lap_giay_to': record.ngay_lap_giay_to.strftime('%d/%m/%Y') if record.ngay_lap_giay_to else '',
-            })
+#             formatted_records.append({
+#                 'id_bang_ke_thu_mua_tu_dan': record.id_bang_ke_thu_mua_tu_dan,
+#                 'ma_lenh_sx': record.id_lenh_san_xuat.id_lenh_san_xuat,
+#                 'ma_don_hang': record.id_lenh_san_xuat.id_don_hang,
+#                 'ten_nguyen_lieu': ten_nguyen_lieu,
+#                 'ma_hs': ma_hs,
+#                 'don_vi_tinh': don_vi_tinh,
+#                 'so_luong_san_pham_xuat': so_luong_san_pham_xuat,
+#                 #'ngay_lap_giay_to': record.ngay_lap_giay_to.strftime('%d/%m/%Y') if record.ngay_lap_giay_to else '',
+#             })
         
-        return JsonResponse({
-            'status': 'success',
-            'purchase_records': formatted_records
-        })
-    except Exception as e:
-        return JsonResponse({
-            'status': 'error',
-            'message': f'Lỗi khi tải danh sách bảng kê thu mua: {str(e)}'
-        }, status=400)
+#         return JsonResponse({
+#             'status': 'success',
+#             'purchase_records': formatted_records
+#         })
+#     except Exception as e:
+#         return JsonResponse({
+#             'status': 'error',
+#             'message': f'Lỗi khi tải danh sách bảng kê thu mua: {str(e)}'
+#         }, status=400)
 
 
-def get_purchase_details_wo(request, purchase_id):
-    """API endpoint to get detailed purchase information for table display"""
-    try:
-        # Get purchase record
-        purchase_record = get_object_or_404(BangKeThuMuaTuDan, pk=purchase_id)
+# def get_purchase_details_wo(request, purchase_id):
+#     """API endpoint to get detailed purchase information for table display"""
+#     try:
+#         # Get purchase record
+#         purchase_record = get_object_or_404(BangKeThuMuaTuDan, pk=purchase_id)
         
-        # Get detailed purchase records (chi tiết thu mua)
-        detail_records = CtBangKeThuMuaTuDan.objects.filter(
-            id_bang_ke_thu_mua_tu_dan=purchase_record
-        ).select_related('id_nguoi_ban')
+#         # Get detailed purchase records (chi tiết thu mua)
+#         detail_records = CtBangKeThuMuaTuDan.objects.filter(
+#             id_bang_ke_thu_mua_tu_dan=purchase_record
+#         ).select_related('id_nguoi_ban')
         
-        details = []
-        for detail in detail_records:
-            nguoi = detail.id_nguoi_ban
+#         details = []
+#         for detail in detail_records:
+#             nguoi = detail.id_nguoi_ban
             
-            # Format CCCD với ngày cấp
-            cccd_info = ''
-            if nguoi and nguoi.so_cmnd_cccd:
-                cccd_info = nguoi.so_cmnd_cccd
-                if nguoi.ngay_cap_cmnd_cccd:
-                    cccd_info += f" cấp ngày {nguoi.ngay_cap_cmnd_cccd.strftime('%d/%m/%Y')}"
+#             # Format CCCD với ngày cấp
+#             cccd_info = ''
+#             if nguoi and nguoi.so_cmnd_cccd:
+#                 cccd_info = nguoi.so_cmnd_cccd
+#                 if nguoi.ngay_cap_cmnd_cccd:
+#                     cccd_info += f" cấp ngày {nguoi.ngay_cap_cmnd_cccd.strftime('%d/%m/%Y')}"
             
-            details.append({
-                'ngay_mua_hang': detail.ngay_mua_hang.strftime('%Y-%m-%d') if detail.ngay_mua_hang else '',
-                'ten_nguoi_ban': nguoi.ten if nguoi else '',
-                'dia_chi': nguoi.dia_chi if nguoi else '',
-                'so_cmnd_cccd': cccd_info,  # Đã format với ngày cấp
-                'so_luong': detail.so_luong or 0,
-                'don_gia': detail.don_gia or 0,
-                'ghi_chu': detail.ghi_chu or '',
-            })
+#             details.append({
+#                 'ngay_mua_hang': detail.ngay_mua_hang.strftime('%Y-%m-%d') if detail.ngay_mua_hang else '',
+#                 'ten_nguoi_ban': nguoi.ten if nguoi else '',
+#                 'dia_chi': nguoi.dia_chi if nguoi else '',
+#                 'so_cmnd_cccd': cccd_info,  # Đã format với ngày cấp
+#                 'so_luong': detail.so_luong or 0,
+#                 'don_gia': detail.don_gia or 0,
+#                 'ghi_chu': detail.ghi_chu or '',
+#             })
         
-        return JsonResponse({
-            'status': 'success',
-            'details': details
-        })
-    except Exception as e:
-        return JsonResponse({
-            'status': 'error',
-            'message': f'Lỗi khi tải chi tiết bảng kê thu mua: {str(e)}'
-        }, status=400)
+#         return JsonResponse({
+#             'status': 'success',
+#             'details': details
+#         })
+#     except Exception as e:
+#         return JsonResponse({
+#             'status': 'error',
+#             'message': f'Lỗi khi tải chi tiết bảng kê thu mua: {str(e)}'
+#         }, status=400)
     
 @require_GET
 def wo_export_pdf(request, pk):

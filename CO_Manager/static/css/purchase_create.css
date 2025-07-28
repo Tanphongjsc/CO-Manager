@@ -1,3 +1,7 @@
+/* ====================================
+   COMBINED CSS - PURCHASE & WO CREATE
+   ==================================== */
+
 /* Reset & Base Layout */
 * {
     margin: 0;
@@ -15,7 +19,9 @@ body {
     overflow: hidden;
 }
 
-/* Sidebar Layout */
+/* ====================================
+   SIDEBAR LAYOUT
+   ==================================== */
 .sidebar {
     width: 260px;
     min-width: 260px;
@@ -47,7 +53,9 @@ html.sidebar-collapsed body .sidebar .nav-item i {
     margin-right: 0;
 }
 
-/* Main content area */
+/* ====================================
+   MAIN CONTENT & PAGE HEADER
+   ==================================== */
 .main-content {
     flex: 1;
     padding: 20px;
@@ -58,8 +66,10 @@ html.sidebar-collapsed body .sidebar .nav-item i {
 .page-header {
     font-size: 24px;
     font-weight: bold;
-    margin-bottom: 20px;
+    text-align: center;
+    margin-bottom: 30px;
     color: #333;
+    text-transform: uppercase;
 }
 
 .container, form {
@@ -69,54 +79,102 @@ html.sidebar-collapsed body .sidebar .nav-item i {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
 
-/* Form Sections */
+/* ====================================
+   FORM SECTIONS & LAYOUT
+   ==================================== */
 .form-section {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
     margin-bottom: 20px;
+    border: 1px solid #dee2e6;
+}
+
+.section-title {
+    font-size: 16px;
+    font-weight: 600;
+    margin-bottom: 15px;
+    color: #333;
+    text-transform: uppercase;
+    border-bottom: 2px solid #007bff;
+    padding-bottom: 5px;
 }
 
 .form-row {
     display: flex;
+    gap: 15px;
+    margin-bottom: 15px;
+    align-items: end;
     flex-wrap: wrap;
-    gap: 20px;
 }
 
 .form-group {
     flex: 1;
-    min-width: 250px;
+    min-width: 200px;
 }
 
-label {
+.form-group label {
     display: block;
-    font-weight: 600;
     margin-bottom: 5px;
+    font-weight: 600;
+    color: #333;
 }
 
 .required {
-    color: red;
+    color: #dc3545;
 }
 
+/* ====================================
+   FORM CONTROLS
+   ==================================== */
 .form-control {
     width: 100%;
     padding: 8px 12px;
-    font-size: 14px;
-    border: 1px solid #ccc;
+    border: 1px solid #ddd;
     border-radius: 4px;
+    font-size: 14px;
+    transition: border-color 0.3s;
 }
 
 .form-control:focus {
-    border-color: #667eea;
     outline: none;
-    box-shadow: 0 0 0 2px rgba(102, 126, 234, 0.2);
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0, 123, 255, 0.25);
 }
 
-/* Buttons */
+.form-control:disabled {
+    background-color: #e9ecef;
+    opacity: 1;
+}
+
+.form-control[readonly] {
+    background-color: #f8f9fa;
+}
+
+textarea.form-control {
+    resize: vertical;
+    min-height: 60px;
+}
+
+/* Đảm bảo select không bị co nhỏ */
+select.form-control {
+    min-width: 200px !important;
+}
+
+/* ====================================
+   BUTTONS
+   ==================================== */
 .btn {
     padding: 10px 20px;
-    font-size: 14px;
-    border-radius: 4px;
     border: none;
+    border-radius: 4px;
     cursor: pointer;
-    transition: background-color 0.3s ease;
+    font-size: 14px;
+    font-weight: 600;
+    text-decoration: none;
+    display: inline-block;
+    transition: all 0.3s;
+    margin: 0 5px;
 }
 
 .btn:disabled {
@@ -124,88 +182,163 @@ label {
     cursor: not-allowed;
 }
 
-.btn-success {
-    background-color: #28a745;
+.btn-primary {
+    background-color: #007bff;
     color: white;
-}
-.btn-success:hover:not(:disabled) {
-    background-color: #218838;
 }
 
-.btn-primary {
-    background-color: #667eea;
-    color: white;
-}
 .btn-primary:hover:not(:disabled) {
-    background-color: #5a6fd8;
+    background-color: #0056b3;
 }
 
 .btn-secondary {
     background-color: #6c757d;
     color: white;
 }
+
 .btn-secondary:hover:not(:disabled) {
-    background-color: #5a6268;
+    background-color: #545b62;
+}
+
+.btn-success {
+    background-color: #28a745;
+    color: white;
+}
+
+.btn-success:hover:not(:disabled) {
+    background-color: #218838;
 }
 
 .btn-danger {
     background-color: #dc3545;
     color: white;
 }
+
 .btn-danger:hover:not(:disabled) {
     background-color: #c82333;
 }
 
-/* Table Styles */
+.btn-sm {
+    padding: 4px 8px;
+    font-size: 12px;
+}
+
+/* ====================================
+   TABLE SECTIONS
+   ==================================== */
 .table-section {
-    margin-top: 30px;
+    margin-bottom: 20px;
 }
 
 .table-header {
+    background: #007bff;
+    color: white;
+    padding: 12px 15px;
+    border-radius: 4px 4px 0 0;
+    font-weight: 600;
     display: flex;
-    justify-content: flex-end;
+    justify-content: space-between;
     align-items: center;
-    margin-bottom: 10px;
+}
+
+.table-header h3 {
+    margin: 0;
+    font-size: 16px;
 }
 
 .table-responsive {
     overflow-x: auto;
-    min-width: 100%;
+    border: 1px solid #dee2e6;
+    border-top: none;
 }
 
 .data-table {
     width: 100%;
     border-collapse: collapse;
-    margin-bottom: 20px;
+    background: white;
+    font-size: 12px;
     min-width: 1400px;
     table-layout: auto;
 }
 
 .data-table th,
 .data-table td {
-    padding: 12px 15px;
-    border: 1px solid #ccc;
-    font-size: 14px;
+    border: 1px solid #dee2e6;
+    padding: 8px;
     text-align: left;
-    vertical-align: top;
+    vertical-align: middle;
     min-width: 120px;
 }
 
 .data-table th {
     background-color: #f8f9fa;
     font-weight: 600;
+    text-align: center;
     white-space: nowrap;
 }
 
-.data-table tr:nth-child(even) {
-    background-color: #f9f9f9;
-}
-
-.data-table tr:hover {
+.data-table .column-numbers {
     background-color: #e9ecef;
+    font-style: italic;
+    text-align: center;
+    font-size: 11px;
 }
 
-/* Summary Panel */
+.data-table tbody tr:nth-child(even) {
+    background-color: #f8f9fa;
+}
+
+.data-table tbody tr:hover {
+    background-color: #e3f2fd;
+}
+
+.data-table td {
+    word-wrap: break-word;
+    max-width: 150px;
+}
+
+.data-table td:first-child {
+    text-align: center;
+    white-space: nowrap;
+}
+
+/* Căn phải cho các cột số */
+.data-table td:nth-child(7),
+.data-table td:nth-child(8),
+.data-table td:nth-child(9),
+.data-table td:nth-child(10) {
+    text-align: right;
+    font-family: monospace;
+}
+/* Tùy chỉnh độ rộng cột cho bảng nhập liệu thu mua */
+#purchaseTable th:nth-child(1),
+#purchaseTable td:nth-child(1) {
+    /* Cột STT - thu hẹp lại */
+    width: 60px;
+    min-width: 60px;
+    max-width: 60px;
+    text-align: center;
+}
+
+#purchaseTable th:nth-child(3),
+#purchaseTable td:nth-child(3) {
+    /* Cột Họ & Tên - mở rộng ra */
+    width: 200px;
+    min-width: 200px;
+    max-width: 250px;
+}
+
+#purchaseTable th:nth-child(10),
+#purchaseTable td:nth-child(10) {
+    /* Cột Thao tác - căn giữa */
+    text-align: center;
+    width: 100px;
+    min-width: 100px;
+    max-width: 100px;
+}
+/* ====================================
+   MATERIAL SUMMARY PANEL
+   ==================================== */
 .material-summary {
     background-color: #e3f2fd;
     padding: 15px;
@@ -237,6 +370,7 @@ label {
     color: #333;
     margin-bottom: 5px;
 }
+
 .summary-item span {
     display: block;
     font-size: 12px;
@@ -244,41 +378,9 @@ label {
     margin-bottom: 2px;
 }
 
-/* Loading Spinner */
-.loading {
-    position: fixed;
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0, 0, 0, 0.5);
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-    z-index: 9999;
-}
-
-.loading p {
-    color: white;
-    margin-top: 10px;
-}
-
-.spinner {
-    border: 3px solid #f3f3f3;
-    border-top: 3px solid #667eea;
-    border-radius: 50%;
-    width: 40px;
-    height: 40px;
-    animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
-/* Modal Styles */
+/* ====================================
+   MODAL STYLES
+   ==================================== */
 .modal {
     position: fixed;
     z-index: 1000;
@@ -336,20 +438,89 @@ label {
     margin-left: 10px;
 }
 
-/* Utility */
+/* ====================================
+   FORM ACTIONS
+   ==================================== */
+.form-actions {
+    text-align: center;
+    padding: 20px 0;
+    border-top: 1px solid #dee2e6;
+    background: #f8f9fa;
+    margin-top: 20px;
+}
+
+.form-actions .btn {
+    margin: 0 10px;
+}
+
+/* ====================================
+   LOADING SPINNER
+   ==================================== */
+.loading {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 9999;
+    flex-direction: column;
+}
+
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid #f3f3f3;
+    border-top: 4px solid #007bff;
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 10px;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.loading p {
+    color: white;
+    font-size: 16px;
+}
+
+/* ====================================
+   ALERT MESSAGES
+   ==================================== */
+.alert {
+    padding: 15px;
+    margin-bottom: 20px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+}
+
+.alert-danger {
+    color: #721c24;
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+}
+
+/* ====================================
+   UTILITY CLASSES
+   ==================================== */
 .text-center {
     text-align: center;
 }
+
 .mt-1 {
     margin-top: 5px;
 }
+
 .mt-2 {
     margin-top: 10px;
 }
-.btn-sm {
-    padding: 4px 8px;
-    font-size: 12px;
-}
+
 .person-info {
     background-color: #f8f9fa;
     padding: 8px;
@@ -360,26 +531,16 @@ label {
     border-left: 3px solid #007bff;
 }
 
-/* Form Actions */
-.form-actions {
-    margin-top: 30px;
-    text-align: right;
-    padding-top: 20px;
-    border-top: 1px solid #eee;
-}
-
-.form-actions .btn {
-    margin-left: 10px;
-}
-
-/* Responsive */
+/* ====================================
+   RESPONSIVE DESIGN
+   ==================================== */
 @media (max-width: 1400px) {
     .form-row {
         gap: 15px;
     }
     
     .form-group {
-        min-width: 300px;
+        min-width: 250px;
     }
     
     .sidebar {
@@ -394,7 +555,7 @@ label {
     }
     
     .form-group {
-        min-width: 280px;
+        min-width: 220px;
         flex: none;
     }
     
@@ -435,6 +596,8 @@ label {
     
     .table-header {
         justify-content: center;
+        flex-direction: column;
+        gap: 10px;
     }
     
     .modal-content {
@@ -461,9 +624,39 @@ label {
         padding: 12px 20px;
         font-size: 16px;
     }
+    
+    .form-actions {
+        text-align: center;
+    }
+    
+    .form-actions .btn {
+        margin: 5px;
+        display: inline-block;
+    }
 }
 
-/* Đảm bảo select không bị co nhỏ */
-select.form-control {
-    min-width: 200px !important;
+@media (max-width: 480px) {
+    .page-header {
+        font-size: 18px;
+        margin-bottom: 20px;
+    }
+    
+    .data-table {
+        min-width: 800px;
+    }
+    
+    .data-table th,
+    .data-table td {
+        padding: 8px 10px;
+        font-size: 12px;
+        min-width: 80px;
+    }
+    
+    .form-section {
+        padding: 15px;
+    }
+    
+    .summary-grid {
+        grid-template-columns: 1fr;
+    }
 }

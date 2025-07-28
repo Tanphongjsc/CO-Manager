@@ -12,6 +12,24 @@ document.addEventListener('DOMContentLoaded', () => {
     const purchaseTableBody = document.getElementById('purchaseTableBody');
     const loading = document.getElementById('loading');
 
+    // NEW: Additional elements for WO and non-invoice logic
+    const coHoaDonCheckbox = document.getElementById('co_hoa_don');
+    
+    // WO form elements
+    const tenHangHoaInput = document.getElementById('ten_hang_hoa');
+    const tenNguyenLieuWoInput = document.getElementById('ten_nguyen_lieu_wo');
+    const maHsInput = document.getElementById('ma_hs');
+    const donViTinhInput = document.getElementById('don_vi_tinh');
+    const SoLuongInput = document.getElementById('wo_so_luong');
+    const triGiaFobInput = document.getElementById('tri_gia_fob');
+    const toKhaiHaiQuanInput = document.getElementById('to_khai_hai_quan');
+    const diaChiThuMuaWoInput = document.getElementById('dia_chi_thu_mua_wo');
+    const noiKhaiThacInput = document.getElementById('noi_khai_thac');
+    const nguoiPhuTrachSelect = document.getElementById('nguoi_phu_trach');
+    const cccdCmndInput = document.getElementById('cccd_cmnd');
+    const ngayTaoWoInput = document.getElementById('ngay_tao_wo');
+    const woTableBody = document.getElementById('woTableBody');
+    
     // Modal elements
     const addPersonModal = document.getElementById('addPersonModal');
     const closeModal = document.querySelector('.close');
@@ -22,11 +40,12 @@ document.addEventListener('DOMContentLoaded', () => {
     let nguoiList = [];
     let rowCounter = 0;
     let selectedMaterial = null;
-
+    
     // Set default dates
     const today = new Date().toISOString().split('T')[0];
     ngayFromInput.value = today;
     ngayToInput.value = today;
+    ngayTaoWoInput.value = today; // Set default date for WO
 
     // Load người list on page load
     loadNguoiList();
@@ -38,7 +57,15 @@ document.addEventListener('DOMContentLoaded', () => {
     addRowBtn.addEventListener('click', addNewRow);
     cancelBtn.addEventListener('click', handleCancel);
     saveBtn.addEventListener('click', handleSave);
-    
+
+    // === THÊM MỚI: WO Event listeners ===
+    nguoiPhuTrachSelect.addEventListener('change', handleNguoiPhuTrachChange);
+
+    // Real-time update WO table when form inputs change
+    tenNguyenLieuWoInput.addEventListener('input', populateWoTable);
+    maHsInput.addEventListener('input', populateWoTable);
+    noiKhaiThacInput.addEventListener('input', populateWoTable);
+
     // Modal event listeners
     closeModal.addEventListener('click', closePersonModal);
     cancelPersonBtn.addEventListener('click', closePersonModal);
@@ -116,6 +143,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         if (!selectedId) {
             clearInputs();
+            clearWoMappedData();
             addRowBtn.disabled = true;
             return;
         }
@@ -125,11 +153,37 @@ document.addEventListener('DOMContentLoaded', () => {
         if (selectedMaterial) {
             soLuongSanPhamXuatInput.value = selectedMaterial.so_luong_san_pham_xuat || 0;
             soLuongSanXuatToiThieuInput.value = selectedMaterial.so_luong_san_xuat_toi_thieu || 0;
-            
+            // === THÊM MỚI: Map dữ liệu sang WO form ===
+            mapMaterialDataToWoForm();
             addRowBtn.disabled = false;
         }
     }
+    // === THÊM MỚI: Function map dữ liệu nguyên liệu sang WO form ===
+    function mapMaterialDataToWoForm() {
+        if (!selectedMaterial) return;
 
+        // Map tên hàng hóa từ tên nguyên liệu (readonly)
+        tenHangHoaInput.value = selectedMaterial.ten_nguyen_lieu || '';
+
+        // Map số lượng xuất từ bảng kê trừ lùi (readonly)
+        SoLuongInput.value = selectedMaterial.so_luong_san_pham_xuat || 0;
+
+        // Set tên nguyên liệu WO (user có thể chỉnh sửa)
+        tenNguyenLieuWoInput.value = selectedMaterial.ten_nguyen_lieu || '';
+        
+        // Map mã HS nếu có
+        maHsInput.value = selectedMaterial.ma_hs || '';
+        
+        // Set đơn vị tính mặc định
+        if (!donViTinhInput.value) {
+            donViTinhInput.value = selectedMaterial.don_vi_tinh || 'KGM';
+        }
+
+        updateWoTableDisplay();
+
+        return;
+    }
+    
     function addNewRow() {
         if (!selectedMaterial) {
             alert('Vui lòng chọn nguyên liệu trước');
@@ -138,13 +192,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         rowCounter++;
         const row = document.createElement('tr');
+        const nguoiBanList = nguoiList.filter(n => n.vai_tro === 'Người bán');
         row.innerHTML = `
             <td class="text-center">${rowCounter}</td>
             <td><input type="date" name="ngay_mua_hang[]" class="form-control" value="${today}" required></td>
             <td>
                 <select name="ho_ten[]" class="form-control person-select" required>
                     <option value="">-- Chọn người --</option>
-                    ${nguoiList.map(n => `<option value="${n.id}" data-cmnd="${n.so_cmnd_cccd || ''}" data-diachi="${n.dia_chi || ''}">${n.ten}</option>`).join('')}
+                    ${nguoiBanList.map(n => `<option value="${n.id}" data-cmnd="${n.so_cmnd_cccd || ''}" data-diachi="${n.dia_chi || ''}">${n.ten}</option>`).join('')}
                     <option value="add_new">+ Thêm người mới</option>
                 </select>
             </td>
@@ -167,17 +222,33 @@ document.addEventListener('DOMContentLoaded', () => {
         row.appendChild(hiddenInput);
         
         purchaseTableBody.appendChild(row);
+        // **THÊM**: mỗi khi thêm row xong, redraw preview WO
+        populateWoTable();
 
         // Add event listener for person select
         const personSelect = row.querySelector('.person-select');
         personSelect.addEventListener('change', function() {
             updatePersonInfo(this);
+            // **THÊM**: khi đổi người bán, cũng redraw preview WO
+            updateWoTableDisplay();
             if (this.value === 'add_new') {
                 this.value = ''; // Reset select
                 openPersonModal();
             }
         });
 
+        // Add event listeners for WO table update
+        const newRow = purchaseTableBody.querySelector('tr:last-child');
+        if (newRow) {
+            const inputs = newRow.querySelectorAll('input, select');
+            inputs.forEach(input => {
+                if (input.name !== 'ho_ten[]') {
+                    input.addEventListener('change', populateWoTable);
+                    input.addEventListener('input', populateWoTable);
+                }
+            });
+        }
+        
         // Enable save button when there's at least one row
         saveBtn.disabled = false;
     }
@@ -189,7 +260,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        // Validate required fields
+        // Validate purchase data
         let isValid = true;
         rows.forEach(row => {
             const personSelect = row.querySelector('[name="ho_ten[]"]');
@@ -199,7 +270,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (!personSelect.value || !soLuongInput.value || !donGiaInput.value || !ngayInput.value) {
                 isValid = false;
-                // Highlight invalid fields
                 if (!personSelect.value) personSelect.style.borderColor = 'red';
                 if (!soLuongInput.value) soLuongInput.style.borderColor = 'red';
                 if (!donGiaInput.value) donGiaInput.style.borderColor = 'red';
@@ -207,16 +277,26 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
 
-        if (!isValid) {
-            alert('Vui lòng điền đầy đủ thông tin bắt buộc (Người bán, Số lượng, Đơn giá, Ngày mua hàng)');
+        // Validate WO data
+        if (!tenNguyenLieuWoInput.value.trim()) {
+            alert('Vui lòng nhập tên nguyên liệu WO');
+            tenNguyenLieuWoInput.focus();
             return;
         }
 
-        // Submit form
-        const form = document.getElementById('purchaseForm');
-        if (form) {
-            form.submit();
+        if (!ngayTaoWoInput.value) {
+            alert('Vui lòng chọn ngày tạo bảng kê WO');
+            ngayTaoWoInput.focus();
+            return;
         }
+
+        if (!isValid) {
+            alert('Vui lòng điền đầy đủ thông tin bắt buộc');
+            return;
+        }
+
+        // Submit form thông thường (không cần AJAX)
+        document.getElementById('purchaseForm').submit();
     }
 
     async function loadNguoiList() {
@@ -226,12 +306,28 @@ document.addEventListener('DOMContentLoaded', () => {
             
             if (data.status === 'success') {
                 nguoiList = data.nguoi_list;
+                // THÊM: Populate người phụ trách dropdown
+                populateNguoiPhuTrachSelect();
             }
         } catch (error) {
             console.error('Error loading người list:', error);
         }
     }
 
+    function populateNguoiPhuTrachSelect() {
+        nguoiPhuTrachSelect.innerHTML = '<option value="">-- Chọn người phụ trách --</option>';
+        
+        // SỬA: Filter chỉ lấy người có vai trò "Người mua"
+        const nguoiMuaList = nguoiList.filter(nguoi => nguoi.vai_tro === 'Người mua');
+        
+        nguoiMuaList.forEach(nguoi => {
+            const option = document.createElement('option');
+            option.value = nguoi.id;
+            option.textContent = nguoi.ten;
+            option.setAttribute('data-cmnd', nguoi.so_cmnd_cccd || '');
+            nguoiPhuTrachSelect.appendChild(option);
+        });
+    }
     function openPersonModal() {
         addPersonModal.style.display = 'block';
         document.getElementById('modal_ten').value = '';
@@ -297,8 +393,9 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Clear and rebuild options
             select.innerHTML = '<option value="">-- Chọn người --</option>';
-            
-            nguoiList.forEach(n => {
+            // Lọc chỉ lấy người có vai trò "Người bán"
+            const nguoiBanList = nguoiList.filter(n => n.vai_tro === 'Người bán');
+            nguoiBanList.forEach(n => {
                 const option = document.createElement('option');
                 option.value = n.id;
                 option.textContent = n.ten;
@@ -314,11 +411,144 @@ document.addEventListener('DOMContentLoaded', () => {
             select.appendChild(addNewOption);
             
             // Restore selected value if it still exists
-            if (currentValue && nguoiList.find(n => n.id == currentValue)) {
+            if (currentValue && nguoiBanList.find(n => n.id == currentValue)) {
                 select.value = currentValue;
                 updatePersonInfo(select);
             }
         });
+        
+    }
+
+    // === THÊM MỚI: Handle người phụ trách change ===
+    function handleNguoiPhuTrachChange() {
+        const selectedOption = nguoiPhuTrachSelect.selectedOptions[0];
+        
+        if (selectedOption && selectedOption.value) {
+            const cmnd = selectedOption.getAttribute('data-cmnd') || '';
+            cccdCmndInput.value = cmnd;
+        } else {
+            cccdCmndInput.value = '';
+        }
+    }
+
+    // === THÊM MỚI: Update WO table display in real-time ===
+    function updateWoTableDisplay() {
+        const rows = woTableBody.querySelectorAll('tr');
+        let tongSoLuong = 0;
+        let tongThanhTien = 0;
+
+        rows.forEach(row => {
+            // Bỏ qua dòng tổng cộng
+            if (row.cells[1] && row.cells[1].textContent.includes('Tổng cộng')) return;
+
+            const tenNguyenLieuCell = row.querySelector('.ten-nguyen-lieu');
+            const maHsCell = row.querySelector('.ma-hs');
+            const noiKhaiThacCell = row.querySelector('.noi-khai-thac');
+
+            if (tenNguyenLieuCell) tenNguyenLieuCell.textContent = tenNguyenLieuWoInput.value;
+            if (maHsCell) maHsCell.textContent = maHsInput.value;
+            if (noiKhaiThacCell) noiKhaiThacCell.textContent = noiKhaiThacInput.value;
+
+            const soLuongCell = row.cells[7];
+            const thanhTienCell = row.cells[9];
+
+            if (soLuongCell && thanhTienCell) {
+                const soLuong = parseFloat(soLuongCell.dataset.soLuong || 0);
+                const thanhTien = parseFloat(thanhTienCell.dataset.thanhTien || 0);
+                tongSoLuong += soLuong;
+                tongThanhTien += thanhTien;
+            }
+        });
+
+        // Cập nhật dòng tổng cộng
+        const totalRow = woTableBody.querySelector('tr:last-child');
+        if (totalRow && totalRow.cells[1] && totalRow.cells[1].textContent.includes('Tổng cộng')) {
+            totalRow.cells[7].innerHTML = `${tongSoLuong.toLocaleString('vi-VN', { minimumFractionDigits: 3 })} ${donViTinhInput.value}`;
+            totalRow.cells[9].textContent = tongThanhTien.toLocaleString('vi-VN');
+        }
+    }
+
+    // === THÊM MỚI: Populate WO table when purchase rows are added/modified ===
+    function populateWoTable() {
+        woTableBody.innerHTML = '';
+        // Kiểm tra xem có nguyên liệu được chọn chưa
+        if (!selectedMaterial || !tenNguyenLieuWoInput.value.trim()) {
+            return;
+        }
+        const purchaseRows = purchaseTableBody.querySelectorAll('tr');
+        let tongSoLuong = 0;
+        let tongThanhTien = 0;
+
+        purchaseRows.forEach(row => {
+            const ngayMuaHang = row.querySelector('[name="ngay_mua_hang[]"]').value;
+            const personSelect = row.querySelector('[name="ho_ten[]"]');
+            const soLuongInput = row.querySelector('[name="so_luong[]"]');
+            const donGiaInput = row.querySelector('[name="don_gia[]"]');
+            const ghiChuInput = row.querySelector('[name="ghi_chu[]"]');
+            const cccdInput = row.querySelector('[name="so_cmnd_cccd[]"]');
+            const diaChiInput = row.querySelector('[name="dia_chi[]"]');
+
+            if (ngayMuaHang && personSelect.value && soLuongInput.value && donGiaInput.value) {
+                const woRow = document.createElement('tr');
+
+                const formattedDate = ngayMuaHang ? 
+                    new Date(ngayMuaHang).toLocaleDateString('vi-VN') : '';
+
+                const soLuong = parseFloat(soLuongInput.value || 0);
+                const donGia = parseFloat(donGiaInput.value || 0);
+                const tongTriGia = soLuong * donGia;
+
+                tongSoLuong += soLuong;
+                tongThanhTien += tongTriGia;
+
+                woRow.innerHTML = `
+                    <td>${formattedDate}</td>
+                    <td>${personSelect.selectedOptions[0]?.textContent || ''}</td>
+                    <td>${diaChiInput.value || ''}</td>
+                    <td>${cccdInput.value || ''}</td>
+                    <td class="ten-nguyen-lieu">${tenNguyenLieuWoInput.value}</td>
+                    <td class="ma-hs">${maHsInput.value}</td>
+                    <td class="noi-khai-thac">${noiKhaiThacInput.value}</td>
+                    <td style="text-align: right;" data-so-luong="${soLuong}">
+                        ${soLuong.toLocaleString('vi-VN', { minimumFractionDigits: 3 })}
+                    </td>
+                    <td style="text-align: right;">${donGia.toLocaleString('vi-VN')}</td>
+                    <td style="text-align: right;" data-thanh-tien="${tongTriGia}">
+                        ${tongTriGia.toLocaleString('vi-VN')}
+                    </td>
+                    <td>${ghiChuInput.value || ''}</td>
+                `;
+
+                woTableBody.appendChild(woRow);
+            }
+        });
+
+        // Dòng tổng cộng
+        if (purchaseRows.length > 0) {
+            const totalRow = document.createElement('tr');
+            totalRow.style.fontWeight = 'bold';
+            totalRow.style.backgroundColor = '#f8f9fa';
+
+            totalRow.innerHTML = `
+                <td></td>
+                <td style="text-align: center;">Tổng cộng</td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td></td>
+                <td style="text-align: right;">
+                    ${tongSoLuong.toLocaleString('vi-VN', { minimumFractionDigits: 3 })} ${donViTinhInput.value}
+                </td>
+                <td></td>
+                <td style="text-align: right;">
+                    ${tongThanhTien.toLocaleString('vi-VN')}
+                </td>
+                <td></td>
+            `;
+
+            woTableBody.appendChild(totalRow);
+        }
     }
 
     // Global functions for inline events
@@ -341,6 +571,43 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     };
 
+    // === SỬA: clearInputs - thêm clear WO data ===
+    function clearInputs() {
+        soLuongSanPhamXuatInput.value = '';
+        soLuongSanXuatToiThieuInput.value = '';
+        clearWoMappedData(); // Thêm dòng này
+        addRowBtn.disabled = true;
+        saveBtn.disabled = true;
+    }
+
+    // === THÊM MỚI: Clear WO mapped data ===
+    function clearWoMappedData() {
+        tenHangHoaInput.value = '';
+        tenNguyenLieuWoInput.value = '';
+        maHsInput.value = '';
+        donViTinhInput.value = 'KGM';
+        SoLuongInput.value = '';
+        triGiaFobInput.value = '';
+        toKhaiHaiQuanInput.value = '';
+        diaChiThuMuaWoInput.value = '';
+        noiKhaiThacInput.value = '';
+        nguoiPhuTrachSelect.value = '';
+        cccdCmndInput.value = '';
+        clearWoTable();
+    }
+
+    // === THÊM MỚI: Clear WO table ===
+    function clearWoTable() {
+        woTableBody.innerHTML = '';
+    }
+
+    // === SỬA: clearTable - thêm clear WO table ===
+    function clearTable() {
+        purchaseTableBody.innerHTML = '';
+        clearWoTable(); // Thêm dòng này
+        rowCounter = 0;
+    }
+
     window.removeRow = function(button) {
         const row = button.closest('tr');
         row.remove();
@@ -351,6 +618,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (remainingRows.length === 0) {
             saveBtn.disabled = true;
         }
+        populateWoTable();
     };
 
     function updateRowNumbers() {
@@ -374,18 +642,6 @@ document.addEventListener('DOMContentLoaded', () => {
             select.innerHTML = '<option value="">-- Chọn --</option>';
             select.disabled = true;
         });
-    }
-
-    function clearInputs() {
-        soLuongSanPhamXuatInput.value = '';
-        soLuongSanXuatToiThieuInput.value = '';
-        addRowBtn.disabled = true;
-        saveBtn.disabled = true;
-    }
-
-    function clearTable() {
-        purchaseTableBody.innerHTML = '';
-        rowCounter = 0;
     }
 
     function populateSelect(selectElement, options, placeholder) {
