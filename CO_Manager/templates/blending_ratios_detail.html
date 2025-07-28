@@ -1,0 +1,94 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Chi tiết Tỉ lệ phối trộn{% endblock %}
+
+{% block css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css">
+<link rel="stylesheet" href="{% static 'css/blending_ratio_detail.css' %}">
+{% endblock %}
+
+{% block content %}
+<div id="blending-ratio-detail-page" class="module-content" data-mode="{{ mode|default:'edit' }}">
+
+    <div class="page-header">
+        <h2 class="module-title">Chi tiết Tỉ lệ phối trộn - LSX: {{ id_lenh_san_xuat }}</h2>
+        <div class="header-actions">
+            <a href="{% url 'blending_ratios' %}" id="back-btn" class="btn btn-secondary">
+                <i class="fas fa-arrow-left"></i> Quay lại
+            </a>
+            
+            <button id="export-btn" class="btn btn-primary"><i class="fas fa-file-excel"></i> Xuất Excel</button>
+            <button id="print-btn" class="btn btn-info"><i class="fas fa-print"></i> In Bảng kê</button>
+            
+            {% if mode == 'view' %}
+                <button id="switch-to-edit-btn" class="btn btn-warning"><i class="fas fa-edit"></i> Sửa</button>
+            {% else %}
+                <button id="save-btn" class="btn btn-success"><i class="fas fa-save"></i> Lưu thay đổi</button>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="page-grid">
+        <div class="edit-panel">
+            <div class="panel-controls">
+                <h3 class="panel-title">Bảng điều khiển</h3>
+                
+                <div class="search-wrapper">
+                    <i class="fas fa-search"></i>
+                    <input type="search" id="product-search-input" placeholder="Tìm kiếm sản phẩm...">
+                </div>
+            </div>
+            <div id="edit-form-container" class="scrollable-content">
+                </div>
+        </div>
+
+        <div class="preview-panel">
+            <div class="document-preview">
+                <div class="table-wrapper">
+                    <table class="print-table">
+                        <thead>
+                            <tr>
+                                <th rowspan="2">STT</th>
+                                <th rowspan="2" class="col-product-name col-sticky">Tên Hàng Hoá</th>
+                                <th rowspan="2">Mã HS</th>
+                                <th rowspan="2">Số lượng</th>
+                                <th id="material-header-colspan">Thành phần</th>
+                                <th rowspan="2">Tổng</th>
+                            </tr>
+                            <tr id="material-header-row"></tr>
+                        </thead>
+                        <tbody id="preview-table-body">
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="grand-total-summary">
+                    <p class="grand-total-container">
+                        Tổng trọng lượng NVL ban đầu:
+                        <span id="original-grand-total-value" class="grand-total-value">0</span> Kg
+                    </p>
+                    <p class="grand-total-container">
+                        Tổng trọng lượng NVL sau chỉnh sửa:
+                        <span id="current-grand-total-value" class="grand-total-value">0</span> Kg
+                    </p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascript %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
+
+<script id="initial-data" type="application/json">
+    {{ initial_data_json|safe }}
+</script>
+
+{{ products|json_script:"products-data" }}
+
+<script src="{% static 'js/blending_ratio_detail.js' %}"></script>
+{% endblock %}

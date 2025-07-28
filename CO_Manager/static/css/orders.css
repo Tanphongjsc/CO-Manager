@@ -1,31 +1,38 @@
-/* orders.css */
+/* orders.css - Phiên bản đã được định dạng chuẩn */
+
+/* =================================================================== */
+/* PHẦN CSS GỐC                                                      */
+/* =================================================================== */
+
 .module-title {
-  margin-bottom: 20px;
-}
-.actions-bar {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  margin-bottom: 1rem;
-}
-.search-container {
-  display: flex;
-  gap: 10px;
-  flex: 1;
-}
-#order-search-input {
-  flex: 1;
-  max-width: 400px;
-}
-#order-search-btn,
-#refresh-btn {
-  white-space: nowrap;
-  padding: 6px 12px;
-  margin-left: 8px;
-  
+    margin-bottom: 20px;
 }
 
-/* Modal Styles */
+.actions-bar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.search-container {
+    display: flex;
+    gap: 10px;
+    flex: 1;
+}
+
+#order-search-input {
+    flex: 1;
+    max-width: 400px;
+}
+
+#order-search-btn,
+#refresh-btn {
+    white-space: nowrap;
+    padding: 6px 12px;
+    margin-left: 8px;
+}
+
 .modal {
     display: none;
     position: fixed;
@@ -38,22 +45,15 @@
     background-color: rgba(0, 0, 0, 0.5);
 }
 
-.modal-content {
-    background-color: #fff;
-    margin: 5% auto;
-    padding: 25px;
-    border: 1px solid #888;
-    width: 80%;
-    max-width: 800px;
-    border-radius: 8px;
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-    position: relative;
-    animation: modalFadeIn 0.3s;
-}
-
 @keyframes modalFadeIn {
-    from {opacity: 0; transform: translateY(-20px);}
-    to {opacity: 1; transform: translateY(0);}
+    from {
+        opacity: 0;
+        transform: translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }
 
 .close {
@@ -71,62 +71,147 @@
     margin-bottom: 25px;
 }
 
-.detail-section h4 {
-    border-bottom: 2px solid #f0f0f0;
-    padding-bottom: 10px;
-    margin-bottom: 15px;
-    color: #333;
-}
-
-.detail-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-    gap: 15px;
-}
-
-.detail-item {
-    margin-bottom: 10px;
-}
-
-/* Thêm style cho hidden-data */
 .hidden-data {
     display: none;
 }
 
+/* --- CSS CHO NÚT BẤM (BUTTONS) --- */
 
-/* --- CSS CHO NÚT BẤM --- */
-/* Style chung cho các nút, bao gồm cả thẻ <a> được dùng như nút */
-.btn, a.btn {
-  display: inline-flex; /* Quan trọng: để icon và text canh hàng */
-  align-items: center;   /* Quan trọng: canh giữa icon và text theo chiều dọc */
-  justify-content: center;
-  padding: 6px 12px;   /* Padding cho nút .btn (lớn hơn .btn-sm) */
-  font-size: 0.9rem;
-  font-weight: 500;
-  text-align: center;
-  vertical-align: middle;
-  cursor: pointer;
-  user-select: none;
-  border: 1px solid transparent;
-  border-radius: 0.25rem; /* Bo góc nhẹ */
-  text-decoration: none !important; /* Quan trọng: Bỏ gạch chân cho thẻ <a> */
-  white-space: nowrap;
-  transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+.btn,
+a.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 12px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    text-align: center;
+    vertical-align: middle;
+    cursor: pointer;
+    user-select: none;
+    border: 1px solid transparent;
+    border-radius: 0.25rem;
+    text-decoration: none !important;
+    white-space: nowrap;
+    transition: color 0.15s ease-in-out, background-color 0.15s ease-in-out, border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
 }
 
-.btn:hover, a.btn:hover {
-  text-decoration: none !important; /* Đảm bảo không có gạch chân khi hover */
+.btn:hover,
+a.btn:hover {
+    text-decoration: none !important;
 }
 
-/* Icon bên trong nút */
-.btn .fas, .btn .far, .btn .fa { /* Áp dụng cho các loại icon FontAwesome */
-  margin-right: 0.1em; /* Khoảng cách giữa icon và chữ */
-  line-height: 1; /* Đảm bảo icon không làm thay đổi chiều cao dòng */
+.btn .fas,
+.btn .far,
+.btn .fa {
+    margin-right: 0.1em;
+    line-height: 1;
 }
 
-/* Nút nhỏ hơn (.btn-sm) */
 a.btn-sm {
-  padding: 4px 8px;
-  font-size: 0.8rem;
-  border-radius: 0.2rem;
+    padding: 4px 8px;
+    font-size: 0.8rem;
+    border-radius: 0.2rem;
+}
+
+/* =================================================================== */
+/* PHẦN CSS CẢI TIẾN CHO GIAO DIỆN POPUP                               */
+/* =================================================================== */
+
+.modal-content {
+    background-color: #fdfdff;
+    margin: 5% auto;
+    padding: 30px;
+    border: 1px solid #ddd;
+    width: 80%;
+    max-width: 800px;
+    border-radius: 8px;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+    position: relative;
+    animation: modalFadeIn 0.3s;
+}
+
+.detail-section h4 {
+    border-bottom: 2px solid #e9ecef;
+    padding-bottom: 10px;
+    margin-bottom: 20px;
+    color: #0056b3;
+    font-size: 1.1rem;
+    font-weight: 600;
+}
+
+.detail-grid {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+}
+
+.detail-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 14px 10px;
+    border-bottom: 1px solid #f0f2f5;
+    margin-bottom: 0;
+    transition: background-color 0.2s ease-in-out;
+}
+
+.detail-item:hover {
+    background-color: #f8f9fa;
+}
+
+.detail-item:last-child {
+    border-bottom: none;
+}
+
+.detail-item .label {
+    font-weight: 600;
+    color: #495057;
+    margin-right: 15px;
+    white-space: nowrap;
+}
+
+.detail-item span:not(.label) {
+    color: #212529;
+    text-align: right;
+}
+
+.material-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+    font-size: 0.9rem;
+}
+
+.material-table th,
+.material-table td {
+    padding: 12px 15px;
+    text-align: left;
+    border: 1px solid #e9ecef;
+}
+
+.material-table thead th {
+    background-color: #f8f9fa;
+    color: #343a40;
+    font-weight: 600;
+    border-bottom-width: 2px;
+}
+
+.material-table tbody tr:nth-child(even) {
+    background-color: #fcfdff;
+}
+
+.material-table tbody tr:hover {
+    background-color: #e9f5ff;
+}
+
+.material-table td:nth-child(2) {
+    text-align: right;
+    font-family: Consolas, 'Courier New', monospace;
+}
+
+.material-table .total-row td {
+    font-weight: bold;
+    background-color: #f8f9fa;
+    color: #0056b3;
 }

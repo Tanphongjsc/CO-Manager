@@ -6,8 +6,19 @@ urlpatterns = [
     
     path('orders/', views.orders, name='orders'),
     path('orders/<str:pk>/', views.orders_detail, name='orders_detail'),
-    path('orders/<str:pk>/export/', views.orders_export, name='orders_export'),
+    path('orders/<str:pk>/export/', views.orders_export_original, name='orders_export_original'),
     path('orders/sync-cloudify', views.orders_sync_cloudify, name='orders_sync_cloudify'),
+
+    # Blending Ratios URLs
+    path('blendingratios/', views.blending_ratios, name='blending_ratios'),
+    path('blendingratios/<int:pk>/', views.blending_ratios_detail, name='blending_ratios_detail'),
+    path('blendingratios/create/', views.blending_ratios_create, name='blending_ratios_create'),
+
+    # API URLs for blending ratios
+    path('api/blendingratios/update_or_create/<int:pk>/', views.blending_ratios_update_or_create, name='api_blending_ratios_update_or_create'),
+    path('api/blendingratios/get_order_data_for_create/', views.blending_ratios_get_order_data_for_create, name='api_blending_ratios_get_order_data_for_create'),
+    path('api/blendingratios/delete/<int:pk>/', views.blending_ratios_delete, name='api_blending_ratios_delete'),
+    path('api/blendingratios/export/<int:pk>/', views.blending_ratios_export, name='api_blending_ratios_export'),
 
     path("ctc/", views.ctc_ledger, name="ctc_ledger"),
     path("ctc/<str:pk>/", views.ctc_detail, name="ctc_detail"),
@@ -22,6 +33,16 @@ urlpatterns = [
     path('products/update/', views.product_update, name='update_product'),
     path('products/delete/', views.product_delete, name='delete_product'),
     path('products/sync-cloudify/', views.products_sync_cloudify, name='products_sync_cloudify'),
+
+    # Phụ lục X URLs
+    path('phu_luc_x/', views.phu_luc_x, name='phu_luc_x'),
+
+    # API Phụ lục X URLs
+    path('api/phu_luc_x/get_purchase_data_for_create/', views.get_purchase_data_for_create, name='get_purchase_data_for_create'),
+    path('api/phu_luc_x/create/', views.phu_luc_x_create, name='api_phu_luc_x_create'),
+    path('api/phu_luc_x/delete/<int:pk>/', views.phu_luc_x_delete, name='api_phu_luc_x_delete'),
+    path('api/phu_luc_x/update/<int:pk>/', views.phu_luc_x_update, name='api_phu_luc_x_update'),
+    path('api/phu_luc_x/export/<int:pk>/', views.phu_luc_x_export, name='api_phu_luc_x_update'),
 
     # Rollback URLs
     path('rollback/', views.rollback, name='rollback'),
@@ -38,6 +59,7 @@ urlpatterns = [
     path('api/check_rollback_exist/', views.check_rollback_exist, name='check_rollback_exist'),
     path('api/rollback/delete/<int:pk>/', views.rollback_delete, name='rollback_delete'),
 
+    # API CTC URLs
     path('api/get_data_for_ctc_create/', views.get_data_for_ctc_create, name='get_data_for_ctc_create'),
     path("api/ctc/create/", views.ctc_create, name="ctc_create"),
     path("api/ctc/<str:pk>/update/", views.ctc_update, name="ctc_update"),

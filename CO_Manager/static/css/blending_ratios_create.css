@@ -1,0 +1,319 @@
+/* blending_ratios_create.css */
+
+/* blending_ratio_detail.css */
+
+/* --- 1. BỐ CỤC CHUNG --- */
+:root {
+    --header-height: 60px;
+    --page-padding: 1.5rem;
+}
+.module-content {
+    display: flex;
+    flex-direction: column;
+    height: calc(100vh - 110px);
+}
+.page-header {
+    flex-shrink: 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: var(--page-padding);
+}
+.page-grid {
+    flex-grow: 1;
+    display: grid;
+    grid-template-columns: minmax(400px, 1fr) 1.5fr;
+    gap: var(--page-padding);
+    min-height: 0;
+}
+
+/* --- 2. PANEL CHỈNH SỬA (BÊN TRÁI) --- */
+.edit-panel {
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #dee2e6;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+.panel-controls {
+    flex-shrink: 0;
+    padding: 20px 20px 15px 20px;
+    border-bottom: 1px solid #dee2e6;
+}
+.panel-title { margin-top: 0; margin-bottom: 15px; }
+.search-wrapper { position: relative; }
+.search-wrapper .fa-search { position: absolute; top: 50%; left: 12px; transform: translateY(-50%); color: #adb5bd; }
+#product-search-input { width: 100%; padding: 8px 12px 8px 35px; border: 1px solid #ced4da; border-radius: 6px; }
+.scrollable-content { overflow-y: auto; padding: 20px; }
+.product-card { 
+    background-color: #fff; 
+    border: 1px solid #e9ecef; 
+    border-radius: 6px; 
+    margin-bottom: 15px; 
+    padding: 15px; 
+    transition: box-shadow 0.2s ease-in-out;
+}
+.product-card:hover {
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+.product-header { 
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-weight: 600; 
+    margin-bottom: 15px; 
+    word-break: break-word; 
+}
+.input-row, .add-material-container { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 10px; }
+.input-row label { color: #495057; flex-shrink: 0; }
+.input-group { display: flex; align-items: center; gap: 5px; }
+.input-group input[type="number"] { width: 100px; padding: 5px 8px; border-radius: 4px; border: 1px solid #ced4da; text-align: right; }
+
+/* HIGHLIGHT CHO Ô SỐ LƯỢNG SẢN PHẨM */
+.product-card .input-row .product-quantity-input {
+    background-color: #fffbe6; /* Màu nền vàng nhạt */
+    border: 1px solid #fadb14; /* Viền màu vàng đậm hơn */
+    font-weight: bold;         /* Chữ đậm */
+}
+.delete-material-btn { background: none; border: none; color: #dc3545; cursor: pointer; padding: 2px; opacity: 0.7; transition: opacity 0.2s;}
+.delete-material-btn:hover { opacity: 1; }
+.add-material-container { margin-top: 15px; padding-top: 10px; border-top: 1px dashed #ced4da; }
+
+/* --- CỠ CHỮ CHO PANEL BÊN TRÁI --- */
+.product-header,
+.input-row label,
+#product-search-input,
+.input-group input,
+.notes-container label {
+    font-size: 13px;
+}
+
+/* HIGHLIGHT CHO SỐ THỨ TỰ SẢN PHẨM */
+.product-card .product-stt {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: bold;
+    color: #a51d1d;
+    background-color: #ffe7e7;
+    border-radius: 50%;
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+}
+
+
+/* --- 3. PANEL XEM TRƯỚC (BÊN PHẢI) --- */
+.preview-panel { 
+    display: flex; 
+    flex-direction: column; 
+    border-radius: 8px;
+    background-color: #fff;
+    border: 1px solid #dee2e6;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+    min-width: 0;
+    min-height: 0;
+}
+.document-preview {
+    padding: 20px;
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
+}
+.table-wrapper {
+    overflow: auto;
+    flex-grow: 1; 
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    max-height: 70vh;
+}
+.print-table {
+    width: 100%;
+    border-collapse: separate;
+    border-spacing: 0;
+}
+.print-table th, .print-table td {
+    border-bottom: 1px solid #dee2e6;
+    border-right: 1px solid #dee2e6;
+    padding: 5px 7px;
+    text-align: center;
+    vertical-align: middle;
+    font-size: 12px;
+}
+.print-table th {
+    background-color: #f8f9fa;
+    font-weight: 600;
+}
+.print-table .text-left { text-align: left; }
+
+/* --- 4. STICKY HEADER & COLUMN CHO BẢNG --- */
+.print-table thead th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+.print-table .col-product-name {
+    white-space: normal; 
+    word-break: break-word;
+    min-width: 250px;
+    max-width: 350px;
+}
+.print-table .col-sticky {
+    position: sticky;
+    left: 0;
+    background-color: #ffffff;
+    border-right: 1px solid #ced4da;
+    z-index: 1;
+}
+.print-table thead .col-sticky {
+    z-index: 3;
+    background-color: #f8f9fa;
+}
+
+/* --- 5. STYLE CHO PHẦN TỔNG TRỌNG LƯỢNG VÀ GHI CHÚ --- */
+.grand-total-summary {
+    border-top: 1px solid #e9ecef;
+    padding-top: 15px;
+    margin-top: 15px;
+}
+.grand-total-container { 
+    display: flex;
+    /* THAY ĐỔI: Bỏ justify-content và thêm gap để chúng ở gần nhau */
+    /* justify-content: space-between; */
+    gap: 10px;
+    align-items: center;
+    font-size: 14px; 
+    font-weight: 600; 
+    flex-shrink: 0; 
+    margin-bottom: 8px;
+}
+.grand-total-value { 
+    display: inline-block; 
+    padding: 5px 12px; 
+    border-radius: 6px; 
+    /* THAY ĐỔI: Bỏ min-width để background co lại vừa với nội dung */
+    /* min-width: 120px;  */
+    text-align: right; 
+    font-family: 'Courier New', Courier, monospace;
+    transition: all 0.3s ease;
+}
+
+.notes-container {
+    margin-top: 15px;
+    padding-top: 10px;
+    border-top: 1px dashed #ced4da;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.notes-container label {
+    font-weight: 600;
+    color: #495057;
+}
+
+.product-notes-input {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ced4da;
+    border-radius: 6px;
+    font-size: 13px;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 50px;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.product-notes-input:focus {
+    border-color: #80bdff;
+    outline: 0;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+
+/* --- 6. CÁC STYLE KHÁC --- */
+.btn, a.btn { text-decoration: none !important; }
+.btn-secondary { background-color: #6c757d; color: white; }
+.btn-secondary:hover { background-color: #5a6268; }
+@media (max-width: 1200px) { .module-content { height: auto; } .page-grid { grid-template-columns: 1fr; } .edit-panel { max-height: 60vh; } }
+
+
+
+
+/* --- 7. THÊM STYLE CHO CÁC THÀNH PHẦN MỚI CỦA TRANG CREATE */
+.lsx-selector-container {
+    background-color: #fff;
+    padding: 1.5rem;
+    border-radius: 8px;
+    margin-bottom: 1.5rem;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    border: 1px solid #dee2e6;
+}
+
+.lsx-selector-container label {
+    font-weight: 600;
+    font-size: 1rem;
+    color: #343a40;
+    flex-shrink: 0;
+}
+
+#lsx-select {
+    flex-grow: 1;
+}
+
+.no-data-placeholder {
+    text-align: center;
+    padding: 4rem;
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    border: 2px dashed #dee2e6;
+    color: #6c757d;
+}
+
+.no-data-placeholder i {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+}
+
+/* --- STYLE CHO THANH ĐIỀU KHIỂN TRÊN CÙNG --- */
+.top-bar-container {
+    display: flex;
+    justify-content: space-between; /* Đẩy các mục về hai phía */
+    align-items: center; /* Căn giữa theo chiều dọc */
+    margin-bottom: 25px;
+    padding-bottom: 25px;
+    border-bottom: 1px solid #e0e0e0; /* Đường kẻ phân cách */
+}
+
+.selector-group {
+    display: flex;
+    align-items: center;
+    gap: 12px; /* Khoảng cách giữa nhãn và dropdown */
+}
+
+.selector-group label {
+    font-weight: 600;
+    margin-bottom: 0; /* Ghi đè margin mặc định của label */
+    white-space: nowrap; /* Tránh label bị xuống dòng */
+}
+
+/* Tùy chỉnh chiều rộng cho dropdown của Select2 */
+.selector-group .select2-container {
+    width: 250px !important;
+}
+
+/* --- STYLE CHO DÒNG ĐƯỢC HIGHLIGHT --- */
+#preview-table-body tr.highlighted-row td {
+    background-color: #fffde7 !important; /* Màu vàng nhạt */
+    transition: background-color 0.3s ease;
+}
+
+/* Thêm một đường viền trên và dưới để làm nổi bật hơn */
+#preview-table-body tr.highlighted-row td:first-child {
+    border-left: 3px solid #fbc02d; /* Màu vàng đậm hơn */
+}

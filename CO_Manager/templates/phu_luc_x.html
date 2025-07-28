@@ -1,0 +1,213 @@
+{% extends 'base.html' %}
+{% load static %}
+{% load humanize %}
+
+{% block title %}Quản lý Phụ lục X{% endblock %}
+
+{% block css %}
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/css/select2.min.css">
+<link rel="stylesheet" href="{% static 'css/phu_luc_x.css' %}">
+{% endblock %}
+
+{% block content %}
+<div id="appendix-x-management" class="module-content">
+    <h2 class="module-title">Quản lý Phụ lục X</h2>
+
+    <div class="actions-bar">
+        <div class="search-selector-group">
+            <label for="lsx-select">Tìm kiếm theo Lệnh Sản Xuất:</label>
+            <select id="lsx-select" class="form-control">
+                <option value="">-- Nhập hoặc chọn LSX --</option>
+                {% for item in ids_lsx_for_view %}
+                    <option value="{{ item }}" {% if item == selected_lsx %}selected{% endif %}>
+                        {{ item }}
+                    </option>
+                {% endfor %}
+            </select>
+        </div>
+        <button id="add-appendix-btn" class="btn btn-success">
+            <i class="fas fa-plus"></i>
+            <span class="btn-text">Thêm mới</span>
+        </button>
+    </div>
+
+    <div class="table-container">
+        <table class="standard-table">
+            <thead>
+                <tr>
+                    <th>ID Lệnh sản xuất</th>
+                    <th>Tên hàng hóa</th>
+                    <th>Mã HS</th> <th>Số lượng</th>
+                    <th>Giá trị</th>
+                    <th>Địa chỉ</th>
+                    <th>Ngày tạo</th>
+                    <th>Ghi chú</th>
+                    <th>Thao tác</th>
+                </tr>
+            </thead>
+            <tbody id="main-table-body">
+                {% for item in phu_luc_x %}
+                <tr data-id="{{ item.id }}" 
+                    data-lsx-id="{{ item.id_lenh_san_xuat_id|default_if_none:'' }}"
+                    data-ten-hang-hoa="{{ item.ten_hang_hoa|default_if_none:'' }}"
+                    data-ma-hs="{{ item.ma_hs|default_if_none:'' }}" data-so-luong="{{ item.so_luong_mua_tu_dan|default_if_none:'' }}"
+                    data-tri-gia="{{ item.tri_gia_mua_tu_dan|default_if_none:'' }}"
+                    data-dia-chi="{{ item.dia_chi|default_if_none:'' }}"
+                    data-ngay-lap="{{ item.ngay_lap_giay_to|date:"Y-m-d" }}"
+                    data-ghi-chu="{{ item.ghi_chu|default_if_none:'' }}">
+                    <td>{{ item.id_lenh_san_xuat_id|default_if_none:'' }}</td>
+                    <td>{{ item.ten_hang_hoa|default_if_none:'' }}</td>
+                    <td>{{ item.ma_hs|default_if_none:'' }}</td> 
+                    <td>{{ item.so_luong_mua_tu_dan|floatformat:2|intcomma|default_if_none:'' }}</td>
+                    <td>{{ item.tri_gia_mua_tu_dan|floatformat:2|intcomma|default_if_none:'' }}</td>
+                    <td>{{ item.dia_chi|default_if_none:'' }}</td>
+                    <td>{{ item.ngay_lap_giay_to|date:"d/m/Y" }}</td>
+                    <td>{{ item.ghi_chu }}</td>
+                    <td>
+                        <div class="action-buttons">
+                            <button class="btn btn-sm btn-info view-btn" data-id="{{ item.id }}">Xem</button>
+                            <button class="btn btn-sm btn-warning edit-btn" data-id="{{ item.id }}">Sửa</button>
+                            <button class="btn btn-sm btn-danger delete-btn" data-id="{{ item.id }}">Xóa</button>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="9" class="text-center">Không có dữ liệu.</td> </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<div id="addAppendixModal" class="modal">
+    <div class="modal-content large"> <span class="close">&times;</span>
+        <h3>Thêm mới Phụ lục từ Chứng từ Thu mua</h3>
+        <form id="add-appendix-form">
+            {% csrf_token %}
+            
+            <div class="form-group full-width" style="margin-bottom: 1.5rem;">
+                <label for="add-modal-lsx-select">Chọn Lệnh Sản Xuất để lấy dữ liệu:</label>
+                <select id="add-modal-lsx-select" class="form-control" style="width: 100%;">
+                    <option value="">-- Vui lòng chọn --</option>
+                    {% for item in non_existing_bang_ke_ids %}
+                        <option value="{{ item }}">{{ item }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="data-preview-container full-width">
+                <div id="modal-loading-spinner" style="display: none; text-align: center; padding: 2rem;">
+                    <i class="fas fa-spinner fa-spin fa-2x"></i>
+                    <p>Đang tải dữ liệu...</p>
+                </div>
+                <div class="table-container">
+                    <table class="standard-table">
+                        <thead>
+                            <tr>
+                                <th style="width: 5%; text-align: center;"><input type="checkbox" id="check-all-rows" title="Chọn tất cả"></th>
+                                <th>Tên hàng hóa</th>
+                                <th>Mã HS</th>
+                                <th>Số lượng</th>
+                                <th>Trị giá</th>
+                                <th>Địa chỉ</th>
+                                <th>Ngày lập BKT Mua</th>
+                                <th>Ngày lập PLX</th>
+                                <th>Ghi chú</th>
+                            </tr>
+                        </thead>
+                        <tbody id="purchase-data-body"></tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary cancel-btn">Hủy</button>
+                <button type="submit" id="save-appendix-btn" class="btn btn-primary" disabled>Lưu các mục đã chọn</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div id="viewAppendixModal" class="modal">
+    <div class="modal-content">
+        <span class="close">&times;</span>
+        <h3>Chi tiết Phụ lục X</h3>
+        <div id="view-details-content">
+            <dl class="details-grid">
+                <dt>Lệnh sản xuất:</dt>
+                <dd id="view-lsx-id"></dd>
+
+                <dt>Tên hàng hóa:</dt>
+                <dd id="view-ten-hang-hoa"></dd>
+
+                <dt>Mã HS:</dt>
+                <dd id="view-ma-hs"></dd>
+
+                <dt>Số lượng:</dt>
+                <dd id="view-so-luong"></dd>
+
+                <dt>Trị giá:</dt>
+                <dd id="view-tri-gia"></dd>
+
+                <dt>Ngày lập:</dt>
+                <dd id="view-ngay-lap"></dd>
+                
+                <dt class="full-width">Địa chỉ:</dt>
+                <dd class="full-width" id="view-dia-chi"></dd>
+
+                <dt class="full-width">Ghi chú:</dt>
+                <dd class="full-width" id="view-ghi-chu"></dd>
+            </dl>
+        </div>
+        
+        <div class="form-actions">
+            <div class="export-buttons">
+                <button type="button" id="export-word-btn" class="btn btn-outline-primary">
+                    <i class="fas fa-file-word"></i> Word
+                </button>
+                <button type="button" id="export-pdf-btn" class="btn btn-outline-danger">
+                    <i class="fas fa-file-pdf"></i> PDF
+                </button>
+            </div>
+            <button type="button" class="btn btn-secondary close-btn">Đóng</button>
+        </div>
+    </div>
+</div>
+
+<div id="editAppendixModal" class="modal">
+    <div class="modal-content">
+        <span class="close">&times;</span>
+        <h3>Chỉnh sửa Phụ lục X</h3>
+        <form id="edit-appendix-form">
+            {% csrf_token %}
+            <input type="hidden" id="edit-appendix-id">
+
+            <div class="form-group">
+                <label for="edit-ten-hang-hoa">Tên hàng hóa</label>
+                <input type="text" id="edit-ten-hang-hoa" class="form-control" required>
+            </div>
+        
+            <div class="form-group">
+                <label for="edit-ngay-lap">Ngày lập</label>
+                <input type="date" id="edit-ngay-lap" class="form-control" required>
+            </div>
+             <div class="form-group">
+                <label for="edit-ghi-chu">Ghi chú</label>
+                <input type="text" id="edit-ghi-chu" class="form-control">
+            </div>
+
+            <div class="form-actions">
+                <button type="button" class="btn btn-secondary cancel-btn">Hủy</button>
+                <button type="submit" class="btn btn-primary">Lưu thay đổi</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascript %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/select2/4.0.13/js/select2.min.js"></script>
+<script src="{% static 'js/phu_luc_x.js' %}"></script>
+{% endblock %}

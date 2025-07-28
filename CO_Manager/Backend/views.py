@@ -1,13 +1,15 @@
 from django.shortcuts import render, get_object_or_404, redirect
 from django.views.decorators.http import require_GET, require_POST, require_http_methods
 from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.csrf import ensure_csrf_cookie
 from django.http import JsonResponse, HttpResponse
 from django.utils import timezone
 from django.db import transaction
 from django.forms.models import model_to_dict
 from django.template.loader import render_to_string
 from .models import *
-from django.db.models import Q
+from django.db.models import Q, Sum, F, Min, DecimalField
+from django.db.models.functions import Cast
 
 from datetime import datetime, date
 from collections import defaultdict
@@ -27,19 +29,20 @@ import xlsxwriter
 from io import BytesIO
 from num2words import num2words
 from docx import Document
-from docx.shared import Inches, Pt
+from docx.shared import Inches, Pt, Cm
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.enum.table import WD_TABLE_ALIGNMENT
 from docx.enum.section import WD_ORIENT
 from docx.oxml.ns import qn
 from docx.oxml import OxmlElement
+
+
+
 # Các view đã có
 def dashboard(request):
     return render(request, 'dashboard.html', {})
 
-def orders(request):
-    return render(request, 'orders.html', {})
-
+@ensure_csrf_cookie
 def ctc_ledger(request):
     """Trang quản lý CTC (Chi tiết công việc)"""
     
@@ -624,31 +627,64 @@ def get_data_for_ctc_create(request):
     data = json.loads(request.body)
     id_lenh_san_xuat = data.get('id_lenh_san_xuat')
 
-    if id_lenh_san_xuat:
-        bang_ke_thu_mua = BangKeThuMuaTuDan.objects.filter(id_lenh_san_xuat = id_lenh_san_xuat).values()
-        bang_ke_wo = BangKeWo.objects.filter(id_lenh_san_xuat = id_lenh_san_xuat).values()
-        nguyen_vat_lieu = VatTu.objects.filter(
-            id_san_pham__in=[item['id_san_pham'] for item in bang_ke_thu_mua] + 
-                            [item['id_san_pham'] for item in bang_ke_wo]
-        ).values('id_san_pham', 'ten_khac', 'ma_hs', 'don_vi_tinh')
-
-        # Chuyển đổi nguyen_vat_lieu thành dictionary để dễ truy cập
-        nguyen_vat_lieu = {item['id_san_pham']: item for item in nguyen_vat_lieu}
-
-        data = {
-            "bang_ke_thu_mua": {nguyen_vat_lieu[item['id_san_pham']]['ten_khac']: item['ngay_lap_giay_to'] for item in list(bang_ke_thu_mua)},
-            "bang_ke_wo": {nguyen_vat_lieu[item['id_san_pham']]['ten_khac']: item['ngay'] for item in list(bang_ke_wo)}
-        }
-
+    if not id_lenh_san_xuat:
         return JsonResponse({
-            'success': True,
-            'data': data,
-        })
+            'success': False,
+            'message': 'Không tìm thấy mã lệnh sản xuất!'
+        }, status=404)
+
+    # Query tất cả dữ liệu cần thiết trong một lần
+    bang_ke_thu_mua = list(BangKeThuMuaTuDan.objects.filter(
+        id_lenh_san_xuat=id_lenh_san_xuat
+    ).values('id_san_pham', 'ngay_lap_giay_to'))
     
+    bang_ke_wo = list(BangKeWo.objects.filter(
+        id_lenh_san_xuat=id_lenh_san_xuat
+    ).values('id_san_pham', 'ngay'))
+    
+    phu_luc_x = list(PhuLucX.objects.filter(
+        id_bang_ke_thu_mua_tu_dan__id_lenh_san_xuat_id=id_lenh_san_xuat
+    ).select_related('id_bang_ke_thu_mua_tu_dan').values(
+        'id_bang_ke_thu_mua_tu_dan__id_san_pham', 'ngay_lap_giay_to'
+    ))
+
+    # Lấy tất cả id_san_pham một lần
+    all_san_pham_ids = set()
+    all_san_pham_ids.update(item['id_san_pham'] for item in bang_ke_thu_mua)
+    all_san_pham_ids.update(item['id_san_pham'] for item in bang_ke_wo)
+    all_san_pham_ids.update(item['id_bang_ke_thu_mua_tu_dan__id_san_pham'] for item in phu_luc_x)
+
+    # Query VatTu một lần duy nhất
+    nguyen_vat_lieu = {
+        item['id_san_pham']: item['ten_khac'] 
+        for item in VatTu.objects.filter(
+            id_san_pham__in=all_san_pham_ids
+        ).values('id_san_pham', 'ten_khac')
+    }
+
+    # Tạo response data
+    response_data = {
+        "bang_ke_thu_mua": {
+            nguyen_vat_lieu.get(item['id_san_pham'], 'N/A'): item['ngay_lap_giay_to'] 
+            for item in bang_ke_thu_mua
+            if item['id_san_pham'] in nguyen_vat_lieu
+        },
+        "bang_ke_wo": {
+            nguyen_vat_lieu.get(item['id_san_pham'], 'N/A'): item['ngay'] 
+            for item in bang_ke_wo
+            if item['id_san_pham'] in nguyen_vat_lieu
+        },
+        "phu_luc_x": {
+            nguyen_vat_lieu.get(item['id_bang_ke_thu_mua_tu_dan__id_san_pham'], 'N/A'): item['ngay_lap_giay_to'] 
+            for item in phu_luc_x
+            if item['id_bang_ke_thu_mua_tu_dan__id_san_pham'] in nguyen_vat_lieu
+        }
+    }
+
     return JsonResponse({
-        'success': False,
-        'message': 'Không tìm thấy mã lệnh sản xuất!'
-    }, status=404)
+        'success': True,
+        'data': response_data,
+    })
     
 
 def users_management(request):
@@ -675,11 +711,23 @@ def users_create(request):
         else:
             data['role'] = None
 
+        # Xử lý địa chỉ
+        province = data.get('province') or ""
+        district = data.get('district') or ""
+        ward = data.get('ward') or ""
+
+        address = [ward, district, province]
+        for i in range(len(address)):
+            if address[i]:
+                address[i] = address[i].strip().title()
+        
+        address = ' - '.join(address).strip()
+
         user = Nguoi.objects.create(
             ten=data.get('name'),
             so_cmnd_cccd=data.get('cmnd'),
             ngay_cap_cmnd_cccd=data.get('date'),
-            dia_chi=data.get('address'),
+            dia_chi=address,
             vai_tro=data.get('role'),
         )
         return JsonResponse({
@@ -687,13 +735,14 @@ def users_create(request):
             'message': 'Tạo người dùng thành công!'
         })
     
-    except:
+    except Exception as e:
         return JsonResponse({
             'success': False,
-            'message': 'Dữ liệu không hợp lệ!'
+            'message': f'Dữ liệu không hợp lệ: {str(e)} !'
         })
 
 @require_POST
+@transaction.atomic
 def users_update(request):
     """API endpoint để cập nhật thông tin người dùng."""
     try:
@@ -705,8 +754,7 @@ def users_update(request):
         user.ten = data.get('name', user.ten)
         user.so_cmnd_cccd = data.get('cmnd', user.so_cmnd_cccd)
         user.ngay_cap_cmnd_cccd = data.get('date', user.ngay_cap_cmnd_cccd)
-        user.dia_chi = data.get('address', user.dia_chi)
-
+        
         # Xử lý với trường Vai Trò
         if data.get('role') == "buyer":
             user.vai_tro = 'Người mua'
@@ -715,6 +763,19 @@ def users_update(request):
         else:
             user.vai_tro = None
 
+        # Xử lý địa chỉ
+        province = data.get('province') or ""
+        district = data.get('district') or ""
+        ward = data.get('ward') or ""
+
+        address = [ward, district, province]
+        for i in range(len(address)):
+            if address[i]:
+                address[i] = address[i].strip().title()
+        
+        user.dia_chi = ' - '.join(address).strip()
+
+        # Lưu thông tin người dùng
         user.save()
 
         return JsonResponse({
@@ -751,11 +812,14 @@ def users_delete(request):
 
 
 def product_management(request):
+    """API endpoint để lấy danh sách sản phẩm."""
+    
     products = VatTu.objects.all().order_by('id_san_pham')
     context = {
         'products': products,
     }
     return render(request, 'product_management.html', context)
+
 
 @require_POST
 def product_update(request):
@@ -964,8 +1028,10 @@ def orders(request):
     return render(request, 'orders.html', context)
 
 def orders_detail(request, pk):
+    """Xem chi tiết đơn hàng"""
+
     # Truy vấn chi tiết đơn hàng từ cơ sở dữ liệu
-    order_items = CtLenhSanXuat.objects.filter(id_lenh_san_xuat=pk).select_related('id_san_pham', 'id_nguyen_vat_lieu', 'id_lenh_san_xuat')
+    order_items = CtLenhSanXuatOriginal.objects.filter(Q(id_lenh_san_xuat=pk) & ~Q(id_nguyen_vat_lieu__nhom_vthh="NVL - THÔ")).select_related('id_san_pham', 'id_nguyen_vat_lieu', 'id_lenh_san_xuat')
     if not order_items.exists():
         return render(request, '404.html')
 
@@ -977,7 +1043,6 @@ def orders_detail(request, pk):
             unique_products[id] = item
     
     order_unique_items = list(unique_products.values())        
-
 
     # Tính tổng số lượng sản phẩm
     total_quantity = sum(item.so_luong_san_pham for item in order_unique_items)
@@ -1057,7 +1122,7 @@ def sync_database(production_orders, product_norms, all_detail_ids):
     """Đồng bộ dữ liệu với database: thêm/sửa/xóa"""
     # 1. Lấy dữ liệu hiện tại từ database
     existing_orders = LenhSanXuat.objects.all()
-    existing_details = CtLenhSanXuat.objects.all()
+    existing_details = CtLenhSanXuatOriginal.objects.all()
     
     existing_order_ids = set(existing_orders.values_list('id_lenh_san_xuat', flat=True))
     existing_detail_ids = set(existing_details.values_list('id_ct_lenh_san_xuat', flat=True))
@@ -1115,7 +1180,7 @@ def sync_database(production_orders, product_norms, all_detail_ids):
                 
                 # Phân loại: tạo mới hoặc cập nhật
                 if detail_id in new_detail_ids:
-                    new_details.append(CtLenhSanXuat(**detail_obj_data))
+                    new_details.append(CtLenhSanXuatOriginal(**detail_obj_data))
                 elif detail_id in update_detail_ids:
                     detail_obj = existing_details_dict[detail_id]
                     for key, value in detail_obj_data.items():
@@ -1126,11 +1191,11 @@ def sync_database(production_orders, product_norms, all_detail_ids):
     with transaction.atomic():
         # Tạo mới
         LenhSanXuat.objects.bulk_create(new_orders)
-        CtLenhSanXuat.objects.bulk_create(new_details)
+        CtLenhSanXuatOriginal.objects.bulk_create(new_details)
         
         # Cập nhật
         LenhSanXuat.objects.bulk_update(update_orders, ['id_don_hang'])
-        CtLenhSanXuat.objects.bulk_update(update_details, [
+        CtLenhSanXuatOriginal.objects.bulk_update(update_details, [
             'id_lenh_san_xuat', 'id_san_pham_id', 'ten_san_pham', 'so_luong_san_pham', 
             'id_nguyen_vat_lieu_id', 'so_luong_nguyen_vat_lieu'
         ])
@@ -1171,13 +1236,13 @@ def orders_sync_cloudify(request):
         }, status=500)
 
 
-def orders_export(request, pk):
+def orders_export_original(request, pk):
     """Xuất báo cáo tỉ lệ phối trộn theo định dạng PDF hoặc Excel."""
     export_format = request.GET.get('format', '').lower()
     
     # Lấy và tổ chức dữ liệu
     try:
-        order_data = get_order_data(pk)
+        order_data = get_order_data_for_export(pk)
     except Exception as e:
         return JsonResponse({'success': False, 'message': f'Dữ liệu thiếu hoặc không hợp lệ: {e}'}, status=400)
     
@@ -1190,11 +1255,11 @@ def orders_export(request, pk):
     else:
         return JsonResponse({'success': False, 'message': 'Format không hợp lệ!'}, status=400)
 
-def get_order_data(order_id):
+def get_order_data_for_export(order_id, source_model=CtLenhSanXuatOriginal):
     """Lấy và tổ chức dữ liệu lệnh sản xuất."""
     
     # Lấy chi tiết lệnh sản xuất
-    order_items = CtLenhSanXuat.objects.filter(
+    order_items = source_model.objects.filter(
         id_lenh_san_xuat=order_id
     ).filter(
         ~Q(id_nguyen_vat_lieu__nhom_vthh="NVL - THÔ")
@@ -1202,7 +1267,7 @@ def get_order_data(order_id):
 
     
     # Xác định danh sách nguyên liệu để làm header
-    material_types = sorted({obj.id_nguyen_vat_lieu.ten_khac if obj.id_nguyen_vat_lieu.ten_khac else obj.id_nguyen_vat_lieu.ten_sp_chinh for obj in order_items })
+    material_types = sorted({obj.id_nguyen_vat_lieu.ten_khac.strip().capitalize() if obj.id_nguyen_vat_lieu.ten_khac else obj.id_nguyen_vat_lieu.ten_sp_chinh.strip().capitalize() for obj in order_items })
 
     # Gom nhóm theo sản phẩm
     products_map = {}
@@ -1211,7 +1276,7 @@ def get_order_data(order_id):
     
     for item in order_items:
         product_id = item.id_san_pham.id_san_pham
-        material_name = item.id_nguyen_vat_lieu.ten_khac or item.id_nguyen_vat_lieu.ten_sp_chinh
+        material_name = (item.id_nguyen_vat_lieu.ten_khac.strip().capitalize() if item.id_nguyen_vat_lieu.ten_khac else None) or (item.id_nguyen_vat_lieu.ten_sp_chinh.strip().capitalize() if item.id_nguyen_vat_lieu.ten_sp_chinh else None)
         material_qty = item.so_luong_nguyen_vat_lieu or 0
         
         # Khởi tạo thông tin sản phẩm nếu chưa có
@@ -1220,14 +1285,21 @@ def get_order_data(order_id):
             products_map[product_id] = {
                 'ten_san_pham': item.ten_san_pham or item.id_san_pham.ten_khac,
                 'id_san_pham': item.id_san_pham,
+                'ma_hs': item.id_san_pham.ma_hs or '',
                 'so_luong_san_pham': product_qty,
                 'materials': defaultdict(float),
                 'total_materials': 0.0,
+                'ghi_chu': item.ghi_chu or '',
             }
             total_quantity += product_qty
         
-        # Cộng dồn NVL
-        products_map[product_id]['materials'][material_name] += material_qty
+        # Cộng dồn NVL của từng sản phẩm
+        products_map[product_id]['materials'][item.id_nguyen_vat_lieu.id_san_pham] = {
+            "name": material_name,
+            "quantity": material_qty
+        }
+
+        # Cộng dồn tổng số lượng NVL theo từng nguyên vật liệu
         products_map[product_id]['total_materials'] += material_qty
         material_totals[material_name] += material_qty
     
@@ -1245,13 +1317,14 @@ def get_order_data(order_id):
 
 def create_ti_le_dau_tron_excel_response(order_id, data):
     """Tạo file Excel báo cáo tỉ lệ phối trộn."""
+
     wb = Workbook()
     ws = wb.active
-    
+
     # Thiết lập styles cho Excel
     styles = {
-        'border': Border(left=Side(style='thin'), right=Side(style='thin'), 
-                        top=Side(style='thin'), bottom=Side(style='thin')),
+        'border': Border(left=Side(style='thin'), right=Side(style='thin'),
+                         top=Side(style='thin'), bottom=Side(style='thin')),
         'fill': PatternFill(start_color="F0F0F0", end_color="F0F0F0", fill_type="solid"),
         'base_font': Font(name='Times New Roman', size=12),
         'bold_font': Font(name='Times New Roman', size=12, bold=True),
@@ -1259,149 +1332,139 @@ def create_ti_le_dau_tron_excel_response(order_id, data):
         'center': Alignment(horizontal='center', vertical='center'),
         'right': Alignment(horizontal='right')
     }
-    
+
     # ===== PHẦN 1: THÔNG TIN CÔNG TY =====
     company_info = [
-        "CÔNG TY CỔ PHẦN TÂN PHONG", 
-        "Địa chỉ: Thị Trấn Hùng Sơn, Huyện Lâm Thao, Tỉnh Phú Thọ", 
-        "Điện thoại: 0210 221 5277", 
+        "CÔNG TY CỔ PHẦN TÂN PHONG",
+        "Địa chỉ: Thị Trấn Hùng Sơn, Huyện Lâm Thao, Tỉnh Phú Thọ",
+        "Điện thoại: 0210 221 5277",
         "Mã số thuế: 2600274542"
     ]
     for i, info in enumerate(company_info):
-        cell = ws.cell(row=i+1, column=1, value=info)
+        cell = ws.cell(row=i + 1, column=1, value=info)
         cell.font = styles['bold_font'] if i == 0 else styles['base_font']
-    
+
     # ===== PHẦN 2: TIÊU ĐỀ VÀ HEADER =====
     material_types = data['material_types']
     total_cols = len(material_types) + 5  # Tổng số cột
-    
-    # Tiêu đề bảng
+
     ws.merge_cells(start_row=6, start_column=1, end_row=6, end_column=total_cols)
     title_cell = ws.cell(row=6, column=1, value="BẢNG TỈ LỆ PHỐI TRỘN CÁC MẶT HÀNG CHÈ")
     apply_cell_style(title_cell, font=styles['title_font'], align=styles['center'])
 
-    # Header dòng 1
     headers = ["STT", "Tên Hàng Hoá", "Mã HS", "Số lượng", "Thành phần"] + material_types[1:] + ["Tổng cộng"]
     for i, header in enumerate(headers, 1):
         if header:
             cell = ws.cell(row=7, column=i, value=header)
-            apply_cell_style(cell, font=styles['bold_font'], border=styles['border'], 
-                         align=styles['center'], fill=styles['fill'])
+            apply_cell_style(cell, font=styles['bold_font'], border=styles['border'],
+                             align=styles['center'], fill=styles['fill'])
 
-    # Merge cột thành phần
     ws.merge_cells(start_row=7, start_column=5, end_row=7, end_column=5 + len(material_types) - 1)
 
-    # Header dòng 2 (thành phần chi tiết)
     for i, material in enumerate(material_types):
-        cell = ws.cell(row=8, column=i+5, value=material)
-        apply_cell_style(cell, font=styles['bold_font'], border=styles['border'], 
-                     align=styles['center'], fill=styles['fill'])
+        cell = ws.cell(row=8, column=i + 5, value=material)
+        apply_cell_style(cell, font=styles['bold_font'], border=styles['border'],
+                         align=styles['center'], fill=styles['fill'])
 
-    # Merge các cột cơ bản
     for col in [1, 2, 3, 4, len(headers)]:
         ws.merge_cells(start_row=7, start_column=col, end_row=8, end_column=col)
-    
+
     # ===== PHẦN 3: DỮ LIỆU SẢN PHẨM =====
-    material_cols = {m: i+5 for i, m in enumerate(material_types)}
+    material_cols = {m: i + 5 for i, m in enumerate(material_types)}
     start_row = 9
     order_items = data['order_items']
-    
+
     for row_idx, item in enumerate(order_items, start_row):
-        # STT, Tên HH, Mã HS, Số lượng
         basic_cells = [
-            (1, row_idx-start_row+1),
+            (1, row_idx - start_row + 1),
             (2, item['ten_san_pham']),
             (3, item['id_san_pham'].ma_hs),
             (4, item['so_luong_san_pham'])
         ]
-        
         for col, value in basic_cells:
             cell = ws.cell(row=row_idx, column=col, value=value)
             number_format = '#,##0.00' if col == 4 else None
+            apply_cell_style(cell, font=styles['base_font'], border=styles['border'],
+                             align=styles['center'], number_format=number_format)
+
+        for mat_name, col_idx in material_cols.items():
+            quantity = None  # Đặt giá trị mặc định là None
+
+            # Lặp qua cấu trúc materials mới để tìm đúng số lượng
+            for material_data in item.get('materials', {}).values():
+                if material_data.get('name') == mat_name:
+                    quantity = material_data.get('quantity')
+                    break  # Dừng tìm kiếm khi đã thấy
+
+            cell = ws.cell(row=row_idx, column=col_idx, value=quantity)
             apply_cell_style(cell, font=styles['base_font'], border=styles['border'], 
-                         align=styles['center'], number_format=number_format)
-        
-        # Nguyên liệu
-        for mat, col in material_cols.items():
-            val = item['materials'].get(mat)
-            cell = ws.cell(row=row_idx, column=col, value=val)
-            apply_cell_style(cell, font=styles['base_font'], border=styles['border'], 
-                         align=styles['center'], number_format='#,##0.00' if val is not None else None)
-        
-        # Tổng cộng
-        cell = ws.cell(row=row_idx, column=total_cols, value=item['total_materials'])
+                            align=styles['center'], number_format='#,##0.00' if quantity is not None else None)
+
+        # Điền giá trị cho cột "Tổng cộng" cuối mỗi dòng sản phẩm
+        cell = ws.cell(row=row_idx, column=total_cols, value=item.get('total_materials'))
         apply_cell_style(cell, font=styles['base_font'], border=styles['border'], 
-                     align=styles['center'], number_format='#,##0.00')
-    
+                        align=styles['center'], number_format='#,##0.00')
+
+
     # ===== PHẦN 4: DÒNG TỔNG CỘNG =====
     total_row = start_row + len(order_items)
-    
-    # Tiêu đề "Tổng cộng"
+
     cell = ws.cell(row=total_row, column=1, value="Tổng cộng")
     apply_cell_style(cell, font=styles['bold_font'], border=styles['border'], align=styles['center'])
     ws.merge_cells(start_row=total_row, start_column=1, end_row=total_row, end_column=3)
 
-    # Tổng số lượng sản phẩm
     cell = ws.cell(row=total_row, column=4, value=data['total_quantity_sanpham'])
-    apply_cell_style(cell, font=styles['bold_font'], border=styles['border'], 
-                 align=styles['center'], number_format='#,##0.00')
+    apply_cell_style(cell, font=styles['bold_font'], border=styles['border'],
+                     align=styles['center'], number_format='#,##0.00')
 
-    # Tổng lượng nguyên liệu
     for key, col in material_cols.items():
         cell = ws.cell(row=total_row, column=col, value=data['totals'].get(key))
-        apply_cell_style(cell, font=styles['bold_font'], border=styles['border'], 
-                     align=styles['center'], number_format='#,##0.00')
-    
-    # Tổng cộng cuối cùng
+        apply_cell_style(cell, font=styles['bold_font'], border=styles['border'],
+                         align=styles['center'], number_format='#,##0.00')
+
     cell = ws.cell(row=total_row, column=total_cols, value=data['total_quantity_nguyenlieu'])
-    apply_cell_style(cell, font=styles['bold_font'], border=styles['border'], 
-                 align=styles['center'], number_format='#,##0.00')
-    
+    apply_cell_style(cell, font=styles['bold_font'], border=styles['border'],
+                     align=styles['center'], number_format='#,##0.00')
+
     # ===== PHẦN 5: CHỮ KÝ VÀ CAM KẾT =====
     sig_row = total_row + 3
     today = data['today']
 
-    # Cam kết
-    commitment = "Công ty cam kết số liệu, thông tin khai báo trên là đúng và chịu trách nhiệm trước pháp luật về thông tin, số liệu đã khai."
+    commitment = (
+        "Công ty cam kết số liệu, thông tin khai báo trên là đúng và chịu trách nhiệm trước pháp luật về thông tin, số liệu đã khai."
+    )
     cell = ws.cell(row=sig_row, column=1, value=commitment)
     cell.font = styles['base_font']
     ws.merge_cells(start_row=sig_row, start_column=1, end_row=sig_row, end_column=total_cols)
 
-    # Ngày tháng, người đại diện, chỗ ký
     signatures = [
-        (sig_row+2, total_cols-1, f"Ngày {today.day} tháng {today.month} năm {today.year}", 
-         styles['base_font']),
-        (sig_row+4, total_cols, "NGƯỜI ĐẠI DIỆN THEO PHÁP LUẬT CỦA THƯƠNG NHÂN", 
-         styles['bold_font']),
-        (sig_row+6, total_cols-1, "(Ký, đóng dấu, ghi rõ họ, tên)", 
-         styles['base_font'])
+        (sig_row + 2, total_cols - 1, f"Ngày {today.day} tháng {today.month} năm {today.year}", styles['base_font']),
+        (sig_row + 4, total_cols, "NGƯỜI ĐẠI DIỆN THEO PHÁP LUẬT CỦA THƯƠNG NHÂN", styles['bold_font']),
+        (sig_row + 6, total_cols - 1, "(Ký, đóng dấu, ghi rõ họ, tên)", styles['base_font'])
     ]
-
     for row, col, text, font in signatures:
         cell = ws.cell(row=row, column=col, value=text)
         apply_cell_style(cell, font=font, align=styles['right'])
-    
+
     # ===== PHẦN 6: ĐIỀU CHỈNH CHIỀU RỘNG CỘT =====
-    # Chỉ xem xét các dòng quan trọng để tối ưu hiệu suất
     for column in ws.columns:
         max_length = 0
         column_letter = get_column_letter(column[0].column)
-        
-        for cell in column[6:6+len(order_items)]:  # Chỉ kiểm tra các dòng header và một vài dòng đầu tiên
+
+        for cell in column[6:6 + len(order_items)]:
             try:
                 cell_length = len(str(cell.value)) if cell.value else 0
-                if cell_length > max_length:
-                    max_length = cell_length
+                max_length = max(max_length, cell_length)
             except:
                 pass
-        
+
         ws.column_dimensions[column_letter].width = max_length + 3
-    
+
     # ===== TẠO RESPONSE =====
     output = BytesIO()
     wb.save(output)
     output.seek(0)
-    
+
     filename = f"Lenh_SX_{order_id}_{today.strftime('%Y-%m-%d')}.xlsx"
     response = HttpResponse(
         output.getvalue(),
@@ -1417,6 +1480,249 @@ def apply_cell_style(cell, font=None, border=None, align=None, fill=None, number
     if align: cell.alignment = align
     if fill: cell.fill = fill
     if number_format and cell.value is not None: cell.number_format = number_format
+
+
+# ==================== BLENDING RATIOS ====================
+def blending_ratios(request):
+    # ====== 1. Lấy dữ liệu từ bảng gốc kèm thông tin đơn hàng trong 1 query =========
+    original_production_orders = CtLenhSanXuatOriginal.objects.select_related(
+        'id_lenh_san_xuat'  # Join với bảng LenhSanXuat
+    ).values(
+        'id_lenh_san_xuat',
+        'id_lenh_san_xuat__id_don_hang',  # Lấy luôn id_don_hang từ bảng join
+    ).annotate(
+        total_san_pham=models.Count('id_san_pham', distinct=True),
+        total_nguyen_vat_lieu=models.Sum(
+            # Tính tổng các nguyên vật liệu "ngoại trừ" nhóm VTHH 'NVL - THÔ'
+            'so_luong_nguyen_vat_lieu',
+            filter=~models.Q(id_nguyen_vat_lieu__nhom_vthh='NVL - THÔ')
+        )
+    ).order_by('-id_lenh_san_xuat')
+    
+    # Lấy danh sách id_lenh_san_xuat từ bảng gốc
+    original_order_ids = set(item['id_lenh_san_xuat'] for item in original_production_orders)
+
+    # Lấy ra list các id_lenh_san_xuat đã được tạo tỉ lệ phối trộn
+    processed_order_ids = set(CtLenhSanXuat.objects.values_list('id_lenh_san_xuat', flat=True).distinct())
+    
+    # Lấy ra những id có trong bảng gốc nhưng chưa được tạo tỉ lệ phối trộn
+    unprocessed_order_ids = original_order_ids - processed_order_ids
+    
+    # ======== 2. Định dạng lại id_don_hang cho hiển thị (xử lý trực tiếp trong data) ========
+    for item in original_production_orders:
+        id_don_hang = item.get('id_lenh_san_xuat__id_don_hang')
+        if id_don_hang:
+            len_id = len(str(id_don_hang))
+            item['formatted_id_don_hang'] = f"ĐH{'0'*(6-len_id)}{int(id_don_hang)-1}"
+        else:
+            item['formatted_id_don_hang'] = None
+    
+    # ======== 3. Trả về context cho template =========    
+    context = {
+        'blending_data': original_production_orders,
+        'unprocessed_order_ids': sorted(unprocessed_order_ids),
+    }
+    
+    return render(request, 'blending_ratios.html', context)
+
+
+def blending_ratios_detail(request, pk):
+    """Hiển thị chi tiết tỉ lệ phối trộn cho một lệnh sản xuất cụ thể."""
+
+    try:
+        # Lấy tham số 'mode' từ URL, nếu không có thì mặc định là 'edit'
+        mode = request.GET.get('mode', 'edit') 
+        
+        # Lấy dữ liệu lệnh sản xuất từ bảng gốc
+        orders_data = get_order_data_for_export(pk, source_model=CtLenhSanXuat)
+
+        if orders_data.get('order_items'):
+            for item in orders_data['order_items']:
+                item['id_san_pham'] = item['id_san_pham'].id_san_pham  # Chuyển đổi sang id_san_pham
+        
+        else:
+            return render(request, '404.html', {'error': 'Không tìm thấy dữ liệu cho lệnh sản xuất này.'})
+
+    except Exception as e:
+        # Xử lý lỗi nếu không tìm thấy đơn hàng
+        print(f"Error fetching order data: {e}")
+        return render(request, '404.html', {'error': str(e)})
+    
+    #  Lấy ra dữ liệu các sản phẩm vật từ phù hợp 
+    products = VatTu.objects.filter(
+        Q(loai_sp="Vật tư hàng hóa") & ~Q(nhom_vthh="NVL - THÔ")
+    ).order_by("id_san_pham").values("id_san_pham", "ten_sp_chinh", "ten_khac", "ma_hs")
+    
+    # Thêm thông tin cho các sản phẩm chưa có tên khác
+    for product in products:
+        if not product.get("ten_khac"):
+            product["ten_khac"] = product.get("ten_sp_chinh").strip().capitalize()
+        else:
+            product["ten_khac"] = product.get("ten_khac").strip().capitalize()
+
+    # Thêm 'id_lenh_san_xuat' vào data để JS có thể truy cập
+    orders_data['id_lenh_san_xuat'] = pk
+    
+    context = {
+        'initial_data_json': json.dumps(orders_data, default=str), # Dùng default=str để xử lý các kiểu dữ liệu phức tạp như Decimal, Datetime
+        'id_lenh_san_xuat': pk, # Vẫn truyền riêng để dùng cho tiêu đề trang
+        'products': list(products),  # Danh sách sản phẩm vật tư
+        'mode': mode,  # Chế độ hiển thị: 'edit' hoặc 'view'
+    }
+    
+    return render(request, 'blending_ratios_detail.html', context)
+
+@require_POST
+@transaction.atomic
+def blending_ratios_update_or_create(request, pk):
+    """Cập nhật tỉ lệ phối trộn cho một lệnh sản xuất cụ thể."""
+
+    try:
+        pk = int(pk)  # Chuyển pk sang int nếu cần thiết
+        data = json.loads(request.body)
+    
+    except (ValueError, json.JSONDecodeError) as e:
+        return JsonResponse({'success': False, 'message': f'Lỗi dữ liệu: {str(e)}'}, status=400)
+    
+    # Xoas dữ liệu cũ trước khi cập nhật theo pk
+    CtLenhSanXuat.objects.filter(id_lenh_san_xuat=pk).delete()
+
+    # Chuẩn bị dữ liệu để bulk_create
+    objects_to_create = []
+    for produdct in data.get("order_items", []):
+        for material_id, material_value in produdct.get("materials", {}).items():
+            
+            # Tạo đối tượng CtLenhSanXuat cho từng sản phẩm và nguyên vật liệu
+            object_ct_lenh_sx = CtLenhSanXuat(
+                id_lenh_san_xuat_id=pk,
+                id_san_pham_id=produdct.get("id_san_pham"),
+                ten_san_pham=produdct.get("ten_san_pham"),
+                so_luong_san_pham=produdct.get("so_luong_san_pham"),
+                id_nguyen_vat_lieu_id=material_id,
+                so_luong_nguyen_vat_lieu=material_value.get("quantity"),
+                ghi_chu=produdct.get("ghi_chu", None)
+            )
+
+            # Thêm các bản obj vào list để bulk_create
+            objects_to_create.append(object_ct_lenh_sx)
+
+    # Thực hiện bulk_create để thêm tất cả các đối tượng vào database
+    if objects_to_create:
+        CtLenhSanXuat.objects.bulk_create(objects_to_create)
+        return JsonResponse({'success': True, 'message': 'Cập nhật tỉ lệ phối trộn thành công!'})
+    
+    return JsonResponse({'success': False, 'message': 'Không có dữ liệu để cập nhật!'}, status=400)
+
+
+def blending_ratios_create(request):
+    """View này CHỈ render template HTML ban đầu. Nó cung cấp danh sách LSX chưa xử lý cho dropdown và danh sách NVL cho JS."""
+    # Lấy danh sách các LSX chưa có trong bảng chính thức để điền vào dropdown
+    processed_ids = CtLenhSanXuat.objects.values_list('id_lenh_san_xuat_id', flat=True).distinct()
+    unprocessed_orders = LenhSanXuat.objects.exclude(id_lenh_san_xuat__in=processed_ids).order_by('-id_lenh_san_xuat')
+
+    # Lấy danh sách tất cả sản phẩm/vật tư có thể được thêm vào làm nguyên vật liệu
+    products = VatTu.objects.filter(
+        Q(loai_sp="Vật tư hàng hóa") & ~Q(nhom_vthh="NVL - THÔ")
+    ).order_by("ten_sp_chinh").values("id_san_pham", "ten_sp_chinh", "ten_khac")
+
+    # Chuẩn hóa tên để JS sử dụng
+    for p in products:
+        p['ten_khac'] = (p.get('ten_khac') or p.get('ten_sp_chinh')).strip().capitalize()
+
+    context = {
+        'unprocessed_orders': unprocessed_orders,
+        'products_json': json.dumps(list(products)),
+    }
+    
+    return render(request, 'blending_ratios_create.html', context)
+
+
+def blending_ratios_get_order_data_for_create(request):
+    """
+    Lấy dữ liệu của một LSX từ bảng gốc (Original) để tạo mới.
+    Được gọi bởi JavaScript khi người dùng chọn một LSX từ dropdown.
+    """
+    selected_lsx_id = request.GET.get('lsx_id', None)
+
+    if not selected_lsx_id:
+        return JsonResponse({'success': False, 'detail': 'Mã Lệnh sản xuất không được cung cấp.'}, status=400)
+    
+    try:
+        # Lấy dữ liệu đơn hàng từ bảng gốc CtLenhSanXuatOriginal
+        orders_data = get_order_data_for_export(selected_lsx_id, source_model=CtLenhSanXuatOriginal)
+
+        if not orders_data:
+             return JsonResponse({'success': False, 'detail': f'Không tìm thấy dữ liệu cho LSX ID: {selected_lsx_id}'}, status=404)
+
+        # Chuyển đổi đối tượng id_san_pham sang mã id_san_pham để JS có thể sử dụng
+        for item in orders_data['order_items']:
+            item['id_san_pham'] = item['id_san_pham'].id_san_pham 
+
+        # Thêm 'id_lenh_san_xuat' vào data để JS có thể dùng khi lưu
+        orders_data['id_lenh_san_xuat'] = int(selected_lsx_id)
+
+        return JsonResponse({
+            'success': True,
+            'data': orders_data,
+        })
+
+    except Exception as e:
+        return JsonResponse({'success': False, 'detail': f'Đã có lỗi xảy ra: {str(e)}'}, status=500)
+
+
+@require_POST
+@transaction.atomic
+def blending_ratios_delete(request, pk):
+    """Xóa tỉ lệ phối trộn cho một lệnh sản xuất cụ thể."""
+
+    if not pk:
+        return JsonResponse({'success': False, 'message': 'Mã Lệnh sản xuất không được cung cấp.'}, status=400)
+    
+    try:
+        pk = int(pk)
+
+        # Lojc các bản ghi liên quan đến id_lenh_san_xuat
+        obj_ct_lenh_sx = CtLenhSanXuat.objects.filter(id_lenh_san_xuat=pk)
+        
+        if obj_ct_lenh_sx:
+            # Xóa tất cả các bản ghi liên quan
+            obj_ct_lenh_sx.delete()
+            return JsonResponse({'success': True, 'message': 'Xóa tỉ lệ phối trộn thành công!'})
+        
+        return JsonResponse({'success': False, 'message': 'Không tìm thấy tỉ lệ phối trộn nào để xóa.'}, status=404)
+    
+    except ValueError:  
+        return JsonResponse({'success': False, 'message': 'Mã Lệnh sản xuất không hợp lệ.'}, status=400)
+
+
+def blending_ratios_export(request, pk):
+    """Export tỉ lệ phối trộn cho một lệnh sản xuất cụ thể."""
+
+    # Lấy định dạng xuất từ query params, mặc định là 'pdf'
+    format_type = request.GET.get('format', 'pdf').lower()
+
+    # Lấy dữ liệu lệnh sản xuất từ bảng CtLenhSanXuat (không phải gốc)
+    try:
+        data_export = get_order_data_for_export(pk, source_model=CtLenhSanXuat)
+    
+        if not data_export:
+            return JsonResponse({'success': False, 'message': 'Không có dữ liệu để xuất!'}, status=404)
+    
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Lỗi khi lấy dữ liệu: {str(e)}'}, status=500)
+
+    # Thêm ngày hiện tại vào context
+    context = {**data_export, 'today': timezone.now()}
+
+    if format_type == 'pdf':
+        return render(request, 'form/ti_le_dau_tron_pdf.html', context)
+    elif format_type == 'excel':
+        return create_ti_le_dau_tron_excel_response(pk, context)
+    else: 
+        return JsonResponse({'success': False, 'message': 'Định dạng xuất không hợp lệ!'}, status=400)
+        
+
+
 
 # ==================== HELPER FUNCTIONS ====================
 def _get_vat_tu_info(id_san_pham):
@@ -2816,14 +3122,6 @@ def add_nguoi(request):
         return JsonResponse({
             'status': 'success',
             'message': 'Thêm người thành công',
-            'nguoi': {
-                'id': nguoi.id,
-                'ten': nguoi.ten,
-                'so_cmnd_cccd': nguoi.so_cmnd_cccd or '',
-                'ngay_cap_cmnd_cccd': nguoi.ngay_cap_cmnd_cccd.strftime('%d/%m/%Y') if nguoi.ngay_cap_cmnd_cccd else '',
-                'dia_chi': nguoi.dia_chi or '',
-                'vai_tro': nguoi.vai_tro or ''
-            }
         })
         
     except json.JSONDecodeError:
@@ -5311,3 +5609,394 @@ def wo_export_word(request, pk):
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     
     return response
+
+
+# ================= PHỤ LỤC X =================
+def phu_luc_x(request):
+    """Render Phụ lục X page"""
+    
+    # Sử dụng annotation để tính toán trực tiếp trong database
+    phu_luc_x_qs = PhuLucX.objects.select_related(
+        "id_bang_ke_thu_mua_tu_dan__id_lenh_san_xuat"
+    ).annotate(
+        tong_so_luong=Sum('id_bang_ke_thu_mua_tu_dan__ctbangkethumuatudan__so_luong'),
+        tong_thanh_tien=Sum(
+            Cast('id_bang_ke_thu_mua_tu_dan__ctbangkethumuatudan__so_luong', DecimalField(max_digits=10, decimal_places=3)) * 
+            Cast('id_bang_ke_thu_mua_tu_dan__ctbangkethumuatudan__don_gia', DecimalField(max_digits=15, decimal_places=2))
+        ),
+        dia_chi=Min('id_bang_ke_thu_mua_tu_dan__ctbangkethumuatudan__id_nguoi_ban__dia_chi')
+    ).order_by("id")
+
+    # Lấy ma_hs trong một query duy nhất
+    if phu_luc_x_qs:
+        ids_hang_hoa = {item.id_bang_ke_thu_mua_tu_dan.id_san_pham for item in phu_luc_x_qs}
+        ma_hs_dict = dict(
+            VatTu.objects.filter(id_san_pham__in=ids_hang_hoa)
+            .values_list('id_san_pham', 'ma_hs')
+        )
+
+    # Chuyển đổi sang list một cách đơn giản
+    phu_luc_x = [
+        {
+            'id': item.id,
+            'ngay_lap_giay_to': item.ngay_lap_giay_to,
+            'id_lenh_san_xuat_id': item.id_bang_ke_thu_mua_tu_dan.id_lenh_san_xuat_id,
+            'ten_hang_hoa': item.ten_hang_hoa,
+            'ma_hs': ma_hs_dict.get(item.id_bang_ke_thu_mua_tu_dan.id_san_pham),
+            'ghi_chu': item.ghi_chu,
+            'so_luong_mua_tu_dan': item.tong_so_luong or 0,
+            'tri_gia_mua_tu_dan': item.tong_thanh_tien or 0,
+            'dia_chi': item.dia_chi
+        }
+        for item in phu_luc_x_qs
+    ]
+
+    # Lấy ra id lệnh sản xuất đã được tạo rồi và chưa được tạo
+    existing_bang_ke_ids = set(phu_luc_x_qs.values_list("id_bang_ke_thu_mua_tu_dan",flat=True))
+    non_existing_bang_ke_ids = set(BangKeThuMuaTuDan.objects.exclude(id_bang_ke_thu_mua_tu_dan__in=existing_bang_ke_ids).values_list('id_lenh_san_xuat_id', flat=True))
+
+    context = {
+        'phu_luc_x': phu_luc_x,
+        'ids_lsx_for_view': {item['id_lenh_san_xuat_id'] for item in phu_luc_x},
+        'non_existing_bang_ke_ids': non_existing_bang_ke_ids
+    }
+
+    return render(request, 'phu_luc_x.html', context)
+
+
+def get_purchase_data_for_create(request):
+    """Lấy data thu mua từ dân cho việc tạo mới phụ lục X """
+    
+    id_lenh_san_xuat = request.GET.get('id_lenh_san_xuat')
+    if not id_lenh_san_xuat:
+        return JsonResponse({'success': False, 'error': 'Missing id_lenh_san_xuat'})
+    
+    # Sử dụng subquery để tối ưu hiệu suất
+    existing_bang_ke_ids = PhuLucX.objects.values_list("id_bang_ke_thu_mua_tu_dan", flat=True)
+    
+    # Tối ưu query bằng cách kết hợp select_related và annotate
+    ct_thu_mua_data = CtBangKeThuMuaTuDan.objects.filter(
+        id_bang_ke_thu_mua_tu_dan__id_lenh_san_xuat_id=id_lenh_san_xuat
+    ).exclude(
+        id_bang_ke_thu_mua_tu_dan_id__in=existing_bang_ke_ids
+    ).select_related(
+        'id_bang_ke_thu_mua_tu_dan__id_san_pham',
+        'id_nguoi_ban'
+    ).values(
+        'id_bang_ke_thu_mua_tu_dan',
+        'ten_nguyen_lieu',
+        'id_bang_ke_thu_mua_tu_dan__id_san_pham',
+        'id_bang_ke_thu_mua_tu_dan__ngay_lap_giay_to'
+    ).annotate(
+        tong_so_luong=Sum(
+            Cast('so_luong', DecimalField(max_digits=10, decimal_places=3))
+        ),
+        tong_thanh_tien=Sum(
+            Cast('so_luong', DecimalField(max_digits=10, decimal_places=3)) * 
+            Cast('don_gia', DecimalField(max_digits=15, decimal_places=2))
+        ),
+        dia_chi=Min('id_nguoi_ban__dia_chi')
+    )
+    
+    # Lấy ma_hs trong một query duy nhất
+    if ct_thu_mua_data:
+        ids_hang_hoa = {item['id_bang_ke_thu_mua_tu_dan__id_san_pham'] for item in ct_thu_mua_data}
+        ma_hs_dict = dict(
+            VatTu.objects.filter(id_san_pham__in=ids_hang_hoa)
+            .values_list('id_san_pham', 'ma_hs')
+        )
+        
+        # Gán ma_hs vào kết quả
+        for item in ct_thu_mua_data:
+            item['ma_hs'] = ma_hs_dict.get(item['id_bang_ke_thu_mua_tu_dan__id_san_pham'])
+    
+    return JsonResponse({
+        'success': True, 
+        'dict_ct_thu_mua_tu_dan': list(ct_thu_mua_data)
+    })
+
+@require_POST
+@transaction.atomic
+def phu_luc_x_create(request):
+    
+    try:
+        data = json.loads(request.body)
+
+    except Exception as e:
+        return JsonResponse({'success':False,'message': f'Dữ liệu đầu vào không hợp lệ: {str(e)} !'})
+
+    # Tạo các obj phụ lục x
+    obj_phu_luc_x = [
+        PhuLucX(
+            id_bang_ke_thu_mua_tu_dan_id = item.get('id_bang_ke_thu_mua_tu_dan'),
+            ten_hang_hoa = item.get('ten_hang_hoa'),
+            ghi_chu = item.get("ghi_chu"),
+            ngay_lap_giay_to = item.get("ngay_lap_phu_luc_x")
+        )
+        for item in data
+    ] 
+
+    # Tạo mới hàng loạt các item phụ lục x
+    PhuLucX.objects.bulk_create(obj_phu_luc_x)
+    
+    return JsonResponse({'success': True, "message": "Tạo mới các mục đã chọn thành công"})
+
+@require_POST
+@transaction.atomic
+def phu_luc_x_delete(request, pk):
+    """API XÓA thông tin Phụ lục X """
+
+    if not pk:
+        return JsonResponse({'success':False,'message': f'Thiếu id muốn xóa !'})
+    
+    PhuLucX.objects.filter(id = pk).delete()
+    
+    return JsonResponse({'success': True, "message": "Xóa mục đã chọn thành công"})
+
+
+@require_POST
+@transaction.atomic
+def phu_luc_x_update(request, pk):
+    """API Update lại thông tin Phụ lục X """
+    
+    # Lấy data update
+    try:
+        data = json.loads(request.body)    
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Invalid JSON data, {e}'}, status=400)        
+
+    # Kiểm tra có tồn tại id bản ghi cần update không
+    if not pk:
+        return JsonResponse({'success':False,'message': f'Thiếu id muốn xóa !'})
+
+    # Lấy ra bạn ghi cần update
+    phu_luc_x = get_object_or_404(PhuLucX, pk=pk)
+
+    # Update thông tin
+    phu_luc_x.ten_hang_hoa = data.get("ten_hang_hoa")
+    phu_luc_x.ngay_lap_giay_to = data.get("ngay_lap_giay_to")
+    phu_luc_x.ghi_chu = data.get("ghi_chu")
+
+    # Lưu thông tin
+    phu_luc_x.save()
+    
+    return JsonResponse({'success': True, "message": "Cập nhật thành công"})
+
+
+def phu_luc_x_export(request, pk):
+    """Tối ưu hóa view export - ngắn gọn và hiệu quả"""
+    
+    format_type = request.GET.get('format')
+    if format_type not in ['pdf', 'word']:
+        return JsonResponse({'success': False, 'error': 'Định dạng xuất file không đúng!'})
+    
+    # Lấy dữ liệu với annotation tối ưu
+    phu_luc_x_item = get_object_or_404(
+        PhuLucX.objects.select_related(
+            "id_bang_ke_thu_mua_tu_dan__id_lenh_san_xuat"
+        ).annotate(
+            tong_so_luong=Sum(
+                Cast('id_bang_ke_thu_mua_tu_dan__ctbangkethumuatudan__so_luong', 
+                    DecimalField(max_digits=10, decimal_places=3))
+            ),
+            tong_thanh_tien=Sum(
+                Cast('id_bang_ke_thu_mua_tu_dan__ctbangkethumuatudan__so_luong', 
+                    DecimalField(max_digits=10, decimal_places=3)) * 
+                Cast('id_bang_ke_thu_mua_tu_dan__ctbangkethumuatudan__don_gia', 
+                    DecimalField(max_digits=15, decimal_places=2))
+            ),
+            dia_chi=Min('id_bang_ke_thu_mua_tu_dan__ctbangkethumuatudan__id_nguoi_ban__dia_chi')
+        ),
+        id=pk
+    )
+    
+    # Lấy mã HS
+    ma_hs = VatTu.objects.filter(
+        id_san_pham=phu_luc_x_item.id_bang_ke_thu_mua_tu_dan.id_san_pham
+    ).values_list('ma_hs', flat=True).first() or ''
+    
+    # Xây dựng dữ liệu export
+    phu_luc_x = {
+        'id': phu_luc_x_item.id,
+        'ngay_lap_giay_to': phu_luc_x_item.ngay_lap_giay_to,
+        'ngay_bk_thu_mua_tu_dan': _format_date_range(phu_luc_x_item.id_bang_ke_thu_mua_tu_dan.ngay_lap_giay_to),
+        'id_lenh_san_xuat_id': phu_luc_x_item.id_bang_ke_thu_mua_tu_dan.id_lenh_san_xuat_id,
+        'ten_hang_hoa': phu_luc_x_item.ten_hang_hoa,
+        'ma_hs': ma_hs,
+        'ghi_chu': phu_luc_x_item.ghi_chu,
+        'so_luong_mua_tu_dan': phu_luc_x_item.tong_so_luong or 0,
+        'tri_gia_mua_tu_dan': phu_luc_x_item.tong_thanh_tien or 0,
+        'dia_chi': _format_address(phu_luc_x_item.dia_chi or '')
+    }
+    
+    # Xử lý export theo format
+    if format_type == 'pdf':
+        return render(request, 'form/phu_luc_x_pdf.html', {'phu_luc_x': phu_luc_x})
+    elif format_type == 'word':
+
+        # Tạo file docx trong bộ nhớ
+        file_stream = _create_phu_luc_x_docx(phu_luc_x)
+
+        # Tạo một HttpResponse để trả file về
+        response = HttpResponse(
+            file_stream.read(),
+            content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        )
+        response['Content-Disposition'] = f'attachment; filename="Phu_Luc_X-101030-{phu_luc_x.get("id")}-{phu_luc_x.get("ngay_lap_giay_to")}.docx"'
+    
+    return response
+
+
+def _format_date_range(date_str):
+    """Định dạng chuỗi ngày tháng có dạng range"""
+    if not date_str:
+        return ''
+    
+    date_str = str(date_str).strip()
+    if '-' not in date_str:
+        return date_str
+    
+    parts = date_str.split('-')
+    # Nếu hai phần giống nhau, chỉ lấy một
+    if len(parts) == 2 and parts[0].strip() == parts[1].strip():
+        return parts[0].strip()
+    
+    return date_str.strip('-')
+
+
+def _format_address(address_str):
+    """Định dạng địa chỉ theo cấu trúc xã-huyện-tỉnh"""
+    if not address_str:
+        return ''
+    
+    parts = [part.strip() for part in address_str.strip().split('-') if part.strip()]
+    
+    if len(parts) == 3:
+        return f"xã {parts[0]}, huyện {parts[1]}, tỉnh {parts[2]}"
+    elif len(parts) == 2:
+        return f"xã {parts[0]}, tỉnh {parts[1]}"
+    elif len(parts) == 1:
+        return f"tỉnh {parts[0]}"
+    
+    return address_str
+
+
+def _create_phu_luc_x_docx(data):
+    """
+    Tạo file Word cho Phụ lục X với các định dạng đã được cập nhật.
+    """
+    document = Document()
+
+    # --- 1. Thiết lập lề và font chữ mặc định ---
+    for section in document.sections:
+        section.top_margin = Cm(2)
+        section.bottom_margin = Cm(2)
+        section.left_margin = Cm(2.5) # Tăng lề trái một chút
+        section.right_margin = Cm(2)
+    
+    style = document.styles['Normal']
+    font = style.font
+    font.name = 'Times New Roman'
+    font.size = Pt(14)
+
+    # --- 2. Tiêu đề ---
+    # Sử dụng hàm để tránh lặp code
+    def add_formatted_paragraph(text, size, bold=False, italic=False, align='CENTER'):
+        p = document.add_paragraph()
+        p.alignment = getattr(WD_ALIGN_PARAGRAPH, align)
+        # Giảm khoảng cách giữa các đoạn để tiết kiệm diện tích
+        p.paragraph_format.space_before = Pt(0)
+        p.paragraph_format.space_after = Pt(6)
+        run = p.add_run(text)
+        run.font.size = Pt(size)
+        run.bold = bold
+        run.italic = italic
+        return p
+
+    add_formatted_paragraph('PHỤ LỤC X', 16, bold=True)
+    add_formatted_paragraph('BẢN KHAI BÁO XUẤT XỨ CỦA NHÀ SẢN XUẤT/\nNHÀ CUNG CẤP NGUYÊN LIỆU TRONG NƯỚC', 16, bold=True)
+    add_formatted_paragraph('(ban hành kèm theo thông tư số 05/2018/TT-BCT ngày 03/4/2018 quy định về xuất xứ hàng hoá)', 13, italic=True)
+    
+    # Thêm khoảng trống nhỏ sau tiêu đề
+    document.add_paragraph().paragraph_format.space_after = Pt(12)
+
+    # --- 3. Phần thông tin ---
+    def add_info_line(label, value):
+        p = document.add_paragraph()
+        p.paragraph_format.space_before = Pt(0)
+        p.paragraph_format.space_after = Pt(2) # Giảm khoảng cách dòng
+        p.add_run(label).bold = True
+        p.add_run(value)
+
+    add_info_line('Tên nhà sản xuất: ', 'Công ty cổ phần Tân Phong')
+    add_info_line('Mã số doanh nghiệp: ', '2600274542')
+    document.add_paragraph() # Dòng trống
+
+    add_info_line('Mặt hàng: ', str(data.get('ten_hang_hoa', '')))
+    
+    # Làm tròn 2 chữ số thập phân
+    so_luong_str = f"{data.get('so_luong_mua_tu_dan', 0):,.2f} kgs".replace(',', 'X').replace('.', ',').replace('X', '.')
+    tri_gia_str = f"{data.get('tri_gia_mua_tu_dan', 0):,.2f} vnđ".replace(',', 'X').replace('.', ',').replace('X', '.')
+    add_info_line('Tổng Số lượng: ', so_luong_str)
+    add_info_line('Tổng trị giá: ', tri_gia_str)
+
+    ngay_bk_str = data.get('ngay_bk_thu_mua_tu_dan')
+    
+    add_info_line('', f"Theo bảng kê thu mua {data.get('ten_hang_hoa', '')} ngày {ngay_bk_str} tại {data.get('dia_chi', '')}.")
+    
+    document.add_paragraph() # Dòng trống
+
+    # --- 4. Đoạn cam kết ---
+    def add_declaration_paragraph(text):
+        p = document.add_paragraph(text)
+        p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+        p.paragraph_format.first_line_indent = Cm(0)
+        p.paragraph_format.space_before = Pt(6)
+        p.paragraph_format.space_after = Pt(6)
+        return p
+
+    add_declaration_paragraph(
+        f"Công ty cổ phần Tân Phong xác nhận rằng Nguyên liệu {data.get('ten_hang_hoa', '')} "
+        f"có HS code {data.get('ma_hs', '')} khai tại văn bản này được thu mua tại {data.get('dia_chi', '')}, "
+        "có xuất xứ việt nam và đạt tiêu chí xuất xứ WO theo quy định tại Chương quy tắc hàng hoá "
+        "trong điều 7 nghị định 31/2018/NĐ-CP ngày 08/3/2018 quy định về xuất xứ hàng hoá."
+    )
+    add_declaration_paragraph(
+        "Công ty cam kết thông tin khai báo trên là đúng và chịu trách nhiệm trước pháp luật về thông tin đã khai."
+    )
+
+    # --- 5. Phần chữ ký ---
+    # Sử dụng bảng để căn chỉnh khối chữ ký
+    table = document.add_table(rows=1, cols=2)
+    table.columns[0].width = Cm(8) # Cột trái rỗng để đẩy khối chữ ký sang phải
+    table.columns[1].width = Cm(8) # Cột phải chứa chữ ký
+    
+    sig_cell = table.cell(0, 1)
+    
+    # Định dạng ngày tháng
+    ngay_lap_str = ''
+    if ngay_lap_input := data.get('ngay_lap_giay_to'):
+        ngay_lap_obj = datetime.strptime(str(ngay_lap_input), '%Y-%m-%d')
+        ngay_lap_str = f"Phú thọ, ngày {ngay_lap_obj.strftime('%d')} tháng {ngay_lap_obj.strftime('%m')} năm {ngay_lap_obj.strftime('%Y')}"
+
+    # Thêm các dòng vào ô của bảng
+    p_date = sig_cell.add_paragraph(ngay_lap_str)
+    p_date.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_date.runs[0].italic = True
+    p_date.runs[0].font.size = Pt(12)
+
+    p_title = sig_cell.add_paragraph("Người Đại Diện Theo Pháp Luật Của Thương Nhân")
+    p_title.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_title.runs[0].bold = True
+    p_title.runs[0].font.size = Pt(14)
+
+    p_instr = sig_cell.add_paragraph("(Ký, đóng dấu, ghi rõ họ tên)")
+    p_instr.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p_instr.runs[0].italic = True
+    p_instr.runs[0].font.size = Pt(12)
+
+    # --- 6. Lưu file vào stream ---
+    file_stream = BytesIO()
+    document.save(file_stream)
+    file_stream.seek(0)
+    return file_stream

@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Quản lý Tỉ lệ phối trộn{% endblock %}
+
+{% block css %}
+<link rel="stylesheet" href="{% static 'css/blending_ratios.css' %}">
+{% endblock %}
+
+{% block content %}
+<div id="blending-ratio-management" class="module-content">
+    <h2 class="module-title">Quản lý Tỉ lệ phối trộn</h2>
+
+    <div class="actions-bar">
+        <div class="search-container">
+            <input type="text" id="ratio-search-input" class="form-control" placeholder="Tìm kiếm theo mã đơn hàng, mã sản xuất...">
+            <button id="ratio-search-btn" class="btn btn-primary">Tìm kiếm</button>
+        </div>
+        <a href="{% url 'blending_ratios_create' %}" id="add-new-ratio-btn" class="btn btn-success">
+            <i class="fas fa-plus"></i>
+            <span>Thêm mới</span>
+        </a>
+    </div>
+
+    {% if unprocessed_order_ids %}
+        <div class="notification-bar warning">
+            <i class="fas fa-info-circle"></i>
+            <span>
+                <strong>Thông báo:</strong> Các lệnh sản xuất sau chưa có tỉ lệ phối trộn:
+                {% for item in unprocessed_order_ids %}
+                    <a href="{% url 'blending_ratios_create' %}?lsx_id={{ item }}">{{ item|default_if_none:'' }}</a>{% if not forloop.last %}, {% endif %}
+                {% endfor %}
+                Vui lòng tạo mới.
+            </span>
+        </div>
+    {% else %}
+        <div class="notification-bar success">
+            <i class="fas fa-check-circle"></i>
+            <span>
+                <strong>Hoàn tất:</strong> Tất cả các lệnh sản xuất đã có tỉ lệ phối trộn.
+            </span>
+        </div>
+    {% endif %}
+    <div class="table-container">
+        <table class="standard-table">
+        <thead>
+            <tr>
+                <th>Mã đơn hàng</th>
+                <th>Mã sản xuất</th>
+                <th>Tổng số lượng sản phẩm</th>
+                <th>Tổng trọng lượng (kg)</th>
+                <th>Thao tác</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in blending_data %}
+            <tr>
+                <td>{{ item.formatted_id_don_hang|default_if_none:'' }}</td>
+                <td>{{ item.id_lenh_san_xuat|default_if_none:'' }}</td>
+                <td>{{ item.total_san_pham }}</td>
+                <td>{{ item.total_nguyen_vat_lieu }}</td>
+                <td>
+                    <div class="action-buttons">
+                        <a href="{% url 'blending_ratios_detail' item.id_lenh_san_xuat %}?mode=view" class="btn btn-sm btn-outline-dark">
+                            <i class="fas fa-eye"></i> Chi tiết
+                        </a>
+                        <a href="{% url 'blending_ratios_detail' item.id_lenh_san_xuat %}?mode=edit" class="btn btn-sm btn-outline-primary">
+                            <i class="fas fa-edit"></i> Sửa
+                        </a>
+                        <button class="btn btn-sm btn-outline-danger btn-delete-ratio" 
+                                data-pk="{{ item.id_lenh_san_xuat }}" 
+                                title="Xóa tỉ lệ này">
+                            <i class="fas fa-trash-alt"></i> Xóa
+                        </button>
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5" class="empty-message">Chưa có tỉ lệ phối trộn nào được tạo.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
+
+{% block javascript %}
+<script src="{% static 'js/blending_ratios.js' %}"></script>
+{% endblock %}

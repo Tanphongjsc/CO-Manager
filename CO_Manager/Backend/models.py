@@ -34,7 +34,7 @@ class BangKeThuMuaTuDan(models.Model):
     dia_chi_to_chuc_thu_mua = models.CharField(blank=True, null=True)
     nguoi_thu_mua = models.CharField(blank=True, null=True)
     hoa_don = models.BooleanField(blank=True, null=True)
-
+    
     class Meta:
         managed = False
         db_table = 'BANG_KE_THU_MUA_TU_DAN'
@@ -131,6 +131,38 @@ class CtLenhSanXuat(models.Model):
         managed = False
         db_table = 'CT_LENH_SAN_XUAT'
 
+class CtLenhSanXuatOriginal(models.Model):
+    id_ct_lenh_san_xuat = models.BigAutoField(primary_key=True)
+    id_lenh_san_xuat = models.ForeignKey('LenhSanXuat', models.DO_NOTHING, db_column='id_lenh_san_xuat')
+    id_san_pham = models.ForeignKey('VatTu', models.DO_NOTHING, db_column='id_san_pham')
+    ten_san_pham = models.CharField(blank=True, null=True)
+    id_nguyen_vat_lieu = models.ForeignKey('VatTu', models.DO_NOTHING, db_column='id_nguyen_vat_lieu', related_name='ctlenhsanxuatoriginal_id_nguyen_vat_lieu_set')
+    so_luong_san_pham = models.FloatField(blank=True, null=True)
+    so_luong_nguyen_vat_lieu = models.FloatField(blank=True, null=True)
+    ghi_chu = models.TextField(blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = 'CT_LENH_SAN_XUAT_ORIGINAL'
+        db_table_comment = 'Dữ liệu chi tiết lệnh sản xuất gốc được đồng bộ từ Cloudify (sử dụng cho việc sản xuất của nhà máy)'
+
+
+class CtLenhSanXuatOriginal(models.Model):
+    id_ct_lenh_san_xuat = models.BigAutoField(primary_key=True)
+    id_lenh_san_xuat = models.ForeignKey('LenhSanXuat', models.DO_NOTHING, db_column='id_lenh_san_xuat')
+    id_san_pham = models.ForeignKey('VatTu', models.DO_NOTHING, db_column='id_san_pham')
+    ten_san_pham = models.CharField(blank=True, null=True)
+    id_nguyen_vat_lieu = models.ForeignKey('VatTu', models.DO_NOTHING, db_column='id_nguyen_vat_lieu', related_name='ctlenhsanxuatoriginal_id_nguyen_vat_lieu_set')
+    so_luong_san_pham = models.FloatField(blank=True, null=True)
+    so_luong_nguyen_vat_lieu = models.FloatField(blank=True, null=True)
+    ghi_chu = models.TextField(blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = 'CT_LENH_SAN_XUAT_ORIGINAL'
+        db_table_comment = 'Dữ liệu chi tiết lệnh sản xuất gốc được đồng bộ từ Cloudify (sử dụng cho việc sản xuất của nhà máy)'
+
+
 
 class LenhSanXuat(models.Model):
     id_lenh_san_xuat = models.CharField(primary_key=True)
@@ -156,6 +188,16 @@ class Nguoi(models.Model):
         db_table = 'NGUOI'
         db_table_comment = 'Thông tin người bán hoặc mua'
 
+class PhuLucX(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    ngay_lap_giay_to = models.DateField()
+    id_bang_ke_thu_mua_tu_dan = models.ForeignKey(BangKeThuMuaTuDan, models.DO_NOTHING, db_column='id_bang_ke_thu_mua_tu_dan', blank=True, null=True)
+    ten_hang_hoa = models.CharField(blank=True, null=True)
+    ghi_chu = models.TextField(blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = 'PHU_LUC_X'
 
 class VatTu(models.Model):
     ten_sp_chinh = models.CharField()

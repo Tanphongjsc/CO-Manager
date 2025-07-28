@@ -1,0 +1,387 @@
+/* phu_luc_x.css */
+
+/* === Thanh hành động (Actions Bar) === */
+.actions-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-bottom: 1.5rem;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.search-selector-group {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex: 1 1 400px;
+}
+
+.search-selector-group label {
+  white-space: nowrap;
+  font-weight: 500;
+  font-size: 0.95rem;
+  color: #374151;
+}
+
+#add-appendix-btn {
+  flex-shrink: 0;
+  padding: 0.5rem 1rem;
+}
+
+/* === Bảng dữ liệu và thanh cuộn === */
+.table-container {
+    overflow-x: auto;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    margin-top: 1rem;
+}
+
+.standard-table {
+    width: 100%;
+    min-width: 950px;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+}
+
+.standard-table th {
+    font-weight: 600;
+    text-align: left;
+    padding: 12px 16px;
+    background-color: #f9fafb;
+    color: #4b5563;
+    border-bottom: 2px solid #e5e7eb;
+    white-space: nowrap;
+}
+
+.standard-table td {
+    padding: 12px 16px;
+    color: #374151;
+    border-bottom: 1px solid #e5e7eb;
+    vertical-align: middle;
+}
+
+.standard-table th:nth-child(6),
+.standard-table td:nth-child(6),
+.standard-table th:nth-child(8),
+.standard-table td:nth-child(8) {
+    white-space: normal;
+    min-width: 200px;
+}
+
+.standard-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.standard-table td:last-child {
+    text-align: right;
+}
+
+/* === Nút thao tác trong bảng === */
+.action-buttons {
+    display: flex;
+    flex-wrap: nowrap;
+    gap: 8px;
+    justify-content: flex-start;
+}
+
+/* === Tùy chỉnh giao diện Select2 === */
+.search-selector-group .select2-container {
+  width: 100% !important;
+  max-width: 550px;
+}
+
+.select2-container .select2-selection--single {
+  height: calc(1.5em + 0.75rem + 8px); 
+  display: flex;
+  align-items: center;
+  border: 1px solid #d1d5db;
+  border-radius: 6px;
+  background-color: #fff;
+  transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+  position: relative;
+}
+
+.select2-container--open .select2-selection--single {
+  border-color: #3b82f6;
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+}
+
+.select2-container .select2-selection--single .select2-selection__rendered {
+  padding-left: 0.5rem;
+  padding-right: 50px !important; 
+  color: #1f2937;
+  line-height: normal;
+}
+
+.select2-container .select2-selection--single .select2-selection__placeholder {
+  color: #9ca3af;
+}
+
+.select2-container .select2-selection--single .select2-selection__arrow {
+  height: 100%; position: absolute; top: 0px; right: 6px;
+  display: flex; align-items: center;
+}
+
+.select2-container .select2-selection--single .select2-selection__arrow b {
+  border-color: #6b7280 transparent transparent transparent;
+  border-width: 5px 4px 0 4px;
+}
+
+.select2-container--open .select2-selection--single .select2-selection__arrow b {
+  border-color: transparent transparent #6b7280 transparent;
+  border-width: 0 4px 5px 4px;
+}
+
+.select2-container .select2-selection--single .select2-selection__clear {
+    position: absolute; right: 25px; top: 50%;
+    transform: translateY(-50%);
+    font-size: 1.25em; line-height: 1; cursor: pointer;
+    font-weight: bold; color: #9ca3af;
+    margin: 0; padding: 0; height: auto;
+}
+.select2-container .select2-selection--single .select2-selection__clear:hover {
+    color: #374151;
+}
+
+.select2-dropdown {
+  border: 1px solid #d1d5db; border-radius: 6px;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+  background-color: #fff;
+}
+
+.select2-search--dropdown .select2-search__field {
+  border: 1px solid #d1d5db; border-radius: 4px;
+  padding: 0.65rem; outline: none;
+}
+
+.select2-results__option--highlighted.select2-results__option--selectable {
+  background-color: #3b82f6; color: white;
+}
+
+/* === Modal Styles === */
+.modal {
+  display: none; position: fixed; z-index: 1000; left: 0; top: 0; width: 100%; height: 100%;
+  overflow: auto; background-color: rgba(17, 24, 39, 0.6); padding: 1rem;
+}
+
+.modal-content {
+  background-color: #f9fafb; margin: auto; padding: 1.5rem 2rem; border: 1px solid #e5e7eb;
+  width: 90%; border-radius: 12px;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  max-height: 95vh;
+}
+
+.modal-content.large {
+    max-width: none;
+    width: 95%;
+}
+
+.modal-content:not(.large) {
+    max-width: 850px;
+}
+
+.close {
+  color: #9ca3af; position: absolute; top: 1rem; right: 1rem; font-size: 24px;
+  font-weight: normal; line-height: 1; transition: color 0.2s ease-in-out;
+}
+.close:hover, .close:focus { color: #1f2937; text-decoration: none; cursor: pointer; }
+
+.modal-content h3 {
+  margin-top: 0; margin-bottom: 1.5rem; padding-bottom: 1rem; border-bottom: 1px solid #e5e7eb;
+  text-align: center; color: #111827; font-size: 1.25rem; font-weight: 600;
+  flex-shrink: 0;
+}
+
+/* === Khu vực nút bấm trong modal === */
+.modal-content .form-actions {
+  flex-shrink: 0;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.export-buttons {
+    display: flex;
+    gap: 0.75rem;
+    margin-right: auto;
+}
+
+.btn-outline-primary {
+    background-color: transparent;
+    border: 1px solid #0d6efd;
+    color: #0d6efd;
+    transition: all 0.2s ease-in-out;
+}
+.btn-outline-primary:hover {
+    background-color: #0d6efd;
+    color: #fff;
+}
+.btn-outline-danger {
+    background-color: transparent;
+    border: 1px solid #dc3545;
+    color: #dc3545;
+    transition: all 0.2s ease-in-out;
+}
+.btn-outline-danger:hover {
+    background-color: #dc3545;
+    color: #fff;
+}
+
+
+/* === Giao diện Modal Xem Chi Tiết (ĐÃ THIẾT KẾ LẠI) === */
+.details-grid {
+    display: grid;
+    /* 2 cặp cột Nhãn-Giá trị */
+    grid-template-columns: max-content 1fr max-content 1fr;
+    gap: 1.2rem 2.5rem; /* Tăng khoảng cách cột */
+}
+
+.details-grid dt {
+    font-weight: 500;
+    color: #6b7280; /* Màu xám cho nhãn */
+    align-self: start;
+}
+
+.details-grid dd {
+    margin: 0;
+    font-weight: 500;
+    color: #111827;
+    word-break: break-word;
+    align-self: start;
+}
+
+/* Style cho các trường full-width để tạo nhóm riêng */
+.details-grid dt.full-width {
+    grid-column: 1 / -1; /* Chiếm toàn bộ chiều rộng */
+    font-weight: 600;
+    color: #374151;
+    /* Đường kẻ phía trên để tạo sự phân tách trực quan */
+    border-top: 1px solid #e9ecef;
+    margin-top: 1rem;
+    padding-top: 1rem;
+}
+
+.details-grid dd.full-width {
+    grid-column: 1 / -1;
+    line-height: 1.6;
+    color: #374151;
+    /* Khoảng cách nhỏ với nhãn phía trên */
+    margin-top: -0.5rem;
+}
+
+/* === Tùy chỉnh Modal Thêm Mới === */
+div#addAppendixModal .standard-table th:last-child,
+div#addAppendixModal .standard-table td:last-child {
+    min-width: 250px;
+}
+
+/* === Layout và Spinner trong Modal Thêm Mới === */
+div#addAppendixModal .modal-content form,
+div#editAppendixModal .modal-content form {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  min-height: 0;
+}
+
+div#addAppendixModal .data-preview-container {
+  position: relative; 
+  flex-grow: 1;
+  min-height: 200px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background-color: #fff;
+  padding: 0.5rem;
+  display: flex;
+}
+
+div#addAppendixModal #modal-loading-spinner {
+  position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+  display: none; flex-direction: column; justify-content: center;
+  align-items: center; background-color: rgba(255, 255, 255, 0.85);
+  z-index: 10; border-radius: 6px;
+}
+
+div#addAppendixModal .table-container {
+  flex-grow: 1;
+  overflow-y: auto;
+  max-height: 50vh;
+}
+.data-preview-container .table-container td,
+.data-preview-container .table-container th {
+    vertical-align: middle;
+}
+
+/* Tùy chỉnh bảng dữ liệu trong Modal Thêm Mới */
+div#addAppendixModal .table-container .standard-table {
+    width: 100%;
+    table-layout: auto;
+    font-size: 0.85rem;
+}
+
+div#addAppendixModal .table-container .standard-table th,
+div#addAppendixModal .table-container .standard-table td {
+    word-wrap: break-word;
+    padding: 0.5rem;
+}
+
+div#addAppendixModal .table-container .standard-table td input[type="text"],
+div#addAppendixModal .table-container .standard-table td input[type="date"] {
+    width: 100%; padding: 0.375rem 0.5rem; font-size: 0.875rem;
+    line-height: 1.5; color: #495057; background-color: #fff;
+    border: 1px solid #ced4da; border-radius: 0.25rem;
+    transition: border-color .15s ease-in-out,box-shadow .15s ease-in-out;
+    box-sizing: border-box;
+}
+div#addAppendixModal .table-container .standard-table td input:focus {
+    border-color: #86b7fe; outline: 0;
+    box-shadow: 0 0 0 0.25rem rgba(13,110,253,.25);
+}
+
+div#addAppendixModal .table-container .standard-table td:nth-child(1) {
+    text-align: center;
+}
+
+
+/* === Style cho các form group trong modal sửa === */
+#editAppendixModal .form-group {
+    margin-bottom: 1rem; /* Khoảng cách giữa các trường */
+}
+
+#editAppendixModal .form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+}
+
+#editAppendixModal .form-group .form-control {
+    width: 100%;
+    box-sizing: border-box;
+}
+
+
+/* === Responsive === */
+@media (max-width: 768px) {
+  .actions-bar { flex-direction: column; align-items: stretch; }
+  .search-selector-group { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+  
+  /* Cho layout lưới trong modal về 1 cột trên màn hình di động */
+  .details-grid {
+      grid-template-columns: 1fr;
+      gap: 0.8rem;
+  }
+  .details-grid dt.full-width {
+      margin-top: 1rem;
+  }
+}

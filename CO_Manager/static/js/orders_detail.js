@@ -54,33 +54,30 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('modal-product-quantity').textContent = productDetails[0].quantity;
                 document.getElementById('modal-product-unit').textContent = productDetails[0].unit;
                 
-                // Lưu trữ số lượng yêu cầu để sử dụng cho dòng tổng cộng
-                const totalQuantity = productDetails[0].quantity;
-                const productUnit = productDetails[0].unit;
-                
                 // Xóa dữ liệu cũ trong bảng nguyên vật liệu
                 const materialsTable = document.getElementById('modal-materials');
                 materialsTable.innerHTML = '';
                 
                 // Tạo bảng nguyên vật liệu từ dữ liệu thực
-                const materialsMap = new Map(); // Sử dụng Map để nhóm các nguyên vật liệu giống nhau
+                const materialsMap = new Map();
                 
                 productDetails.forEach(item => {
                     const key = item.materialName;
                     if (!materialsMap.has(key)) {
                         materialsMap.set(key, {
                             name: item.materialName,
-                            quantity: parseNumberWithComma(item.materialQuantity), // Sử dụng hàm helper
+                            quantity: parseNumberWithComma(item.materialQuantity),
                             unit: item.materialUnit
                         });
                     } else {
-                        // Cộng dồn số lượng nếu nguyên vật liệu đã tồn tại
                         const material = materialsMap.get(key);
-                        material.quantity += parseNumberWithComma(item.materialQuantity); // Sử dụng hàm helper
+                        material.quantity += parseNumberWithComma(item.materialQuantity);
                     }
                 });
                 
-                // Thêm dữ liệu vào bảng
+                let totalMaterialQuantity = 0; // 1. Khởi tạo biến tính tổng
+
+                // Thêm dữ liệu và tính tổng
                 materialsMap.forEach(material => {
                     const row = document.createElement('tr');
                     row.innerHTML = `
@@ -89,16 +86,21 @@ document.addEventListener('DOMContentLoaded', function() {
                         <td>${material.unit}</td>
                     `;
                     materialsTable.appendChild(row);
+
+                    totalMaterialQuantity += material.quantity; // 2. Cộng dồn số lượng vào biến tổng
                 });
                 
-                // Thêm dòng tổng cộng
+                // Thêm dòng tổng cộng với số liệu đã được tính toán chính xác
                 const totalRow = document.createElement('tr');
                 totalRow.className = 'total-row';
+                // 3. Sử dụng biến tổng và định dạng lại số, thêm 1 ô trống để căn chỉnh cột
                 totalRow.innerHTML = `
                     <td><strong>Tổng cộng</strong></td>
-                    <td><strong>${totalQuantity}</strong></td>
+                    <td><strong>${formatNumberWithComma(totalMaterialQuantity)}</strong></td>
+                    <td></td>
                 `;
                 materialsTable.appendChild(totalRow);
+
             }
             
             // Hiển thị modal

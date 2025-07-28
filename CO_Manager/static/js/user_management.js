@@ -45,6 +45,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 const userAddress = row.cells[4].textContent.trim();
                 const userRole = row.cells[5].textContent.trim();
 
+                // Tách địa chỉ thành các phần: Phường/Xã, Quận/Huyện, Tỉnh/Thành phố
+                // Giả sử định dạng là "Phường/Xã, Quận/Huyện, Tỉnh/Thành phố"
+                const addressParts = userAddress.split('-').map(part => part.trim());
+                const userWard = addressParts[0] || '';
+                const userDistrict = addressParts[1] || '';
+                const userProvince = addressParts[2] || '';
+
                 // Ánh xạ giá trị hiển thị sang giá trị 'value' của dropdown
                 let userRoleValue = '';
                 if (userRole === 'Người mua') {
@@ -68,7 +75,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.getElementById('edit-user-name').value = userName;
                 document.getElementById('edit-user-cmnd').value = userCmnd;
                 document.getElementById('edit-user-date').value = formattedDate;
-                document.getElementById('edit-user-address').value = userAddress;
+                document.getElementById('edit-user-province').value = userProvince;
+                document.getElementById('edit-user-district').value = userDistrict;
+                document.getElementById('edit-user-ward').value = userWard;
                 document.getElementById('edit-user-role').value = userRoleValue;
                 
                 // Hiển thị modal
@@ -89,7 +98,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 name: document.getElementById('add-user-name').value,
                 cmnd: document.getElementById('add-user-cmnd').value,
                 date: document.getElementById('add-user-date').value,
-                address: document.getElementById('add-user-address').value,
+                province: document.getElementById('add-user-province').value,
+                district: document.getElementById('add-user-district').value,
+                ward: document.getElementById('add-user-ward').value,
                 role: document.getElementById('add-user-role').value
             };
             
@@ -137,7 +148,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 name: document.getElementById('edit-user-name').value,
                 cmnd: document.getElementById('edit-user-cmnd').value,
                 date: document.getElementById('edit-user-date').value,
-                address: document.getElementById('edit-user-address').value,
+                province: document.getElementById('edit-user-province').value,
+                district: document.getElementById('edit-user-district').value,
+                ward: document.getElementById('edit-user-ward').value,
                 role: document.getElementById('edit-user-role').value
             };
             

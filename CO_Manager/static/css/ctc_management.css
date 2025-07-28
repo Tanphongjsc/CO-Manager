@@ -279,6 +279,15 @@
   box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
 }
 
+@media (min-width: 992px) {
+    /* * Sử dụng :has() để tìm mục .info-item chứa ô chọn #modal_id_san_pham.
+     * Thuộc tính 'grid-column: span 2' sẽ làm cho mục này chiếm chiều rộng của 2 cột trong grid.
+    */
+    .detail-info-grid .info-item:has(#modal_id_san_pham) {
+        grid-column: span 2;
+    }
+}
+
 /* === STYLES CHO VIEW/EDIT MODE TRONG MODAL FORM === */
 /* Edit mode styles */
 #ctcForm.edit-mode .form-control,
@@ -375,7 +384,7 @@
 
 .material-table {
   width: 100%;
-  min-width: 1200px;
+  min-width: 1600px;
   table-layout: auto;
   border-collapse: collapse;
   font-size: 0.875rem;
@@ -416,7 +425,18 @@
 #ctcModal .material-table td:nth-child(9) {
   min-width: 180px; /* Bạn có thể điều chỉnh giá trị này nếu muốn rộng hơn hoặc hẹp hơn */
 }
-
+#ctcModal .material-table th:nth-child(10), /* Loại phụ lục */
+#ctc-create .material-table th:nth-child(10) {
+  min-width: 140px; /* Mới */
+}
+#ctcModal .material-table th:nth-child(11), /* Ngày lập phụ lục */
+#ctc-create .material-table th:nth-child(11) {
+  min-width: 150px; /* Mới */
+}
+#ctcModal .material-table th:nth-child(12), /* Ghi chú */
+#ctc-create .material-table th:nth-child(12) {
+  min-width: 200px; /* Mới */
+}
 
 .material-table td input,
 .material-table td select,
