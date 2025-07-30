@@ -1727,19 +1727,21 @@ def blending_ratios_export(request, pk):
 # ==================== HELPER FUNCTIONS ====================
 def _get_vat_tu_info(id_san_pham):
     """
-    Get VatTu information by product ID - only for NVL-KHÔ items
+    Get VatTu information by product ID - exclude NVL-THÔ items
     Returns tuple: (vat_tu_object, ty_le_thu_hoi, don_vi_tinh, ten_nguyen_lieu, ma_hs)
     """
     try:
         if id_san_pham:
-            vat_tu = VatTu.objects.get(id_san_pham=id_san_pham, nhom_vthh='NVL - KHÔ')
-            return (
-                vat_tu,
-                vat_tu.ty_le_thu_hoi,
-                vat_tu.don_vi_tinh or 'kg',
-                vat_tu.ten_khac,
-                vat_tu.ma_hs
-            )
+            # SỬA: Lấy tất cả trừ NVL - THÔ
+            vat_tu = VatTu.objects.get(id_san_pham=id_san_pham)
+            if vat_tu.nhom_vthh != 'NVL - THÔ':  # Thêm điều kiện này
+                return (
+                    vat_tu,
+                    vat_tu.ty_le_thu_hoi,
+                    vat_tu.don_vi_tinh or 'kg',
+                    vat_tu.ten_khac,
+                    vat_tu.ma_hs
+                )
     except VatTu.DoesNotExist:
         pass
     return None, None, 'kg', None, ''
@@ -1768,14 +1770,13 @@ def _calculate_quantities(record, ty_le_thu_hoi):
 
 
 def _get_production_order_output_quantity(record):
-    """Get production order output quantity from CtLenhSanXuat - only for NVL-KHÔ items"""
+    """Get production order output quantity from CtLenhSanXuat - exclude NVL-THÔ items"""
     so_luong_san_pham_xuat = record.so_luong_san_pham_xuat
     try:
         ct_lenh_sx = CtLenhSanXuat.objects.filter(
             id_lenh_san_xuat=record.id_lenh_san_xuat,
             id_nguyen_vat_lieu__id_san_pham=record.id_san_pham,
-            id_nguyen_vat_lieu__nhom_vthh='NVL - KHÔ'
-        ).first()
+        ).exclude(id_nguyen_vat_lieu__nhom_vthh='NVL - THÔ').first()  
         
         if ct_lenh_sx:
             so_luong_san_pham_xuat = ct_lenh_sx.so_luong_nguyen_vat_lieu
@@ -1858,39 +1859,6 @@ def _parse_date(date_string):
         except ValueError:
             continue
     return date.today()
-
-
-def _update_vat_tu_recovery_rate(id_san_pham, ty_le_thu_hoi):
-    """Update recovery rate in VatTu table - only for NVL-KHÔ items"""
-    if not id_san_pham or ty_le_thu_hoi <= 0:
-        return
-    
-    try:
-        vat_tu = VatTu.objects.get(id_san_pham=id_san_pham, nhom_vthh='NVL - KHÔ')
-        vat_tu.ty_le_thu_hoi = ty_le_thu_hoi
-        vat_tu.save()
-    except VatTu.DoesNotExist:
-        pass
-
-
-def _update_production_order_detail(lenh_sx, id_san_pham, so_luong_san_pham_xuat):
-    """Update production order detail quantity - only for NVL-KHÔ items"""
-    if not id_san_pham:
-        return
-    
-    try:
-        ct_lenh_sx = CtLenhSanXuat.objects.filter(
-            id_lenh_san_xuat=lenh_sx,
-            id_nguyen_vat_lieu__id_san_pham=id_san_pham,
-            id_nguyen_vat_lieu__nhom_vthh='NVL - KHÔ'
-        ).first()
-        
-        if ct_lenh_sx:
-            ct_lenh_sx.so_luong_nguyen_vat_lieu = so_luong_san_pham_xuat
-            ct_lenh_sx.save()
-    except Exception as e:
-        print(f"Error updating production order detail: {e}")
-
 
 # ==================== ROLLBACK MAIN VIEWS ====================
 def rollback(request):
@@ -1986,9 +1954,11 @@ def rollback_create(request):
             id_san_pham = form_data['id_san_pham'][i] if i < len(form_data['id_san_pham']) else None
             if id_san_pham:
                 try:
-                    VatTu.objects.get(id_san_pham=id_san_pham, nhom_vthh='NVL - KHÔ')
+                    vat_tu = VatTu.objects.get(id_san_pham=id_san_pham)
+                    if vat_tu.nhom_vthh == 'NVL - THÔ':  # SỬA: Skip nếu là NVL - THÔ
+                        continue
                 except VatTu.DoesNotExist:
-                    # Skip this record if it's not NVL-KHÔ
+                    # Skip this record if VatTu doesn't exist
                     continue
             
             record_data = _process_single_material_record(form_data, i, lenh_sx)
@@ -2003,13 +1973,6 @@ def rollback_create(request):
                 )
                 if ty_le_thu_hoi > 1:
                     ty_le_thu_hoi = ty_le_thu_hoi / 100
-                
-                _update_vat_tu_recovery_rate(id_san_pham, ty_le_thu_hoi)
-                _update_production_order_detail(
-                    lenh_sx, 
-                    id_san_pham, 
-                    record_data.get('so_luong_san_pham_xuat', 0)
-                )
                 
         except Exception as e:
             print(f"Error processing material record {i}: {e}")
@@ -2205,7 +2168,7 @@ def get_lenh_san_xuat(request):
         # Lấy danh sách lệnh sản xuất đã có bảng kê trừ lùi (chỉ NVL-KHÔ)
         existing_lenh_sx = BangKeTruLuiNguyenLieu.objects.filter(
             id_lenh_san_xuat__id_don_hang=ma_don_hang,
-            id_san_pham__in=VatTu.objects.filter(nhom_vthh='NVL - KHÔ').values_list('id_san_pham', flat=True)
+            id_san_pham__in=VatTu.objects.exclude(nhom_vthh='NVL - THÔ').values_list('id_san_pham', flat=True)
         ).values_list('id_lenh_san_xuat__id_lenh_san_xuat', flat=True).distinct()
         
         # Lọc ra các lệnh sản xuất chưa có bảng kê
@@ -2230,14 +2193,12 @@ def get_lenh_san_xuat_detail(request):
             'message': 'Vui lòng cung cấp mã lệnh sản xuất'
         })
     
-    
     try:
         lenh_sx = LenhSanXuat.objects.get(id_lenh_san_xuat=ma_lenh_sx)
 
         ct_lenh_sx = CtLenhSanXuat.objects.filter(
             id_lenh_san_xuat=lenh_sx,
-            id_nguyen_vat_lieu__nhom_vthh='NVL - KHÔ'
-        )
+        ).exclude(id_nguyen_vat_lieu__nhom_vthh='NVL - THÔ')
 
         # Gộp theo tên_khac (tên nguyên liệu)
         nguyen_lieu_dict = {}
@@ -2245,7 +2206,7 @@ def get_lenh_san_xuat_detail(request):
         for item in ct_lenh_sx:
             vat_tu = item.id_nguyen_vat_lieu
 
-            if not vat_tu or vat_tu.nhom_vthh != 'NVL - KHÔ':
+            if not vat_tu or vat_tu.nhom_vthh == 'NVL - THÔ':
                 continue
 
             ten_nguyen_lieu = vat_tu.ten_khac or vat_tu.ten_sp_chinh
@@ -2302,7 +2263,7 @@ def check_rollback_exist(request):
     # Kiểm tra xem lệnh sản xuất đã có bảng kê trừ lùi chưa - chỉ NVL-KHÔ
     existing_rollback = BangKeTruLuiNguyenLieu.objects.filter(
         id_lenh_san_xuat__id_lenh_san_xuat=ma_lenh_sx,
-        id_san_pham__in=VatTu.objects.filter(nhom_vthh='NVL - KHÔ').values_list('id_san_pham', flat=True)
+        id_san_pham__in=VatTu.objects.exclude(nhom_vthh='NVL - THÔ').values_list('id_san_pham', flat=True)
     ).exists()
     
     return JsonResponse({
