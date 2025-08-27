@@ -191,7 +191,7 @@
             <div><strong>Tiêu chí áp dụng:</strong> WO</div>
             <div><strong>Tên hàng hóa:</strong> {{ record.ten_hang_hoa|default:"" }}</div>
             <div><strong>Mã HS của hàng hóa (6 số):</strong> {{ record.ma_hs|default:"" }}</div>
-            <div><strong>Tổng số lượng:</strong> {{ record.so_luong_wo|floatformat:3|default:"0.000" }} {{ record.don_vi_tinh|default:"KGM" }}</div>
+            <div><strong>Số lượng:</strong> {{ record.so_luong_wo|floatformat:3|default:"0.000" }} đơn vị tính KGM</div>
             <div><strong>Tổng trị giá (FOB):</strong> {{ record.tri_gia_fob|floatformat:1|default:"0.0" }} USD</div>
             
         </div>

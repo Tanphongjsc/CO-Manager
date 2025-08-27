@@ -111,6 +111,12 @@
         .total-col { width: 10%; }
         .note-col { width: 8%; }
         
+        /* Style cho dòng tổng cộng */
+        .total-row {
+            background-color: #e6e6e6;
+            font-weight: bold;
+        }
+        
         .summary-section {
             margin: 15px 0;
             font-size: 14px;
@@ -119,6 +125,13 @@
         
         .summary-total {
             font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        /* Style cho dòng bằng chữ */
+        .summary-words {
+            font-weight: bold;
+            font-style: italic;
             margin-bottom: 5px;
         }
         
@@ -239,7 +252,7 @@
     <table>
         <thead>
             <tr>
-                <th rowspan="2" class="date-col">Ngày tháng năm mua hàng</th>
+                <th rowspan="2" class="date-col">Ngày, tháng, năm mua hàng</th>
                 <th colspan="3" style="text-align: center;">Người bán</th>
                 <th colspan="5" style="text-align: center;">Hàng hóa mua vào</th>
                 <th rowspan="2" class="note-col">Ghi chú</th>
@@ -247,12 +260,12 @@
             <tr>
                 <th class="name-col">Tên người bán</th>
                 <th class="address-col">Địa chỉ</th>
-                <th class="id-col">Số CCCD</th>
+                <th class="id-col">Số CCCD/CMND</th>
                 <th class="product-col">Tên mặt hàng</th>
                 <th class="unit-col">Đơn vị tính</th>
                 <th class="quantity-col">Số lượng</th>
                 <th class="price-col">Đơn giá</th>
-                <th class="total-col">Tổng giá thành toàn</th>
+                <th class="total-col">Tổng giá thanh toán</th>
             </tr>
             <tr>
                 <th>1</th>
@@ -282,12 +295,23 @@
                 <td class="text-left">{{ detail.ghi_chu }}</td>
             </tr>
             {% endfor %}
+            <!-- DÒNG TỔNG CỘNG -->
+            <tr class="total-row">
+                <td colspan="6"><strong>TỔNG CỘNG</strong></td>
+                <td class="text-right"><strong>{{ tong_so_luong|floatformat:3|intcomma }}</strong></td>
+                <td></td>
+                <td class="text-right"><strong>{{ tong_thanh_tien|floatformat:0|intcomma }}</strong></td>
+                <td></td>
+            </tr>
         </tbody>
     </table>
 
     <div class="summary-section">
         <div class="summary-total">
             - Tổng giá trị hàng hóa mua vào: {{ tong_so_luong|floatformat:3|intcomma }} {{ don_vi_tinh|default:"KG" }} = {{ tong_thanh_tien|floatformat:0|intcomma }} VNĐ
+        </div>
+        <div class="summary-words">
+            - Bằng chữ: {{ tong_thanh_tien_chu }} đồng chẵn
         </div>
     </div>
 

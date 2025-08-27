@@ -3354,6 +3354,26 @@ def export_non_invoice_excel(context):
         'num_format': '#,##0'
     })
     
+    # Format cho dòng tổng cộng (in đậm)
+    total_row_format = workbook.add_format({
+        'font_name': 'Times New Roman',
+        'font_size': 11,
+        'bold': True,
+        'align': 'center',
+        'valign': 'vcenter',
+        'border': 1,
+    })
+    
+    total_row_right_format = workbook.add_format({
+        'font_name': 'Times New Roman',
+        'font_size': 11,
+        'bold': True,
+        'align': 'right',
+        'valign': 'vcenter',
+        'border': 1,
+        'num_format': '#,##0'
+    })
+    
     signature_format = workbook.add_format({
         'font_name': 'Times New Roman',
         'font_size': 11,
@@ -3435,7 +3455,7 @@ def export_non_invoice_excel(context):
     
     # Dòng header thứ hai
     row += 1
-    worksheet.write(f'B{row}', 'Ngày tháng năm\nmua hàng', 
+    worksheet.write(f'B{row}', 'Ngày, tháng, năm\nmua hàng', 
         workbook.add_format({
             'font_name': 'Times New Roman',
             'font_size': 11,
@@ -3448,7 +3468,7 @@ def export_non_invoice_excel(context):
         }))
     worksheet.write(f'C{row}', 'Tên người bán', table_header_format)
     worksheet.write(f'D{row}', 'Địa chỉ', table_header_format)
-    worksheet.write(f'E{row}', 'Số CCCD', table_header_format)
+    worksheet.write(f'E{row}', 'Số CCCD/CMND', table_header_format)
     worksheet.write(f'F{row}', 'Tên mặt hàng', table_header_format)
     worksheet.write(f'G{row}', 'Đơn vị\ntính', 
         workbook.add_format({
@@ -3463,7 +3483,7 @@ def export_non_invoice_excel(context):
         }))
     worksheet.write(f'H{row}', 'Số lượng', table_header_format)
     worksheet.write(f'I{row}', 'Đơn giá', table_header_format)
-    worksheet.write(f'J{row}', 'Tổng giá\nthành toàn', 
+    worksheet.write(f'J{row}', 'Tổng giá\nthanh toán', 
         workbook.add_format({
             'font_name': 'Times New Roman',
             'font_size': 11,
@@ -3496,8 +3516,21 @@ def export_non_invoice_excel(context):
         worksheet.write(row, 10, detail['ghi_chu'], cell_left_format)
         row += 1
     
+    # THÊM DÒNG TỔNG CỘNG
+    worksheet.write(row, 0, '', cell_format)  # STT trống
+    worksheet.write(row, 1, '', cell_format)  # Ngày trống  
+    worksheet.write(row, 2, '', cell_format)  # Họ tên trống
+    worksheet.write(row, 3, '', cell_format)  # CMND trống
+    worksheet.write(row, 4, '', cell_format)  # Địa chỉ trống
+    worksheet.write(row, 5, '', cell_format)  # Tên hàng trống
+    worksheet.write(row, 6, '', cell_format)  # Đơn vị trống
+    worksheet.write(row, 7, context['tong_so_luong'], total_row_right_format)  # Tổng số lượng
+    worksheet.write(row, 8, '', total_row_format)  # Cột đơn giá để trống
+    worksheet.write(row, 9, context['tong_thanh_tien'], total_row_right_format)  # Tổng thành tiền
+    worksheet.write(row, 10, '', total_row_format)  # Cột ghi chú để trống
+    
     # Total row - tách riêng không đè vào dữ liệu
-    row += 1
+    row += 2
     worksheet.merge_range(f'A{row}:K{row}', 
         f"- Tổng giá trị hàng hóa mua vào: {context['tong_so_luong']:,.3f} {context['don_vi_tinh']} = {context['tong_thanh_tien']:,.0f} VND", 
         workbook.add_format({
@@ -3505,6 +3538,19 @@ def export_non_invoice_excel(context):
             'font_size': 12, 
             'bold': True,
             'align': 'left'
+        }))
+    
+    # THÊM DÒNG BẰNG CHỮ
+    row += 1
+    tien_bang_chu = convert_number_to_vietnamese_words(context['tong_thanh_tien'])
+    worksheet.merge_range(f'A{row}:K{row}', 
+        f"- Bằng chữ: {tien_bang_chu} đồng chẵn", 
+        workbook.add_format({
+            'font_name': 'Times New Roman', 
+            'font_size': 12, 
+            'bold': True,
+            'align': 'left',
+            'italic': True
         }))
     
     # Ngày lập
@@ -3566,6 +3612,7 @@ def export_non_invoice_excel(context):
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     
     return response
+
 
 @require_GET
 def purchase_export_pdf(request, pk):
@@ -4462,11 +4509,12 @@ def export_combined_wo_word(combined_data, wo_records):
     # Row 4
     info_table.cell(3, 0).text = f'Địa chỉ nơi tổ chức thu mua: {record["dia_chi_thu_mua"] or ""}'
     info_table.cell(3, 1).text = ''
-    info_table.cell(3, 2).text = f'Số lượng: {record["so_luong_wo"]} {record["don_vi_tinh"]}'
+    info_table.cell(3, 2).text = f'Số lượng: {record["so_luong_wo"]} đơn vị tính KGM'
     
     # Row 5
-    info_table.cell(4, 0).text = f'Người phụ trách thu mua (Tên, số định danh cá nhân): {record["ten_nguoi"]}'
-    info_table.cell(4, 1).text = f'CCCD số: {record["cccd_cmnd"]}'
+    nguoi_phu_trach = f'{record["ten_nguoi"] if record["ten_nguoi"] else ""}, CCCD số: {record["cccd_cmnd"] if record["cccd_cmnd"] else ""}'
+    info_table.cell(4, 0).text = f'Người phụ trách thu mua (Tên, số định danh cá nhân): {nguoi_phu_trach}'
+    info_table.cell(4, 1).text = ''
     info_table.cell(4, 2).text = f'Trị giá (FOB): {record["tri_gia_fob"]} USD'
 
     # Set font cho info table
