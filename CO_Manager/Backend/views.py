@@ -391,8 +391,8 @@ def create_bang_ke_ctc_excel_response(data):
         ("Tiêu chí áp dụng:", "CC"),
         ("Tên hàng hoá:", ten_khac),
         ("Mã số của hàng hoá (6 số):", ma_hs),
-        ("Số lượng:", f"{data.get('so_luong', 0):,.0f} {don_vi_tinh}"),
-        ("Trị giá (FOB):", f"{data.get('tri_gia_fob', 0)}")
+        ("Số lượng:", f"{data.get('so_luong', 0):,.0f} đơn vị tính: Kgs"),
+        ("Trị giá (FOB):", f"{data.get('tri_gia_fob', 0):,.2f} USD")
     ]
     
     for i, (label, value) in enumerate(right_info_data):
@@ -411,70 +411,93 @@ def create_bang_ke_ctc_excel_response(data):
     # ===== PHẦN 3: BẢNG DỮ LIỆU (Giữ nguyên viền và màu) =====
     table_start_row = info_start_row + 5  # Giảm khoảng cách
     
-    # Header dòng 1: Tiêu đề chính
+    # Header dòng 1: Tiêu đề chính (giữ nguyên)
     headers_main = [
         ("STT", 1, 1, 1, 1),
         ("Tên Nguyên Liệu", 1, 1, 2, 2),
         ("Mã HS", 1, 1, 3, 3),
         ("Đơn vị tính", 1, 1, 4, 4),
-        ("Định mức sản phẩm hao hụt", 1, 1, 5, 5),
+        ("Định mức/sản phẩm, kể cả hao hụt", 1, 1, 5, 5),
         ("Nhu cầu nguyên liệu sử dụng cho lô hàng", 1, 1, 6, 8),
         ("Nước xuất xứ", 1, 1, 9, 9),
         ("Tờ khai hải quan nhập khẩu/Hoá đơn trị giá tăng", 1, 1, 10, 11),
-        ("C/O ưu đãi nhập khẩu bản khai của nhà sản xuất nhà cung cấp nguyên liệu trong nước", 1, 1, 12, 13)
+        ("C/O ưu đãi nhập khẩu /bản khai báo của nhà sản xuất /nhà cung cấp nguyên liệu trong nước", 1, 1, 12, 13)
     ]
-    
+
     for text, start_row_offset, end_row_offset, start_col, end_col in headers_main:
         cell = ws.cell(row=table_start_row, column=start_col, value=text)
         apply_cell_style(cell, font=styles['bold_font'], border=styles['border'], 
                         align=styles['center'], fill=styles['fill_header'])
         if start_col != end_col:
             ws.merge_cells(start_row=table_start_row, start_column=start_col,
-                          end_row=table_start_row, end_column=end_col)
-    
-    # Header dòng 2: Sub headers
-    sub_headers = [
+                        end_row=table_start_row, end_column=end_col)
+
+    # Header dòng 2: Sub headers, thêm Trị giá (VND) và merge 7-8
+    sub_headers_row2 = [
         ("Đơn giá", 6),
-        ("Có xuất xứ", 7),
-        ("Không có xuất xứ", 8),
+        ("Trị giá (VND)", 7),  # Sẽ merge với cột 8 sau
         ("Số", 10),
         ("Ngày", 11),
         ("Số", 12),
         ("Ngày", 13)
     ]
-    
-    for text, col in sub_headers:
+
+    for text, col in sub_headers_row2:
         cell = ws.cell(row=table_start_row + 1, column=col, value=text)
         apply_cell_style(cell, font=styles['bold_font'], border=styles['border'], 
                         align=styles['center'], fill=styles['fill_header'])
-    
-    # Header dòng 3: Số thứ tự cột
+
+    # Merge cho Trị giá (VND) ở dòng 2, cột 7-8
+    ws.merge_cells(start_row=table_start_row + 1, start_column=7,
+                end_row=table_start_row + 1, end_column=8)
+
+    # Header dòng 3: Sub-sub headers cho Có xuất xứ và Không có xuất xứ
+    sub_sub_headers_row3 = [
+        ("Có xuất xứ", 7),
+        ("Không có xuất xứ", 8)
+    ]
+
+    for text, col in sub_sub_headers_row3:
+        cell = ws.cell(row=table_start_row + 2, column=col, value=text)
+        apply_cell_style(cell, font=styles['bold_font'], border=styles['border'], 
+                        align=styles['center'], fill=styles['fill_header'])
+
+    # Header dòng 4: Số thứ tự cột (di chuyển xuống)
     column_numbers = ["(1)", "(2)", "(3)", "(4)", "(5)", "(6)", "(7)", "(8)", "(9)", "(10)", "(11)", "(12)", "(13)"]
     for i, num in enumerate(column_numbers, 1):
-        cell = ws.cell(row=table_start_row + 2, column=i, value=num)
+        cell = ws.cell(row=table_start_row + 3, column=i, value=num)
         apply_cell_style(cell, font=styles['info_font'], border=styles['border'], 
                         align=styles['center'], fill=styles['fill_header'])
-    
-    # Merge cells cho các cột không có sub-header
+
+    # Merge cells cho các cột không có sub-header (cập nhật để merge đến dòng 3)
     merge_ranges = [
-        (table_start_row, table_start_row + 1, 1, 1),  # STT
-        (table_start_row, table_start_row + 1, 2, 2),  # Tên Nguyên Liệu
-        (table_start_row, table_start_row + 1, 3, 3),  # Mã HS
-        (table_start_row, table_start_row + 1, 4, 4),  # Đơn vị tính
-        (table_start_row, table_start_row + 1, 5, 5),  # Định mức
-        (table_start_row, table_start_row + 1, 9, 9),  # Nước xuất xứ
+        (table_start_row, table_start_row + 2, 1, 1),  # STT
+        (table_start_row, table_start_row + 2, 2, 2),  # Tên Nguyên Liệu
+        (table_start_row, table_start_row + 2, 3, 3),  # Mã HS
+        (table_start_row, table_start_row + 2, 4, 4),  # Đơn vị tính
+        (table_start_row, table_start_row + 2, 5, 5),  # Định mức
+        (table_start_row, table_start_row + 2, 9, 9),  # Nước xuất xứ
+        
+        # Merge dòng 2-3 cho Đơn giá (cột 6)
+        (table_start_row + 1, table_start_row + 2, 6, 6),
+        
+        # Merge dòng 2-3 cho các sub ở cột 10-13
+        (table_start_row + 1, table_start_row + 2, 10, 10),
+        (table_start_row + 1, table_start_row + 2, 11, 11),
+        (table_start_row + 1, table_start_row + 2, 12, 12),
+        (table_start_row + 1, table_start_row + 2, 13, 13),
     ]
-    
+
     for start_row, end_row, start_col, end_col in merge_ranges:
         ws.merge_cells(start_row=start_row, start_column=start_col,
-                      end_row=end_row, end_column=end_col)
-    
-    # Tăng chiều cao cho header
-    for row in range(table_start_row, table_start_row + 3):
+                    end_row=end_row, end_column=end_col)
+
+    # Tăng chiều cao cho header (bây giờ là 4 dòng)
+    for row in range(table_start_row, table_start_row + 4):
         ws.row_dimensions[row].height = 30
     
     # ===== PHẦN 4: DỮ LIỆU NGUYÊN LIỆU =====
-    data_start_row = table_start_row + 3
+    data_start_row = table_start_row + 4
     chi_tiet_nguyen_lieu = data.get('chi_tiet_nguyen_lieu', [])
     
     for row_idx, material in enumerate(chi_tiet_nguyen_lieu):
@@ -559,7 +582,7 @@ def create_bang_ke_ctc_excel_response(data):
     ws.merge_cells(start_row=sig_row, start_column=9, end_row=sig_row, end_column=13)
     
     # Người đại diện (liền kề, không có border)
-    cell = ws.cell(row=sig_row + 1, column=9, value="NGƯỜI ĐẠI DIỆN THEO PHÁP LUẬT")
+    cell = ws.cell(row=sig_row + 1, column=9, value="Người đại diện theo pháp luật của thương nhân")
     apply_cell_style(cell, font=styles['bold_font'], align=styles['center'])
     ws.merge_cells(start_row=sig_row + 1, start_column=9, end_row=sig_row + 1, end_column=13)
     
