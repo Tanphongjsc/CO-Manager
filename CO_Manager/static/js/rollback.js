@@ -270,7 +270,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     sxInput.style.background = 'white';
                     ghiChuInput.style.border = '1px solid #ccc'; // THÊM DÒNG NÀY
                     ghiChuInput.style.background = 'white';
-                    ghiChuInput.style.resize = 'vertical';
+                    ghiChuInput.style.resize = 'none';
                     autoResizeTextarea(ghiChuInput);
                     this.textContent = 'Lưu';
                     this.style.background = '#dc3545'; // Đổi màu thành đỏ khi ở chế độ lưu
