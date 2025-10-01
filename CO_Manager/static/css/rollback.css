@@ -218,3 +218,38 @@
     border: 1px solid #ccc;
     border-radius: 4px;
 }
+
+/* Thêm style cho cột ghi chú */
+.data-table textarea[name="ghi_chu"]:not(:disabled) {
+    border: 1px solid #007bff !important;
+    background: white !important;
+    box-shadow: 0 0 3px rgba(0, 123, 255, 0.3);
+}
+
+.data-table textarea[name="ghi_chu"]:disabled {
+    border: none !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    color: #212529;
+}
+
+/* Style cho ô ghi chú */
+.data-table td.ghi-chu-cell {
+    max-width: 400px;
+    min-width: 300px;
+    white-space: normal;
+    padding: 5px;
+}
+
+.data-table textarea[name="ghi_chu"] {
+    width: 100%;
+    border: none;
+    background: transparent;
+    padding: 5px;
+    resize: none;
+    font-family: inherit;
+    font-size: inherit;
+    line-height: 1.5;
+    overflow: hidden;
+    min-height: 40px;
+}

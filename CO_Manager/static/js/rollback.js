@@ -175,6 +175,27 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
     }
+    // Hàm tự động điều chỉnh chiều cao textarea
+    function autoResizeTextarea(textarea) {
+        if (textarea) {
+            textarea.style.height = 'auto';
+            textarea.style.height = (textarea.scrollHeight) + 'px';
+        }
+    }
+
+    // Tự động resize tất cả textarea khi load trang
+    function initAutoResizeTextareas() {
+        const textareas = document.querySelectorAll('textarea[name="ghi_chu"]');
+        textareas.forEach(textarea => {
+            autoResizeTextarea(textarea);
+            
+            // Lắng nghe sự kiện input để resize khi người dùng gõ
+            textarea.addEventListener('input', function() {
+                autoResizeTextarea(this);
+            });
+        });
+    }
+
     // Xử lý nút Sửa/Lưu trong bảng
     function initEditButtons() {
         document.querySelectorAll('.btn-edit').forEach(button => {
@@ -184,16 +205,19 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 const muaInput = row.querySelector('input[name="so_luong_mua_vao"]');
                 const sxInput = row.querySelector('input[name="so_luong_san_xuat"]');
+                const ghiChuInput = row.querySelector('textarea[name="ghi_chu"]');
 
                 if (isEditing) {
                     // Lưu dữ liệu
                     const id = this.dataset.id;
                     const soLuongMuaVao = parseFloat(muaInput.value) || 0;
                     const soLuongSanXuat = parseFloat(sxInput.value) || 0;
+                    const ghiChu = ghiChuInput.value.trim(); 
 
                     // Disable inputs và hiển thị loading
                     muaInput.disabled = true;
                     sxInput.disabled = true;
+                    ghiChuInput.disabled = true;
                     this.textContent = 'Đang lưu...';
                     this.disabled = true;
 
@@ -206,6 +230,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         body: JSON.stringify({
                             so_luong_mua_vao: soLuongMuaVao,
                             so_luong_san_xuat: soLuongSanXuat,
+                            ghi_chu: ghiChu,
                         })
                     })
                     .then(response => response.json())
@@ -219,6 +244,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             // Khôi phục trạng thái chỉnh sửa
                             muaInput.disabled = false;
                             sxInput.disabled = false;
+                            ghiChuInput.disabled = false;
                             this.textContent = 'Lưu';
                             this.disabled = false;
                         }
@@ -229,6 +255,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         // Khôi phục trạng thái chỉnh sửa
                         muaInput.disabled = false;
                         sxInput.disabled = false;
+                        ghiChuInput.disabled = false;
                         this.textContent = 'Lưu';
                         this.disabled = false;
                     });
@@ -236,10 +263,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     // Chuyển sang chế độ chỉnh sửa
                     muaInput.disabled = false;
                     sxInput.disabled = false;
+                    ghiChuInput.disabled = false;
                     muaInput.style.border = '1px solid #ccc';
                     muaInput.style.background = 'white';
                     sxInput.style.border = '1px solid #ccc';
                     sxInput.style.background = 'white';
+                    ghiChuInput.style.border = '1px solid #ccc'; // THÊM DÒNG NÀY
+                    ghiChuInput.style.background = 'white';
+                    ghiChuInput.style.resize = 'vertical';
+                    autoResizeTextarea(ghiChuInput);
                     this.textContent = 'Lưu';
                     this.style.background = '#dc3545'; // Đổi màu thành đỏ khi ở chế độ lưu
                 }
@@ -305,4 +337,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initDeleteButtons();
     // Format numeric values in table
     formatNumericValues();
+
+    // Auto resize textareas
+    initAutoResizeTextareas();
 });

@@ -2095,6 +2095,7 @@ def rollback_update(request, pk):
         # Nhập số lượng mới từ người dùng
         so_luong_mua_vao = float(data.get('so_luong_mua_vao', 0))
         so_luong_san_xuat = float(data.get('so_luong_san_xuat', 0))
+        ghi_chu = data.get('ghi_chu', '').strip()
 
         # Lấy tỷ lệ thu hồi từ bảng nguyên vật liệu
         try:
@@ -2120,7 +2121,7 @@ def rollback_update(request, pk):
         record.thanh_pham_thu_hoi = thanh_pham_thu_hoi
         record.so_luong_thanh_pham_ton_kho = so_luong_thanh_pham_ton_kho
         record.trang_thai = trang_thai
-
+        record.ghi_chu = ghi_chu
         record.save()
 
         return JsonResponse({'status': 'success'})
@@ -3506,7 +3507,7 @@ def export_non_invoice_excel(context):
         }))
     worksheet.write(f'H{row}', 'Số lượng', table_header_format)
     worksheet.write(f'I{row}', 'Đơn giá', table_header_format)
-    worksheet.write(f'J{row}', 'Tổng giá\nthanh toán', 
+    worksheet.write(f'J{row}', 'Tổng giá trị\nthanh toán', 
         workbook.add_format({
             'font_name': 'Times New Roman',
             'font_size': 11,
@@ -3555,7 +3556,7 @@ def export_non_invoice_excel(context):
     # Total row - tách riêng không đè vào dữ liệu
     row += 2
     worksheet.merge_range(f'A{row}:K{row}', 
-        f"- Tổng giá trị hàng hóa mua vào: {context['tong_so_luong']:,.3f} {context['don_vi_tinh']} = {context['tong_thanh_tien']:,.0f} VND", 
+        f"- Tổng giá trị hàng hóa mua vào: {context['tong_so_luong']:,.0f} {context['don_vi_tinh']} = {context['tong_thanh_tien']:,.0f} VND", 
         workbook.add_format({
             'font_name': 'Times New Roman', 
             'font_size': 12, 
@@ -4476,7 +4477,7 @@ def export_combined_wo_word(combined_data, wo_records):
     sub_para2 = doc.add_paragraph()
     sub_para2.alignment = WD_ALIGN_PARAGRAPH.CENTER
     sub_para2.space_after = Pt(0)
-    run_sub2 = sub_para2.add_run('(ban hành kèm theo Thông tư số 74/2023/TT-BCT ngày 29/12/2023')
+    run_sub2 = sub_para2.add_run('(ban hành kèm theo Thông tư số 44/2023/TT-BCT ngày 29/12/2023')
     run_sub2.font.name = 'Times New Roman'
     run_sub2.font.size = Pt(13)
     run_sub2.italic = True
@@ -4532,13 +4533,13 @@ def export_combined_wo_word(combined_data, wo_records):
     # Row 4
     info_table.cell(3, 0).text = f'Địa chỉ nơi tổ chức thu mua: {record["dia_chi_thu_mua"] or ""}'
     info_table.cell(3, 1).text = ''
-    info_table.cell(3, 2).text = f'Số lượng: {record["so_luong_wo"]} đơn vị tính KGM'
+    info_table.cell(3, 2).text = f'Số lượng: {record["so_luong_wo"]:,.0f} đơn vị tính KGM'
     
     # Row 5
     nguoi_phu_trach = f'{record["ten_nguoi"] if record["ten_nguoi"] else ""}, CCCD số: {record["cccd_cmnd"] if record["cccd_cmnd"] else ""}'
     info_table.cell(4, 0).text = f'Người phụ trách thu mua (Tên, số định danh cá nhân): {nguoi_phu_trach}'
     info_table.cell(4, 1).text = ''
-    info_table.cell(4, 2).text = f'Trị giá (FOB): {record["tri_gia_fob"]} USD'
+    info_table.cell(4, 2).text = f'Trị giá (FOB): {record["tri_gia_fob"]:,.2f} USD'
 
     # Set font cho info table
     for row in info_table.rows:
@@ -4639,9 +4640,9 @@ def export_combined_wo_word(combined_data, wo_records):
             detail['ten_nguyen_lieu'],
             record['ma_hs'],
             detail['noi_khai_thac'],
-            f"{detail['so_luong']:,.3f}",  # SỬA: FORMAT SỐ LƯỢNG 12,312.000
-            f"{detail['don_gia']:,}",
-            f"{detail['thanh_tien']:,}",
+            f"{detail['so_luong']:,.0f}",  
+            f"{detail['don_gia']:,.0f}",
+            f"{detail['thanh_tien']:,.0f}",
             detail['ghi_chu']
         ]
         
@@ -4675,9 +4676,9 @@ def export_combined_wo_word(combined_data, wo_records):
     table.cell(total_row_idx, 5).text = ''
     table.cell(total_row_idx, 6).text = ''
     
-    table.cell(total_row_idx, 7).text = f"{total_quantity:,.3f} KGM"  # FORMAT SỐ LƯỢNG ĐÚNG
+    table.cell(total_row_idx, 7).text = f"{total_quantity:,.0f} KGM"  # FORMAT SỐ LƯỢNG ĐÚNG
     table.cell(total_row_idx, 8).text = ''
-    table.cell(total_row_idx, 9).text = f"{total_amount:,}"
+    table.cell(total_row_idx, 9).text = f"{total_amount:,.0f}"
     table.cell(total_row_idx, 10).text = ''
     
     # Format total row
@@ -5281,7 +5282,7 @@ def wo_export_word(request, pk):
     sub_para2 = doc.add_paragraph()
     sub_para2.alignment = WD_ALIGN_PARAGRAPH.CENTER
     sub_para2.space_after = Pt(0)
-    run_sub2 = sub_para2.add_run('(ban hành kèm theo Thông tư số 74/2023/TT-BCT ngày 29/12/2023')
+    run_sub2 = sub_para2.add_run('(ban hành kèm theo Thông tư số 44/2023/TT-BCT ngày 29/12/2023')
     run_sub2.font.name = 'Times New Roman'
     run_sub2.font.size = Pt(13)
     run_sub2.italic = True
@@ -5337,13 +5338,13 @@ def wo_export_word(request, pk):
     # Row 4
     info_table.cell(3, 0).text = f'Địa chỉ nơi tổ chức thu mua: {wo_record.dia_chi_thu_mua or ""}'
     info_table.cell(3, 1).text = ''
-    info_table.cell(3, 2).text = f'Số lượng: {wo_record.so_luong or 0:.0f} đơn vị tính KGM'
+    info_table.cell(3, 2).text = f'Số lượng: {wo_record.so_luong:,.0f} đơn vị tính KGM'
     
     # Row 5
     nguoi_phu_trach = f'{wo_record.id_nguoi.ten if wo_record.id_nguoi else ""}, CCCD số: {wo_record.id_nguoi.so_cmnd_cccd if wo_record.id_nguoi else ""}'
     info_table.cell(4, 0).text = f'Người phụ trách thu mua (Tên, số định danh cá nhân): {nguoi_phu_trach}'
     info_table.cell(4, 1).text = ''
-    info_table.cell(4, 2).text = f'Trị giá (FOB): {wo_record.tri_gia_fob or 0:.1f} USD'
+    info_table.cell(4, 2).text = f'Trị giá (FOB): {wo_record.tri_gia_fob:,.2f} USD'
 
     # Format info table text
     for row in info_table.rows:
@@ -5449,7 +5450,7 @@ def wo_export_word(request, pk):
             wo_record.ten_hang_hoa or ten_nguyen_lieu,
             ma_hs,
             wo_record.noi_khai_thac or '',
-            f"{detail['so_luong']:.0f}",
+            f"{detail['so_luong']:,.0f}",
             f"{detail['don_gia']:,.0f}",
             f"{detail['thanh_tien']:,.0f}",
             detail['ghi_chu']
@@ -5479,7 +5480,7 @@ def wo_export_word(request, pk):
     table.cell(total_row_idx, 0).merge(table.cell(total_row_idx, 6))
     table.cell(total_row_idx, 0).text = 'Tổng cộng'
     
-    table.cell(total_row_idx, 7).text = f"{total_quantity:.0f} KGM"
+    table.cell(total_row_idx, 7).text = f"{total_quantity:,.0f} KGM"
     table.cell(total_row_idx, 8).text = ''
     table.cell(total_row_idx, 9).text = f"{total_amount:,.0f}"
     table.cell(total_row_idx, 10).text = ''

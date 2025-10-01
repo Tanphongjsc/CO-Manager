@@ -265,7 +265,7 @@
                 <th class="unit-col">Đơn vị tính</th>
                 <th class="quantity-col">Số lượng</th>
                 <th class="price-col">Đơn giá</th>
-                <th class="total-col">Tổng giá thanh toán</th>
+                <th class="total-col">Tổng giá trị thanh toán</th>
             </tr>
             <tr>
                 <th>1</th>
@@ -289,7 +289,7 @@
                 <td>{{ detail.so_cmnd_cccd }}</td>
                 <td class="text-left">{{ detail.ten_hang }}</td>
                 <td>{{ detail.don_vi_tinh }}</td>
-                <td class="text-right">{{ detail.so_luong|floatformat:3|intcomma }}</td>
+                <td class="text-right">{{ detail.so_luong|floatformat:0|intcomma }}</td>
                 <td class="text-right">{{ detail.don_gia|floatformat:0|intcomma }}</td>
                 <td class="text-right">{{ detail.thanh_tien|floatformat:0|intcomma }}</td>
                 <td class="text-left">{{ detail.ghi_chu }}</td>
@@ -298,7 +298,7 @@
             <!-- DÒNG TỔNG CỘNG -->
             <tr class="total-row">
                 <td colspan="6"><strong>TỔNG CỘNG</strong></td>
-                <td class="text-right"><strong>{{ tong_so_luong|floatformat:3|intcomma }}</strong></td>
+                <td class="text-right"><strong>{{ tong_so_luong|floatformat:0|intcomma }}</strong></td>
                 <td></td>
                 <td class="text-right"><strong>{{ tong_thanh_tien|floatformat:0|intcomma }}</strong></td>
                 <td></td>
@@ -308,7 +308,7 @@
 
     <div class="summary-section">
         <div class="summary-total">
-            - Tổng giá trị hàng hóa mua vào: {{ tong_so_luong|floatformat:3|intcomma }} {{ don_vi_tinh|default:"KG" }} = {{ tong_thanh_tien|floatformat:0|intcomma }} VNĐ
+            - Tổng giá trị hàng hóa mua vào: {{ tong_so_luong|floatformat:0|intcomma }} {{ don_vi_tinh|default:"KG" }} = {{ tong_thanh_tien|floatformat:0|intcomma }} VNĐ
         </div>
         <div class="summary-words">
             - Bằng chữ: {{ tong_thanh_tien_chu }} đồng chẵn
@@ -324,18 +324,16 @@
     <div class="signature-section">
         <div class="signature-box">
             <div class="signature-title">Người lập<br>bảng kê<br>(Ký, ghi rõ họ tên)</div>
-            <img src="https://kflhmmvetkhuqntuamqt.supabase.co/storage/v1/object/sign/anhchuky/nguoithumua.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9lZjA1MzM4ZS1hZDRlLTQxMTgtYTljMi1mYTMzN2Q0ZGY1ZTAiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJhbmhjaHVreS9uZ3VvaXRodW11YS5wbmciLCJpYXQiOjE3NDkxNzczNDUsImV4cCI6MjM3OTg5NzM0NX0.BV8v5F7Mtj_JjDjUA-SDjrtwGcfAtP9einEOivfegh8" class="stamp-signature" alt="Chữ ký người lập bảng kê">
-            <div class="signature-name">{{ nguoi_lap_bang_ke | default:"" }}</div>
+            
         </div>
         
         <div class="signature-box">
             <div class="signature-title">Xác nhận của<br>chính quyền địa phương<br>(Ký tên, đóng dấu)</div>
-            <img src="https://kflhmmvetkhuqntuamqt.supabase.co/storage/v1/object/sign/anhchuky/xac_nhan_cua_dia_phuong-Nguyen_Van_Mao.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV9lZjA1MzM4ZS1hZDRlLTQxMTgtYTljMi1mYTMzN2Q0ZGY1ZTAiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJhbmhjaHVreS94YWNfbmhhbl9jdWFfZGlhX3BodW9uZy1OZ3V5ZW5fVmFuX01hby5wbmciLCJpYXQiOjE3NTM0MTc4NjcsImV4cCI6MzMzMDIxNzg2N30.2l1x7OE0zsKc6uaUz3jgFICsZ0zk6FpreEIlRzRZ6lk" class="local-authority-signature" alt="Chữ ký chính quyền địa phương">
+            
         </div>
         
         <div class="signature-box">
             <div class="signature-title">Giám đốc<br>doanh nghiệp<br>(Ký tên, đóng dấu)</div>
-            <img src="https://kflhmmvetkhuqntuamqt.supabase.co/storage/v1/object/sign/anhchuky/chuky.jpg?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCIsImtpZCI6InN0b3JhZ2UtdXJsLXNpZ25pbmcta2V5X2VmMDUzMzhlLWFkNGUtNDExOC1hOWMyLWZhMzM3ZDRkZjVlMCJ9.eyJ1cmwiOiJhbmhjaHVreS9jaHVreS5qcGciLCJpYXQiOjE3NDcwMjEyNjYsImV4cCI6MzMyMzgyMTI2Nn0.eD_DIvcnSxPA3ZuPWFzLHD7V_-DINdTTwOvdkOEjfVs" class="director-signature" alt="Chữ ký giám đốc">
             
         </div>
     </div>

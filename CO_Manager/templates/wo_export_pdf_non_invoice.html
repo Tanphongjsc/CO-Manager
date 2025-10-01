@@ -174,7 +174,7 @@
         <h1>Phụ lục II</h1>
         <h1>BẢNG KÊ KHAI HÀNG HÓA XUẤT KHẨU ĐẠT TIÊU CHÍ "WO"</h1>
         <p class="highlight">(sử dụng nguyên liệu thu mua trong nước, không có hóa đơn giá trị gia tăng)</p>
-        <p>(ban hành kèm theo Thông tư số 74/2023/TT-BCT ngày 29/12/2023</p>
+        <p>(ban hành kèm theo Thông tư số 44/2023/TT-BCT ngày 29/12/2023</p>
         <p>Của Bộ trưởng Bộ Công Thương sửa đổi, bổ sung một số điều của Thông tư 05/2018/TT-BCT)</p>
     </div>
 
@@ -191,8 +191,8 @@
             <div><strong>Tiêu chí áp dụng:</strong> WO</div>
             <div><strong>Tên hàng hóa:</strong> {{ record.ten_hang_hoa|default:"" }}</div>
             <div><strong>Mã HS của hàng hóa (6 số):</strong> {{ record.ma_hs|default:"" }}</div>
-            <div><strong>Số lượng:</strong> {{ record.so_luong_wo|floatformat:3|default:"0.000" }} đơn vị tính KGM</div>
-            <div><strong>Tổng trị giá (FOB):</strong> {{ record.tri_gia_fob|floatformat:1|default:"0.0" }} USD</div>
+            <div><strong>Số lượng:</strong> {{ record.so_luong_wo|floatformat:"0"|intcomma}} đơn vị tính KGM</div>
+            <div><strong>Tổng trị giá (FOB):</strong> {{ record.tri_gia_fob|floatformat:"2"|intcomma }} USD</div>
             
         </div>
     </div>
@@ -240,7 +240,7 @@
                 <td>{{ detail.ten_nguyen_lieu|default:record.ten_hang_hoa }}</td>
                 <td>{{ record.ma_hs }}</td>
                 <td>{{ detail.noi_khai_thac|default:record.noi_khai_thac }}</td>
-                <td>{{ detail.so_luong|floatformat:"3"|intcomma }}</td>
+                <td>{{ detail.so_luong|floatformat:"0"|intcomma }}</td>
                 <td>{{ detail.don_gia|floatformat:"0"|intcomma }}</td>
                 <td>{{ detail.thanh_tien|floatformat:"0"|intcomma }}</td>
                 <td>{{ detail.ghi_chu }}</td>
@@ -248,7 +248,7 @@
             {% endfor %}
             <tr class="total-row">
                 <td colspan="7"><strong>Tổng cộng</strong></td>
-                <td class="text-right"><strong>{{ total_quantity|floatformat:3|intcomma }} KGM</strong></td>
+                <td class="text-right"><strong>{{ total_quantity|floatformat:0|intcomma }} KGM</strong></td>
                 <td></td>
                 <td class="text-right"><strong>{{ total_amount|floatformat:0|intcomma }}</strong></td>
                 <td></td>

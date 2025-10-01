@@ -31,44 +31,56 @@ def generate_excel(data, record):
         'align': 'center',
         'valign': 'vcenter',
         'border': 1,
-        'bg_color': '#F2F2F2'
+        'bg_color': '#F2F2F2',
+        'font_name': 'Times New Roman'
     })
-    
+
+    plain_format = workbook.add_format({
+        'font_name': 'Times New Roman',
+        'font_size': 11
+    })
+
     cell_format = workbook.add_format({
         'align': 'center',
         'valign': 'vcenter',
-        'border': 1
+        'border': 1,
+        'font_name': 'Times New Roman'
     })
     
     number_format = workbook.add_format({
         'align': 'center',
         'valign': 'vcenter',
         'border': 1,
-        'num_format': '#,##0.00'
+        'num_format': '#,##0.00',
+        'font_name': 'Times New Roman'
     })
     
     title_format = workbook.add_format({
         'bold': True,
         'align': 'center',
         'valign': 'vcenter',
-        'font_size': 14
+        'font_size': 14,
+        'font_name': 'Times New Roman'
     })
     
     note_format = workbook.add_format({
         'align': 'left',
         'valign': 'vcenter',
-        'border': 1
+        'border': 1,
+        'font_name': 'Times New Roman'
     })
     
     total_format = workbook.add_format({
         'bold': True,
         'align': 'right',
         'valign': 'vcenter',
-        'border': 1
+        'border': 1,
+        'font_name': 'Times New Roman'
     })
     
     bold_format = workbook.add_format({
-        'bold': True
+        'bold': True,
+        'font_name': 'Times New Roman'
     })
     
     # Set column widths
@@ -82,11 +94,11 @@ def generate_excel(data, record):
     row = 0
     worksheet.write(row, 0, "Công ty cổ phần Tân Phong", bold_format)
     row += 1
-    worksheet.write(row, 0, "Địa chỉ: Thị trấn Hùng Sơn, huyện Lâm Thao, tỉnh Phú Thọ")
+    worksheet.write(row, 0, "Địa chỉ: Thị trấn Hùng Sơn, huyện Lâm Thao, tỉnh Phú Thọ", plain_format)
     row += 1
-    worksheet.write(row, 0, "Điện thoại: 02102215277")
+    worksheet.write(row, 0, "Điện thoại: 02102215277", plain_format)
     row += 1
-    worksheet.write(row, 0, "Mã số Doanh nghiệp: 2600 274 542")
+    worksheet.write(row, 0, "Mã số Doanh nghiệp: 2600 274 542", plain_format)
     row += 2
     
     # Lấy thông tin từ VatTu nếu có
@@ -161,9 +173,9 @@ def generate_excel(data, record):
 
     row += 3
     ton_kho_chu = convert_number_to_vietnamese_words(int(so_luong_thanh_pham_ton_kho or 0))
-    worksheet.write(row, 0, f"Số lượng TP còn tồn kho: {so_luong_thanh_pham_ton_kho or 0} kg ({ton_kho_chu} kg)")
+    worksheet.write(row, 0, f"Số lượng TP còn tồn kho: {so_luong_thanh_pham_ton_kho or 0} kg ({ton_kho_chu} kg)", plain_format)
     row += 1
-    worksheet.write(row, 0, "Chúng tôi cam kết hoàn toàn chịu trách nhiệm trước Pháp luật Việt Nam với các dữ liệu đã khai trên đây")
+    worksheet.write(row, 0, "Chúng tôi cam kết hoàn toàn chịu trách nhiệm trước Pháp luật Việt Nam với các dữ liệu đã khai trên đây" , plain_format)
 
     if record.ngay_thang:
         ngay = record.ngay_thang.day
@@ -177,7 +189,7 @@ def generate_excel(data, record):
 
     # Fix position of date and company name to be under the commitment text
     row += 1  # Move to next row after commitment text
-    worksheet.write(row, 8, f"Ngày {ngay} tháng {thang} năm {nam}")
+    worksheet.write(row, 8, f"Ngày {ngay} tháng {thang} năm {nam}", plain_format)
     row += 1
     worksheet.write(row, 8, "Công ty cổ phần Tân Phong", bold_format)
 

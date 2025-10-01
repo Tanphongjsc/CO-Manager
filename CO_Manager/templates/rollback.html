@@ -82,7 +82,11 @@
                     <td data-numeric="true">{{ record.so_luong_thanh_pham_thu_hoi|floatformat:2 }}</td>
                     <td data-numeric="true">{{ record.so_luong_san_pham_xuat|floatformat:2 }}</td>
                     <td data-numeric="true">{{ record.so_luong_thanh_pham_ton_kho|floatformat:2 }}</td>
-                    <td>{{ record.ghi_chu }}</td>
+                    <td class="ghi-chu-cell">
+                        <textarea 
+                            name="ghi_chu" 
+                            disabled>{{ record.ghi_chu|default:'' }}</textarea>
+                    </td>
                     <td>{{ record.ngay_thang|date:"d/m/Y" }}</td>
                     <td class="{% if record.trang_thai == 'Hoàn thành' %}status-completed{% else %}status-processing{% endif %}">
                         {{ record.trang_thai }}
