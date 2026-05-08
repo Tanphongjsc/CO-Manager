@@ -1359,7 +1359,7 @@ def create_ti_le_dau_tron_excel_response(order_id, data):
     # ===== PHẦN 1: THÔNG TIN CÔNG TY =====
     company_info = [
         "CÔNG TY CỔ PHẦN TÂN PHONG",
-        "Địa chỉ: Thị Trấn Hùng Sơn, Huyện Lâm Thao, Tỉnh Phú Thọ",
+        "Địa chỉ: Khu 15, Xã Lâm Thao, Tỉnh Phú Thọ",
         "Điện thoại: 0210 221 5277",
         "Mã số thuế: 2600274542"
     ]
@@ -3462,7 +3462,7 @@ def export_non_invoice_excel(context):
     row += 1
     worksheet.write(f'A{row}', '- Mã số thuế: 2600274542', header_format)
     row += 1
-    worksheet.write(f'A{row}', '- Địa chỉ: Khu 15, Thị trấn Hùng Sơn, Huyện Lâm Thao, Phú Thọ', header_format)
+    worksheet.write(f'A{row}', '- Địa chỉ: Khu 15, Xã Lâm Thao, Tỉnh Phú Thọ', header_format)
     row += 1
     worksheet.write(f'A{row}', f"- Địa chỉ nơi tổ chức thu mua: {context.get('dia_chi_to_chuc_thu_mua', '')}", header_format)
     row += 1
@@ -3824,7 +3824,7 @@ def purchase_export_excel(request, pk):
 
     # Company header (left side)
     worksheet.write('A1', 'CÔNG TY CP TÂN PHONG', header_format)
-    worksheet.write('A2', 'ĐC: TT Hùng Sơn - L.Thao - Phú Thọ', header_format)
+    worksheet.write('A2', 'ĐC: Khu 15, Xã Lâm Thao, Tỉnh Phú Thọ', header_format)
     worksheet.write('A3', 'ĐT: 0210.22152277/38629388', header_format)
 
     # Title and material name (right side)

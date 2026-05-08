@@ -42,7 +42,7 @@ urlpatterns = [
     path('api/phu_luc_x/create/', views.phu_luc_x_create, name='api_phu_luc_x_create'),
     path('api/phu_luc_x/delete/<int:pk>/', views.phu_luc_x_delete, name='api_phu_luc_x_delete'),
     path('api/phu_luc_x/update/<int:pk>/', views.phu_luc_x_update, name='api_phu_luc_x_update'),
-    path('api/phu_luc_x/export/<int:pk>/', views.phu_luc_x_export, name='api_phu_luc_x_update'),
+    path('api/phu_luc_x/export/<int:pk>/', views.phu_luc_x_export, name='api_phu_luc_x_export'),
 
     # Rollback URLs
     path('rollback/', views.rollback, name='rollback'),

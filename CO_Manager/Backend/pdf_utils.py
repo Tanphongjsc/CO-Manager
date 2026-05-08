@@ -94,7 +94,7 @@ def generate_excel(data, record):
     row = 0
     worksheet.write(row, 0, "Công ty cổ phần Tân Phong", bold_format)
     row += 1
-    worksheet.write(row, 0, "Địa chỉ: Thị trấn Hùng Sơn, huyện Lâm Thao, tỉnh Phú Thọ", plain_format)
+    worksheet.write(row, 0, "Địa chỉ: Khu 15, Xã Lâm Thao, Tỉnh Phú Thọ", plain_format)
     row += 1
     worksheet.write(row, 0, "Điện thoại: 02102215277", plain_format)
     row += 1
