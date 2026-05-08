@@ -420,7 +420,7 @@ def create_bang_ke_ctc_excel_response(data):
         ("Định mức/sản phẩm, kể cả hao hụt", 1, 1, 5, 5),
         ("Nhu cầu nguyên liệu sử dụng cho lô hàng", 1, 1, 6, 8),
         ("Nước xuất xứ", 1, 1, 9, 9),
-        ("Tờ khai hải quan nhập khẩu/Hoá đơn trị giá tăng", 1, 1, 10, 11),
+        ("Tờ khai hải quan nhập khẩu/Hoá đơn giá trị giá tăng", 1, 1, 10, 11),
         ("C/O ưu đãi nhập khẩu /bản khai báo của nhà sản xuất /nhà cung cấp nguyên liệu trong nước", 1, 1, 12, 13)
     ]
 
@@ -1375,7 +1375,7 @@ def create_ti_le_dau_tron_excel_response(order_id, data):
     title_cell = ws.cell(row=6, column=1, value="BẢNG TỈ LỆ PHỐI TRỘN CÁC MẶT HÀNG CHÈ")
     apply_cell_style(title_cell, font=styles['title_font'], align=styles['center'])
 
-    headers = ["STT", "Tên Hàng Hoá", "Mã HS", "Số lượng", "Thành phần"] + material_types[1:] + ["Tổng cộng"]
+    headers = ["STT", "Tên Hàng Hoá", "Mã HS", "Số lượng", "Thành phần TP Khô"] + material_types[1:] + ["Tổng cộng"]
     for i, header in enumerate(headers, 1):
         if header:
             cell = ws.cell(row=7, column=i, value=header)
@@ -1607,9 +1607,14 @@ def blending_ratios_update_or_create(request, pk):
     except (ValueError, json.JSONDecodeError) as e:
         return JsonResponse({'success': False, 'message': f'Lỗi dữ liệu: {str(e)}'}, status=400)
     
-    # Xoas dữ liệu cũ trước khi cập nhật theo pk
+    # Xóa dữ liệu cũ trước khi cập nhật theo pk
     CtLenhSanXuat.objects.filter(id_lenh_san_xuat=pk).delete()
 
+    # Chuẩn bị % Nguyên liệu cho tên các sản phẩm
+    for product in data.get("order_items", []):
+        blending_percent = ", ".join([f"{materia.get('name')} {(materia.get('quantity')/product.get('total_materials'))*100:.1f}%" for materia in product.get("materials", {}).values()])
+        product['ten_san_pham'] = f"{product['ten_san_pham'].split('(')[0].strip()} ({blending_percent})"
+    
     # Chuẩn bị dữ liệu để bulk_create
     objects_to_create = []
     for produdct in data.get("order_items", []):
@@ -1619,7 +1624,7 @@ def blending_ratios_update_or_create(request, pk):
             object_ct_lenh_sx = CtLenhSanXuat(
                 id_lenh_san_xuat_id=pk,
                 id_san_pham_id=produdct.get("id_san_pham"),
-                ten_san_pham=produdct.get("ten_san_pham"),
+                ten_san_pham=produdct.get("ten_san_pham") ,
                 so_luong_san_pham=produdct.get("so_luong_san_pham"),
                 id_nguyen_vat_lieu_id=material_id,
                 so_luong_nguyen_vat_lieu=material_value.get("quantity"),
