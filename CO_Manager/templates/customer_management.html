@@ -1,0 +1,183 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Quản lý Khách hàng{% endblock %}
+
+{% block css %}
+<link rel="stylesheet" href="{% static 'css/customer_management.css' %}">
+{% endblock %}
+
+{% block content %}
+<div id="customer-management" class="module-content" data-next-ma-kh="{{ next_ma_kh }}">
+  <h2 class="module-title">Quản lý Khách hàng</h2>
+
+  <div class="actions-bar">
+    <div class="search-container">
+      <input type="text" id="customer-search-input" class="form-control" placeholder="Tìm kiếm khách hàng...">
+      <button id="customer-search-btn" class="btn btn-primary">Tìm kiếm</button>
+    </div>
+    <button id="add-customer-btn" class="btn btn-success">
+      <i class="fas fa-plus"></i>
+      <span class="btn-text">Thêm mới</span>
+    </button>
+  </div>
+
+  <div class="table-container">
+    <table class="standard-table">
+      <thead>
+        <tr>
+          <th>STT</th>
+          <th>Mã KH</th>
+          <th>Tên KH</th>
+          <th>Địa chỉ</th>
+          <th>Trạng thái</th>
+          <th>SĐT</th>
+          <th>Fax</th>
+          <th>Hành động</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for customer in customers %}
+        <tr>
+          <td>{{ forloop.counter }}</td>
+          <td>{{ customer.ma_kh }}</td>
+          <td>{{ customer.ten_kh }}</td>
+          <td>{{ customer.dia_chi }}</td>
+          <td data-trang-thai="{{ customer.trang_thai }}">
+            {% if customer.trang_thai == 'active' %}
+              <span class="status-badge status-active">Hoạt động</span>
+            {% elif customer.trang_thai == 'inactive' %}
+              <span class="status-badge status-inactive">Dừng hoạt động</span>
+            {% else %}
+              {{ customer.trang_thai }}
+            {% endif %}
+          </td>
+          <td>{{ customer.sdt }}</td>
+          <td>{{ customer.fax }}</td>
+          <td>
+            <div class="action-buttons">
+              <button class="btn btn-sm btn-warning edit-btn" data-id="{{ customer.id }}">Sửa</button>
+              <button class="btn btn-sm btn-danger delete-btn" data-id="{{ customer.id }}">Xóa</button>
+            </div>
+          </td>
+        </tr>
+        {% empty %}
+        <tr>
+          <td colspan="8" class="text-center">Không có dữ liệu khách hàng</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- Modal Thêm khách hàng -->
+<div id="addCustomerModal" class="modal">
+    <div class="modal-content">
+        <span class="close">&times;</span>
+        <div class="customer-add-content">
+            <h3>Thêm khách hàng mới</h3>
+            <form id="add-customer-form">
+                {% csrf_token %}
+
+                <div class="form-group">
+                    <label for="add-customer-ma-kh">Mã khách hàng:</label>
+                    <input type="text" id="add-customer-ma-kh" class="form-control" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="add-customer-ten-kh">Tên khách hàng:</label>
+                    <input type="text" id="add-customer-ten-kh" class="form-control" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="add-customer-dia-chi">Địa chỉ:</label>
+                    <input type="text" id="add-customer-dia-chi" class="form-control">
+                </div>
+
+                <div class="form-group">
+                    <label for="add-customer-trang-thai">Trạng thái:</label>
+                    <select id="add-customer-trang-thai" class="form-control" required>
+                        <option value="">-- Chọn trạng thái --</option>
+                        <option value="active">Hoạt động</option>
+                        <option value="inactive">Dừng hoạt động</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="add-customer-sdt">Số điện thoại:</label>
+                    <input type="text" id="add-customer-sdt" class="form-control">
+                </div>
+
+                <div class="form-group">
+                    <label for="add-customer-fax">Fax:</label>
+                    <input type="text" id="add-customer-fax" class="form-control">
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" id="cancel-add-btn" class="btn btn-secondary">Hủy</button>
+                    <button type="submit" id="save-customer-btn" class="btn btn-primary">Lưu</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Sửa khách hàng -->
+<div id="editCustomerModal" class="modal">
+    <div class="modal-content">
+        <span class="close">&times;</span>
+        <div class="customer-edit-content">
+            <h3>Chỉnh sửa thông tin khách hàng</h3>
+            <form id="edit-customer-form">
+                {% csrf_token %}
+                <input type="hidden" id="edit-customer-id">
+
+                <div class="form-group">
+                    <label for="edit-customer-ma-kh">Mã khách hàng:</label>
+                    <input type="text" id="edit-customer-ma-kh" class="form-control" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-customer-ten-kh">Tên khách hàng:</label>
+                    <input type="text" id="edit-customer-ten-kh" class="form-control" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-customer-dia-chi">Địa chỉ:</label>
+                    <input type="text" id="edit-customer-dia-chi" class="form-control">
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-customer-trang-thai">Trạng thái:</label>
+                    <select id="edit-customer-trang-thai" class="form-control" required>
+                        <option value="">-- Chọn trạng thái --</option>
+                        <option value="active">Hoạt động</option>
+                        <option value="inactive">Dừng hoạt động</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-customer-sdt">Số điện thoại:</label>
+                    <input type="text" id="edit-customer-sdt" class="form-control">
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-customer-fax">Fax:</label>
+                    <input type="text" id="edit-customer-fax" class="form-control">
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" id="cancel-edit-btn" class="btn btn-secondary">Hủy</button>
+                    <button type="submit" id="update-customer-btn" class="btn btn-primary">Cập nhật</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block javascript %}
+<script src="{% static 'js/customer_management.js' %}"></script>
+{% endblock %}
