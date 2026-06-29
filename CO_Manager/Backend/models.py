@@ -24,6 +24,19 @@ class BangKeCtc(models.Model):
         managed = False
         db_table = 'BANG_KE_CTC'
 
+class KhachHang(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    ma_kh = models.CharField(blank=True, null=True)
+    ten_kh = models.CharField(blank=True, null=True)
+    dia_chi = models.CharField(blank=True, null=True)
+    trang_thai = models.CharField(blank=True, null=True)
+    sdt = models.CharField(blank=True, null=True)
+    fax = models.CharField(blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = 'KHACH_HANG'
+
 
 class BangKeThuMuaTuDan(models.Model):
     id_bang_ke_thu_mua_tu_dan = models.BigAutoField(primary_key=True)
@@ -145,10 +158,12 @@ class CtLenhSanXuatOriginal(models.Model):
         db_table = 'CT_LENH_SAN_XUAT_ORIGINAL'
         db_table_comment = 'Dữ liệu chi tiết lệnh sản xuất gốc được đồng bộ từ Cloudify (sử dụng cho việc sản xuất của nhà máy)'
 
+
 class LenhSanXuat(models.Model):
     id_lenh_san_xuat = models.CharField(primary_key=True)
     id_don_hang = models.CharField(blank=True, null=True)
     ngay_tao_don_hang = models.DateField(blank=True, null=True)
+    id_khach_hang = models.ForeignKey(KhachHang, models.DO_NOTHING, db_column='id_khach_hang', blank=True, null=True)
 
     class Meta:
         managed = False
@@ -196,3 +211,16 @@ class VatTu(models.Model):
         db_table = 'VAT_TU'
         db_table_comment = 'Bảng chứa nguyên vật liệu & Sản phẩm Link từ Cloudify sang'
 
+class DinhMucNguyenVatLieu(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    id_san_pham = models.ForeignKey('VatTu', models.DO_NOTHING, db_column='id_san_pham', blank=True, null=True)
+    id_nguyen_vat_lieu = models.ForeignKey('VatTu', models.DO_NOTHING, db_column='id_nguyen_vat_lieu', related_name='dinhmucnguyenvatlieu_id_nguyen_vat_lieu_set', blank=True, null=True)
+    so_luong = models.FloatField(blank=True, null=True)
+    trong_luong = models.FloatField(blank=True, null=True)
+    la_nvl_chinh = models.BooleanField(blank=True, null=True)
+    gia = models.FloatField(blank=True, null=True)
+    ghi_chu = models.TextField(blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = 'DINH_MUC_NGUYEN_VAT_LIEU'

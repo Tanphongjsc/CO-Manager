@@ -27,7 +27,7 @@
 }
 
 #order-search-btn,
-#refresh-btn {
+#add-order-btn {
     white-space: nowrap;
     padding: 6px 12px;
     margin-left: 8px;
@@ -42,29 +42,75 @@
     width: 100%;
     height: 100%;
     overflow: auto;
-    background-color: rgba(0, 0, 0, 0.5);
+    background-color: rgba(17, 24, 39, 0.6);
+    padding: 4rem 1rem;
 }
 
 @keyframes modalFadeIn {
-    from {
-        opacity: 0;
-        transform: translateY(-20px);
-    }
-    to {
-        opacity: 1;
-        transform: translateY(0);
-    }
+    from { opacity: 0; transform: translateY(-20px) scale(0.98); }
+    to { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .close {
-    color: #aaa;
-    float: right;
-    font-size: 28px;
-    font-weight: bold;
-    cursor: pointer;
+    color: #9ca3af;
     position: absolute;
-    top: 10px;
-    right: 20px;
+    top: 1rem;
+    right: 1rem;
+    font-size: 24px;
+    font-weight: normal;
+    line-height: 1;
+    transition: color 0.2s ease-in-out;
+}
+
+.close:hover,
+.close:focus {
+    color: #1f2937;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+/* Product row layout */
+.product-list-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.product-row {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.product-row .product-select,
+.product-row .product-qty {
+    margin-bottom: 0;
+}
+
+.btn-remove-product {
+    padding: 6px 10px;
+    min-width: 36px;
+}
+
+/* Dinh muc scroll container */
+.dinh-muc-scroll-container {
+    max-height: 500px;
+    overflow-y: auto;
+    margin-top: 4px;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    background: #fff;
+}
+
+.dinh-muc-scroll-container .standard-table thead {
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    background-color: #f3f4f6;
+}
+
+.dinh-muc-scroll-container .standard-table thead th {
+    border-bottom: 2px solid #d1d5db;
 }
 
 .detail-section {
@@ -119,99 +165,138 @@ a.btn-sm {
 /* =================================================================== */
 
 .modal-content {
-    background-color: #fdfdff;
-    margin: 5% auto;
-    padding: 30px;
-    border: 1px solid #ddd;
-    width: 80%;
+    background-color: #f9fafb;
+    margin: auto;
+    padding: 1.5rem 2rem;
+    border: 1px solid #e5e7eb;
+    width: 90%;
     max-width: 800px;
-    border-radius: 8px;
-    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.15);
+    border-radius: 12px;
+    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
     position: relative;
-    animation: modalFadeIn 0.3s;
+    animation: modalFadeIn 0.3s ease-out;
 }
 
-.detail-section h4 {
-    border-bottom: 2px solid #e9ecef;
-    padding-bottom: 10px;
-    margin-bottom: 20px;
-    color: #0056b3;
-    font-size: 1.1rem;
+.customer-add-content h3,
+.customer-edit-content h3 {
+    margin-top: 0;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid #e5e7eb;
+    text-align: center;
+    color: #111827;
+    font-size: 1.25rem;
     font-weight: 600;
 }
 
-.detail-grid {
-    display: flex;
-    flex-direction: column;
-    gap: 0;
+.modal-content-wide {
+    max-width: 960px;
 }
 
-.detail-item {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 14px 10px;
-    border-bottom: 1px solid #f0f2f5;
+.modal-content form {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1rem 1.5rem;
+}
+
+.modal-content .form-group {
     margin-bottom: 0;
+}
+
+.modal-content form .form-group label {
+    display: block;
+    margin-bottom: 0.5rem;
+    font-weight: 500;
+    font-size: 0.875rem;
+    color: #374151;
+}
+
+.modal-content form .form-control {
+    width: 100%;
+    padding: 0.65rem 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    background-color: #fff;
+    box-sizing: border-box;
+    transition: border-color 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.modal-content form .form-control:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.25);
+    outline: none;
+}
+
+.modal-content .form-actions {
+    grid-column: 1 / -1;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    margin-top: 1rem;
+    padding-top: 1.5rem;
+    border-top: 1px solid #e5e7eb;
+}
+
+.modal-content .form-actions button {
+    padding: 0.65rem 1.25rem;
+    border-radius: 6px;
+    font-size: 0.95rem;
+    font-weight: 500;
     transition: background-color 0.2s ease-in-out;
 }
 
-.detail-item:hover {
-    background-color: #f8f9fa;
+/* Info Cards — Thông tin chung trong modal chi tiết */
+.info-cards {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 12px;
 }
 
-.detail-item:last-child {
-    border-bottom: none;
+.info-card {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px 16px;
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    transition: border-color 0.2s, box-shadow 0.2s;
 }
 
-.detail-item .label {
+.info-card:hover {
+    border-color: #93c5fd;
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+}
+
+.info-card-icon {
+    font-size: 1.3rem;
+    color: #2563eb;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #eff6ff;
+    border-radius: 8px;
+    flex-shrink: 0;
+}
+
+.info-card-body {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.info-card-label {
+    font-size: 0.75rem;
+    color: #6b7280;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 2px;
+}
+
+.info-card-value {
+    font-size: 0.95rem;
     font-weight: 600;
-    color: #495057;
-    margin-right: 15px;
-    white-space: nowrap;
-}
-
-.detail-item span:not(.label) {
-    color: #212529;
-    text-align: right;
-}
-
-.material-table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 10px;
-    font-size: 0.9rem;
-}
-
-.material-table th,
-.material-table td {
-    padding: 12px 15px;
-    text-align: left;
-    border: 1px solid #e9ecef;
-}
-
-.material-table thead th {
-    background-color: #f8f9fa;
-    color: #343a40;
-    font-weight: 600;
-    border-bottom-width: 2px;
-}
-
-.material-table tbody tr:nth-child(even) {
-    background-color: #fcfdff;
-}
-
-.material-table tbody tr:hover {
-    background-color: #e9f5ff;
-}
-
-.material-table td:nth-child(2) {
-    text-align: right;
-    font-family: Consolas, 'Courier New', monospace;
-}
-
-.material-table .total-row td {
-    font-weight: bold;
-    background-color: #f8f9fa;
-    color: #0056b3;
+    color: #111827;
+    word-break: break-word;
 }

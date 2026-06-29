@@ -62,22 +62,34 @@
         <div class="product-detail-content">
             <div class="detail-section">
                 <h4>Thông tin chung</h4>
-                <div class="detail-grid">
-                    <div class="detail-item">
-                        <span class="label">Mã lệnh sản xuất:</span>
-                        <span id="modal-product-code">{{ orders.0.id_lenh_san_xuat.id_lenh_san_xuat }}</span>
+                <div class="info-cards">
+                    <div class="info-card">
+                        <i class="fas fa-barcode info-card-icon"></i>
+                        <div class="info-card-body">
+                            <span class="info-card-label">Mã lệnh sản xuất</span>
+                            <span class="info-card-value" id="modal-product-code">{{ orders.0.id_lenh_san_xuat.id_lenh_san_xuat }}</span>
+                        </div>
                     </div>
-                    <div class="detail-item">
-                        <span class="label">Tên sản phẩm:</span>
-                        <span id="modal-product-name"></span>
+                    <div class="info-card">
+                        <i class="fas fa-box info-card-icon"></i>
+                        <div class="info-card-body">
+                            <span class="info-card-label">Tên sản phẩm</span>
+                            <span class="info-card-value" id="modal-product-name"></span>
+                        </div>
                     </div>
-                    <div class="detail-item">
-                        <span class="label">Số lượng yêu cầu:</span>
-                        <span id="modal-product-quantity"></span>
+                    <div class="info-card">
+                        <i class="fas fa-hashtag info-card-icon"></i>
+                        <div class="info-card-body">
+                            <span class="info-card-label">Số lượng yêu cầu</span>
+                            <span class="info-card-value" id="modal-product-quantity"></span>
+                        </div>
                     </div>
-                    <div class="detail-item">
-                        <span class="label">Đơn vị tính:</span>
-                        <span id="modal-product-unit"></span>
+                    <div class="info-card">
+                        <i class="fas fa-weight-scale info-card-icon"></i>
+                        <div class="info-card-body">
+                            <span class="info-card-label">Đơn vị tính</span>
+                            <span class="info-card-value" id="modal-product-unit"></span>
+                        </div>
                     </div>
                 </div>
             </div>

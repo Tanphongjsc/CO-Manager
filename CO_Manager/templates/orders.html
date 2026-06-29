@@ -5,10 +5,14 @@
 
 {% block css %}
 <link rel="stylesheet" href="{% static 'css/orders.css' %}">
+<link rel="stylesheet" href="{% static 'css/customer_management.css' %}">
 {% endblock %}
 
 {% block content %}
-<div id="orders-management" class="module-content">
+<div id="orders-management" class="module-content"
+     data-products="{{ products|escapejs }}"
+     data-next-id-lsx="{{ next_id_lenh_sx }}"
+     data-next-id-dh="{{ next_id_don_hang }}">
     <h2 class="module-title">Quản lý Đơn hàng - Lệnh sản xuất</h2>
 
     <div class="actions-bar">
@@ -16,10 +20,9 @@
             <input type="text" id="order-search-input" class="form-control" placeholder="Tìm kiếm đơn hàng...">
             <button id="order-search-btn" class="btn btn-primary">Tìm kiếm</button>
         </div>
-        <button id="refresh-btn" class="btn btn-info">
-            <i class="fas fa-sync-alt"></i>
-            <span class="btn-text">Đồng bộ từ Cloudify</span>
-            <span class="spinner-border spinner-border-sm ml-2 d-none" id="sync-spinner" role="status" aria-hidden="true"></span>
+        <button id="add-order-btn" class="btn btn-success">
+            <i class="fas fa-plus"></i>
+            <span class="btn-text">Thêm đơn hàng</span>
         </button>
     </div>
 
@@ -29,31 +32,198 @@
             <tr>
             <th>Mã đơn hàng</th>
             <th>Mã sản xuất</th>
+            <th>Khách hàng</th>
             <th>Ngày tạo</th>
             <th>Thao tác</th>
             </tr>
         </thead>
         <tbody>
             {% for order in orders %}
-            <tr>
+            <tr data-id-lsx="{{ order.id_lenh_san_xuat }}" data-id-kh="{{ order.id_khach_hang.id|default_if_none:'' }}" data-ngay-tao="{{ order.ngay_tao_don_hang|date:'Y-m-d' }}" data-id-dh="{{ order.id_don_hang|default_if_none:'' }}">
             <td>{{ order.id_don_hang|default_if_none:'' }}</td>
             <td>{{ order.id_lenh_san_xuat|default_if_none:'' }}</td>
+            <td>{{ order.id_khach_hang.ten_kh|default_if_none:'' }}</td>
             <td>{{ order.ngay_tao_don_hang|date:"d/m/Y" }}</td>
             <td>
                 <a href="{% url 'orders_detail' order.id_lenh_san_xuat %}" class="btn btn-sm btn-warning detail-btn">
                     <i class="fas fa-eye"></i> Chi tiết
                 </a>
+                <button class="btn btn-sm btn-primary edit-order-btn" data-id-lsx="{{ order.id_lenh_san_xuat }}">
+                    <i class="fas fa-edit"></i> Sửa
+                </button>
+                <button class="btn btn-sm btn-danger delete-order-btn" data-id-lsx="{{ order.id_lenh_san_xuat }}">
+                    <i class="fas fa-trash"></i> Xóa
+                </button>
             </td>
             </tr>
             {% empty %}
             <tr>
-            <td colspan="4" class="empty-message">Không có đơn hàng nào</td>
+            <td colspan="5" class="empty-message">Không có đơn hàng nào</td>
             </tr>
             {% endfor %}
         </tbody>
         </table>
     </div>
 </div>
+
+<!-- Modal Tạo đơn hàng -->
+<div id="addOrderModal" class="modal">
+    <div class="modal-content modal-content-wide">
+        <span class="close">&times;</span>
+        <div class="customer-add-content">
+            <h3>Tạo đơn hàng mới</h3>
+            <form id="add-order-form">
+                {% csrf_token %}
+
+                <div class="form-group">
+                    <label for="add-order-id-lsx">Mã lệnh sản xuất:</label>
+                    <input type="text" id="add-order-id-lsx" class="form-control" required>
+                </div>
+
+                <div class="form-group">
+                    <label for="add-order-id-dh">Mã đơn hàng:</label>
+                    <input type="text" id="add-order-id-dh" class="form-control">
+                </div>
+
+                <div class="form-group">
+                    <label for="add-order-khach-hang">Khách hàng:</label>
+                    <select id="add-order-khach-hang" class="form-control" required>
+                        <option value="">-- Chọn khách hàng --</option>
+                        {% for customer in customers %}
+                        <option value="{{ customer.id }}">{{ customer.ma_kh }} - {{ customer.ten_kh }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="add-order-ngay-tao">Ngày tạo:</label>
+                    <input type="date" id="add-order-ngay-tao" class="form-control" required>
+                </div>
+
+                <!-- Phần chọn sản phẩm -->
+                <div class="form-group" style="grid-column: 1 / -1;">
+                    <label>Sản phẩm trong đơn hàng:</label>
+                    <div id="product-list" class="product-list-container">
+                        <div class="product-row" data-index="0">
+                            <select class="form-control product-select" style="flex:2;">
+                                <option value="">-- Chọn sản phẩm --</option>
+                                {% for product in products %}
+                                <option value="{{ product.id_san_pham }}">{{ product.ten_khac }}</option>
+                                {% endfor %}
+                            </select>
+                            <input type="number" class="form-control product-qty" placeholder="Số lượng" min="0" step="0.01" style="flex:1;">
+                            <button type="button" class="btn btn-danger btn-remove-product" title="Xóa"><i class="fas fa-trash"></i></button>
+                        </div>
+                    </div>
+                    <button type="button" id="add-product-row-btn" class="btn btn-secondary" style="margin-top:8px;">
+                        <i class="fas fa-plus"></i> Thêm sản phẩm
+                    </button>
+                </div>
+
+                <!-- Bảng định mức NVL tự tính -->
+                <div class="form-group" style="grid-column: 1 / -1;">
+                    <label>Định mức nguyên vật liệu (tự tính):</label>
+                    <div class="dinh-muc-scroll-container">
+                        <table class="standard-table" id="dinh-muc-table">
+                            <thead>
+                                <tr>
+                                    <th>Sản phẩm</th>
+                                    <th>SL sản phẩm</th>
+                                    <th>Nguyên vật liệu</th>
+                                    <th>Định mức</th>
+                                    <th>SL NVL cần</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td colspan="5" class="text-center">Chọn sản phẩm để xem định mức</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" id="cancel-add-order-btn" class="btn btn-secondary">Hủy</button>
+                    <button type="submit" id="save-order-btn" class="btn btn-primary">Tạo đơn hàng</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Sửa đơn hàng -->
+<div id="editOrderModal" class="modal">
+    <div class="modal-content modal-content-wide">
+        <span class="close">&times;</span>
+        <div class="customer-edit-content">
+            <h3>Sửa đơn hàng</h3>
+            <form id="edit-order-form">
+                {% csrf_token %}
+                <input type="hidden" id="edit-order-id-lsx">
+
+                <div class="form-group">
+                    <label>Mã lệnh sản xuất:</label>
+                    <input type="text" id="edit-order-id-lsx-display" class="form-control" readonly style="background:#f3f4f6;">
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-order-id-dh">Mã đơn hàng:</label>
+                    <input type="text" id="edit-order-id-dh" class="form-control">
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-order-khach-hang">Khách hàng:</label>
+                    <select id="edit-order-khach-hang" class="form-control" required>
+                        <option value="">-- Chọn khách hàng --</option>
+                        {% for customer in customers %}
+                        <option value="{{ customer.id }}">{{ customer.ma_kh }} - {{ customer.ten_kh }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="edit-order-ngay-tao">Ngày tạo:</label>
+                    <input type="date" id="edit-order-ngay-tao" class="form-control" required>
+                </div>
+
+                <!-- Phần chọn sản phẩm -->
+                <div class="form-group" style="grid-column: 1 / -1;">
+                    <label>Sản phẩm trong đơn hàng:</label>
+                    <div id="edit-product-list" class="product-list-container"></div>
+                    <button type="button" id="edit-add-product-row-btn" class="btn btn-secondary" style="margin-top:8px;">
+                        <i class="fas fa-plus"></i> Thêm sản phẩm
+                    </button>
+                </div>
+
+                <!-- Bảng định mức NVL tự tính -->
+                <div class="form-group" style="grid-column: 1 / -1;">
+                    <label>Định mức nguyên vật liệu (tự tính):</label>
+                    <div class="dinh-muc-scroll-container">
+                        <table class="standard-table" id="edit-dinh-muc-table">
+                            <thead>
+                                <tr>
+                                    <th>Sản phẩm</th>
+                                    <th>SL sản phẩm</th>
+                                    <th>Nguyên vật liệu</th>
+                                    <th>Định mức</th>
+                                    <th>SL NVL cần</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr><td colspan="5" class="text-center">Chọn sản phẩm để xem định mức</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="button" id="cancel-edit-order-btn" class="btn btn-secondary">Hủy</button>
+                    <button type="submit" id="update-order-btn" class="btn btn-primary">Cập nhật</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block javascript %}
