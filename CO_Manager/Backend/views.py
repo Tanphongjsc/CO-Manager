@@ -834,6 +834,109 @@ def users_delete(request):
     })
 
 
+def customers(request):
+    """Hiển thị danh sách khách hàng."""
+    khach_hangs = KhachHang.objects.all().order_by('id')
+
+    # Tính mã KH tiếp theo
+    last_kh = khach_hangs.last()
+    if last_kh and last_kh.ma_kh:
+        # Tách phần số từ mã KH (vd: KH001 -> 001)
+        match = re.match(r'^(.*?)(\d+)$', last_kh.ma_kh)
+        if match:
+            prefix = match.group(1)
+            num = int(match.group(2))
+            next_ma_kh = f"{prefix}{str(num + 1).zfill(len(match.group(2)))}"
+        else:
+            next_ma_kh = last_kh.ma_kh + '1'
+    else:
+        next_ma_kh = 'KH001'
+
+    context = {
+        'customers': khach_hangs,
+        'next_ma_kh': next_ma_kh,
+    }
+    return render(request, 'customer_management.html', context)
+
+
+@require_POST
+def customers_create(request):
+    """API endpoint để tạo khách hàng mới."""
+    try:
+        data = json.loads(request.body)
+
+        khach_hang = KhachHang.objects.create(
+            ma_kh=data.get('ma_kh'),
+            ten_kh=data.get('ten_kh'),
+            dia_chi=data.get('dia_chi'),
+            trang_thai=data.get('trang_thai'),
+            sdt=data.get('sdt'),
+            fax=data.get('fax'),
+        )
+        return JsonResponse({
+            'success': True,
+            'message': 'Tạo khách hàng thành công!'
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Dữ liệu không hợp lệ: {str(e)} !'
+        })
+
+
+@require_POST
+@transaction.atomic
+def customers_update(request):
+    """API endpoint để cập nhật thông tin khách hàng."""
+    try:
+        data = json.loads(request.body)
+        customer_id = data.get('id')
+
+        khach_hang = get_object_or_404(KhachHang, id=customer_id)
+
+        khach_hang.ma_kh = data.get('ma_kh', khach_hang.ma_kh)
+        khach_hang.ten_kh = data.get('ten_kh', khach_hang.ten_kh)
+        khach_hang.dia_chi = data.get('dia_chi', khach_hang.dia_chi)
+        khach_hang.trang_thai = data.get('trang_thai', khach_hang.trang_thai)
+        khach_hang.sdt = data.get('sdt', khach_hang.sdt)
+        khach_hang.fax = data.get('fax', khach_hang.fax)
+
+        khach_hang.save()
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Cập nhật khách hàng thành công!'
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Dữ liệu không hợp lệ: {str(e)} !'
+        }, status=400)
+
+
+@require_POST
+def customers_delete(request):
+    """API endpoint để xóa khách hàng."""
+    data = json.loads(request.body)
+
+    customer_id = data.get('id')
+    if not customer_id:
+        return JsonResponse({
+            'success': False,
+            'message': 'Không tìm thấy mã khách hàng!'
+        }, status=404)
+
+    khach_hang = get_object_or_404(KhachHang, id=customer_id)
+    khach_hang.delete()
+
+    return JsonResponse({
+        'success': True,
+        'message': 'Xóa khách hàng thành công!'
+    })
+
+
 def product_management(request):
     """API endpoint để lấy danh sách sản phẩm."""
     
@@ -1038,14 +1141,60 @@ def fetch_erp_data(model=None, endpoint=None, params=None, fields=None, session=
 def orders(request):
     # Truy vấn danh sách đơn hàng từ cơ sở dữ liệu
     orders = LenhSanXuat.objects.all().order_by('-id_lenh_san_xuat')
-    
+
     for order in orders:
         if order.id_don_hang:
             len_id = len(order.id_don_hang)
             order.id_don_hang = f"ĐH{'0'*(6-len_id)}{int(order.id_don_hang)-1}"
-    
+
+    # Lấy danh sách khách hàng cho dropdown
+    customers = KhachHang.objects.filter(trang_thai='active').order_by('id')
+
+    # Lấy danh sách sản phẩm thành phẩm (loại trừ NVL thô)
+    products = VatTu.objects.filter(
+        ~Q(nhom_vthh="NVL - THÔ")
+    ).order_by("id_san_pham").values("id_san_pham", "ten_sp_chinh", "ten_khac", "ma_hs")
+
+    for product in products:
+        if not product.get("ten_khac"):
+            product["ten_khac"] = product.get("ten_sp_chinh").strip().capitalize()
+        else:
+            product["ten_khac"] = product.get("ten_khac").strip().capitalize()
+
+    # Tính mã lệnh sản xuất tiếp theo
+    last_order = LenhSanXuat.objects.all().order_by('-id_lenh_san_xuat').first()
+    if last_order and last_order.id_lenh_san_xuat:
+        match = re.match(r'^^(.*?)(\d+)$', last_order.id_lenh_san_xuat)
+        if match:
+            prefix = match.group(1)
+            num = int(match.group(2))
+            next_id_lenh_sx = f"{prefix}{str(num + 1).zfill(len(match.group(2)))}"
+        else:
+            next_id_lenh_sx = last_order.id_lenh_san_xuat + '1'
+    else:
+        next_id_lenh_sx = 'LSX001'
+
+    # Tính mã đơn hàng tiếp theo
+    last_dh = LenhSanXuat.objects.exclude(id_don_hang__isnull=True).exclude(id_don_hang='').order_by('-id_don_hang').first()
+    if last_dh and last_dh.id_don_hang:
+        match_dh = re.match(r'^^(.*?)(\d+)$', last_dh.id_don_hang)
+        if match_dh:
+            prefix_dh = match_dh.group(1)
+            num_dh = int(match_dh.group(2))
+            next_id_don_hang = f"{prefix_dh}{str(num_dh + 1).zfill(len(match_dh.group(2)))}"
+        else:
+            # id_don_hang là số thuần, tăng +1 và format ĐHxxxxxx
+            next_num = int(last_dh.id_don_hang) + 1 if last_dh.id_don_hang.isdigit() else 1
+            next_id_don_hang = f"ĐH{str(next_num).zfill(6)}"
+    else:
+        next_id_don_hang = 'ĐH000001'
+
     context = {
         'orders': orders,
+        'customers': customers,
+        'products': list(products),
+        'next_id_lenh_sx': next_id_lenh_sx,
+        'next_id_don_hang': next_id_don_hang,
     }
 
     return render(request, 'orders.html', context)
@@ -1077,6 +1226,250 @@ def orders_detail(request, pk):
     }
 
     return render(request, 'orders_detail.html', context)
+
+
+@require_GET
+def api_get_product_dinh_muc(request):
+    """API trả về định mức nguyên vật liệu cho một sản phẩm thành phẩm.
+    Dựa trên bảng DinhMucNguyenVatLieu."""
+    product_id = request.GET.get('product_id')
+
+    if not product_id:
+        return JsonResponse({'success': False, 'message': 'Thiếu mã sản phẩm'}, status=400)
+
+    # Lấy sản phẩm thành phẩm
+    try:
+        product = VatTu.objects.get(id_san_pham=product_id)
+    except VatTu.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Không tìm thấy sản phẩm'}, status=404)
+
+    # Lấy định mức từ bảng DinhMucNguyenVatLieu
+    dinh_muc_records = DinhMucNguyenVatLieu.objects.filter(
+        Q(id_san_pham=product_id) & Q(la_nvl_chinh=True)  # Chỉ lấy những NVL chính
+    ).select_related('id_nguyen_vat_lieu')
+
+    materials = []
+    for record in dinh_muc_records:
+        nvl = record.id_nguyen_vat_lieu
+        if nvl:
+            materials.append({
+                'id_nguyen_vat_lieu': nvl.id_san_pham,
+                'ten_nguyen_vat_lieu': (nvl.ten_khac.strip().capitalize() if nvl.ten_khac else nvl.ten_sp_chinh.strip().capitalize()),
+                'dinh_muc': record.so_luong or 0,
+                'don_vi_tinh': nvl.don_vi_tinh or 'kg',
+            })
+
+    return JsonResponse({
+        'success': True,
+        'product_id': product_id,
+        'ten_san_pham': (product.ten_khac.strip().capitalize() if product.ten_khac else product.ten_sp_chinh.strip().capitalize()),
+        'materials': materials,
+    })
+
+
+@require_POST
+@transaction.atomic
+def orders_create(request):
+    """Tạo đơn hàng (lệnh sản xuất) mới với liên kết khách hàng và tính định mức NVL."""
+    try:
+        data = json.loads(request.body)
+
+        id_lenh_sx = data.get('id_lenh_san_xuat')
+        id_khach_hang = data.get('id_khach_hang')
+        ngay_tao = data.get('ngay_tao')
+        product_items = data.get('products', [])  # [{product_id, so_luong_san_pham}]
+
+        if not id_lenh_sx:
+            return JsonResponse({'success': False, 'message': 'Thiếu mã lệnh sản xuất'}, status=400)
+
+        # Kiểm tra trùng mã lệnh sản xuất
+        if LenhSanXuat.objects.filter(id_lenh_san_xuat=id_lenh_sx).exists():
+            return JsonResponse({'success': False, 'message': 'Mã lệnh sản xuất đã tồn tại'}, status=400)
+
+        # Tạo LenhSanXuat
+        khach_hang = None
+        if id_khach_hang:
+            khach_hang = get_object_or_404(KhachHang, id=id_khach_hang)
+
+        lenh_sx = LenhSanXuat.objects.create(
+            id_lenh_san_xuat=id_lenh_sx,
+            id_don_hang=data.get('id_don_hang'),
+            ngay_tao_don_hang=ngay_tao,
+            id_khach_hang=khach_hang,
+        )
+
+        # Tạo CtLenhSanXuatOriginal cho từng sản phẩm trong đơn hàng
+        ct_records = []
+        for item in product_items:
+            product_id = item.get('product_id')
+            so_luong_sp = item.get('so_luong_san_pham', 0)
+
+            if not product_id or so_luong_sp <= 0:
+                continue
+
+            # Lấy sản phẩm thành phẩm
+            try:
+                san_pham = VatTu.objects.get(id_san_pham=product_id)
+            except VatTu.DoesNotExist:
+                continue
+
+            ten_sp = (san_pham.ten_khac.strip().capitalize() if san_pham.ten_khac else san_pham.ten_sp_chinh.strip().capitalize())
+
+            # Lấy định mức NVL từ bảng DinhMucNguyenVatLieu
+            dinh_muc_records = DinhMucNguyenVatLieu.objects.filter(
+                id_san_pham=product_id
+            ).select_related('id_nguyen_vat_lieu')
+
+            for dm in dinh_muc_records:
+                nvl = dm.id_nguyen_vat_lieu
+                if nvl:
+                    dinh_muc_ratio = dm.so_luong or 0
+                    so_luong_nvl = round(so_luong_sp * dinh_muc_ratio, 4)
+
+                    ct_records.append(CtLenhSanXuatOriginal(
+                        id_lenh_san_xuat=lenh_sx,
+                        id_san_pham=san_pham,
+                        ten_san_pham=ten_sp,
+                        id_nguyen_vat_lieu=nvl,
+                        so_luong_san_pham=so_luong_sp,
+                        so_luong_nguyen_vat_lieu=so_luong_nvl,
+                    ))
+
+        # Bulk create chi tiết lệnh sản xuất
+        if ct_records:
+            CtLenhSanXuatOriginal.objects.bulk_create(ct_records)
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Tạo đơn hàng thành công!',
+            'id_lenh_san_xuat': id_lenh_sx,
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Lỗi tạo đơn hàng: {str(e)}',
+        }, status=500)
+
+
+@require_GET
+def api_get_order_data_for_edit(request):
+    """API trả về dữ liệu đơn hàng để sửa."""
+    id_lenh_sx = request.GET.get('id_lenh_sx')
+
+    if not id_lenh_sx:
+        return JsonResponse({'success': False, 'message': 'Thiếu mã lệnh sản xuất'}, status=400)
+
+    try:
+        lenh_sx = LenhSanXuat.objects.get(id_lenh_san_xuat=id_lenh_sx)
+    except LenhSanXuat.DoesNotExist:
+        return JsonResponse({'success': False, 'message': 'Không tìm thấy đơn hàng'}, status=404)
+
+    # Lấy danh sách sản phẩm trong đơn hàng (gom theo sản phẩm thành phẩm)
+    ct_records = CtLenhSanXuatOriginal.objects.filter(
+        id_lenh_san_xuat=id_lenh_sx
+    ).select_related('id_san_pham', 'id_nguyen_vat_lieu')
+
+    products = []
+    seen_products = {}
+    for record in ct_records:
+        sp_id = record.id_san_pham.id_san_pham
+        if sp_id not in seen_products:
+            seen_products[sp_id] = {
+                'product_id': sp_id,
+                'ten_san_pham': record.ten_san_pham or (record.id_san_pham.ten_khac.strip().capitalize() if record.id_san_pham.ten_khac else record.id_san_pham.ten_sp_chinh.strip().capitalize()),
+                'so_luong_san_pham': record.so_luong_san_pham or 0,
+            }
+            products.append(seen_products[sp_id])
+
+    return JsonResponse({
+        'success': True,
+        'id_lenh_san_xuat': lenh_sx.id_lenh_san_xuat,
+        'id_don_hang': lenh_sx.id_don_hang or '',
+        'id_khach_hang': lenh_sx.id_khach_hang.id if lenh_sx.id_khach_hang else '',
+        'ten_khach_hang': lenh_sx.id_khach_hang.ten_kh if lenh_sx.id_khach_hang else '',
+        'ngay_tao': lenh_sx.ngay_tao_don_hang.strftime('%Y-%m-%d') if lenh_sx.ngay_tao_don_hang else '',
+        'products': products,
+    })
+
+
+@require_POST
+@transaction.atomic
+def orders_update(request):
+    """Sửa đơn hàng — cập nhật thông tin và tính lại định mức NVL."""
+    try:
+        data = json.loads(request.body)
+
+        id_lenh_sx = data.get('id_lenh_san_xuat')
+        if not id_lenh_sx:
+            return JsonResponse({'success': False, 'message': 'Thiếu mã lệnh sản xuất'}, status=400)
+
+        lenh_sx = get_object_or_404(LenhSanXuat, id_lenh_san_xuat=id_lenh_sx)
+
+        # Cập nhật thông tin đơn hàng
+        lenh_sx.id_don_hang = data.get('id_don_hang', lenh_sx.id_don_hang)
+        lenh_sx.ngay_tao_don_hang = data.get('ngay_tao', lenh_sx.ngay_tao_don_hang)
+
+        id_khach_hang = data.get('id_khach_hang')
+        if id_khach_hang:
+            khach_hang = get_object_or_404(KhachHang, id=id_khach_hang)
+            lenh_sx.id_khach_hang = khach_hang
+        else:
+            lenh_sx.id_khach_hang = None
+
+        lenh_sx.save()
+
+        # Xóa CtLenhSanXuatOriginal cũ và tạo lại dựa trên định mức mới
+        CtLenhSanXuatOriginal.objects.filter(id_lenh_san_xuat=id_lenh_sx).delete()
+
+        product_items = data.get('products', [])
+        ct_records = []
+        for item in product_items:
+            product_id = item.get('product_id')
+            so_luong_sp = item.get('so_luong_san_pham', 0)
+
+            if not product_id or so_luong_sp <= 0:
+                continue
+
+            try:
+                san_pham = VatTu.objects.get(id_san_pham=product_id)
+            except VatTu.DoesNotExist:
+                continue
+
+            ten_sp = (san_pham.ten_khac.strip().capitalize() if san_pham.ten_khac else san_pham.ten_sp_chinh.strip().capitalize())
+
+            dinh_muc_records = DinhMucNguyenVatLieu.objects.filter(
+                id_san_pham=product_id
+            ).select_related('id_nguyen_vat_lieu')
+
+            for dm in dinh_muc_records:
+                nvl = dm.id_nguyen_vat_lieu
+                if nvl:
+                    dinh_muc_ratio = dm.so_luong or 0
+                    so_luong_nvl = round(so_luong_sp * dinh_muc_ratio, 4)
+
+                    ct_records.append(CtLenhSanXuatOriginal(
+                        id_lenh_san_xuat=lenh_sx,
+                        id_san_pham=san_pham,
+                        ten_san_pham=ten_sp,
+                        id_nguyen_vat_lieu=nvl,
+                        so_luong_san_pham=so_luong_sp,
+                        so_luong_nguyen_vat_lieu=so_luong_nvl,
+                    ))
+
+        if ct_records:
+            CtLenhSanXuatOriginal.objects.bulk_create(ct_records)
+
+        return JsonResponse({
+            'success': True,
+            'message': 'Cập nhật đơn hàng thành công!',
+        })
+
+    except Exception as e:
+        return JsonResponse({
+            'success': False,
+            'message': f'Lỗi cập nhật đơn hàng: {str(e)}',
+        }, status=500)
 
 
 def fetch_cloudify_orders_data():
