@@ -1472,6 +1472,31 @@ def orders_update(request):
         }, status=500)
 
 
+@require_POST
+def orders_delete(request):
+    """API endpoint để xóa đơn hàng."""
+    data = json.loads(request.body)
+
+    id_lenh_sx = data.get('id_lenh_san_xuat')
+    if not id_lenh_sx:
+        return JsonResponse({
+            'success': False,
+            'message': 'Không tìm thấy mã lệnh sản xuất!'
+        }, status=404)
+
+    lenh_sx = get_object_or_404(LenhSanXuat, id_lenh_san_xuat=id_lenh_sx)
+
+    # Xóa chi tiết lệnh sản xuất trước
+    CtLenhSanXuatOriginal.objects.filter(id_lenh_san_xuat=lenh_sx).delete()
+    CtLenhSanXuat.objects.filter(id_lenh_san_xuat=lenh_sx).delete()
+    lenh_sx.delete()
+
+    return JsonResponse({
+        'success': True,
+        'message': 'Xóa đơn hàng thành công!'
+    })
+
+
 def fetch_cloudify_orders_data():
     """Lấy dữ liệu từ Cloudify và trả về data đã xử lý"""
     # Lấy danh sách lệnh sản xuất

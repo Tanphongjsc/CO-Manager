@@ -324,4 +324,40 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         return products;
     }
+
+    // === Xóa đơn hàng ===
+    const deleteButtons = document.querySelectorAll('.delete-order-btn');
+    if (deleteButtons) {
+        deleteButtons.forEach(btn => {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                const idLsx = this.getAttribute('data-id-lsx');
+                const row = this.closest('tr');
+
+                if (confirm('Bạn có chắc chắn muốn xóa đơn hàng này? Toàn bộ chi tiết lệnh sản xuất cũng sẽ bị xóa.')) {
+                    fetch('/orders/delete/', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'X-CSRFToken': getCsrfToken()
+                        },
+                        body: JSON.stringify({ id_lenh_san_xuat: idLsx })
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert('Xóa đơn hàng thành công!');
+                            row.remove();
+                        } else {
+                            alert('Có lỗi xảy ra: ' + data.message);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Lỗi:', error);
+                        alert('Có lỗi xảy ra khi gửi yêu cầu xóa.');
+                    });
+                }
+            });
+        });
+    }
 });

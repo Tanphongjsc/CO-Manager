@@ -7,6 +7,7 @@ urlpatterns = [
     path('orders/', views.orders, name='orders'),
     path('orders/create/', views.orders_create, name='orders_create'),
     path('orders/update/', views.orders_update, name='orders_update'),
+    path('orders/delete/', views.orders_delete, name='orders_delete'),
     path('api/orders/product-dinh-muc/', views.api_get_product_dinh_muc, name='api_get_product_dinh_muc'),
     path('api/orders/order-data-for-edit/', views.api_get_order_data_for_edit, name='api_get_order_data_for_edit'),
     path('orders/<str:pk>/', views.orders_detail, name='orders_detail'),
