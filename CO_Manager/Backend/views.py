@@ -940,156 +940,359 @@ def customers_delete(request):
 def product_management(request):
     """API endpoint để lấy danh sách sản phẩm."""
     
-    products = VatTu.objects.all().order_by('id_san_pham')
+    products = VatTu.objects.select_related('id_nhom_vthh').all().order_by('id_san_pham')
+    nhom_vthh_list = NhomVthh.objects.all().order_by('ten_nhom')
     context = {
         'products': products,
+        'nhom_vthh': nhom_vthh_list,
     }
     return render(request, 'product_management.html', context)
 
+def product_create_page(request):
+    nhom_vthh_list = NhomVthh.objects.all().order_by('ten_nhom')
+    context = {
+        'nhom_vthh': nhom_vthh_list,
+        'mode': 'create',
+    }
+    return render(request, 'product_create.html', context)
 
-@require_POST
-def product_update(request):
-    """API endpoint để xử lý cập nhật thông tin sản phẩm"""
+def product_edit_page(request, pk):
+    get_object_or_404(VatTu, id_san_pham=pk)
+    nhom_vthh_list = NhomVthh.objects.all().order_by('ten_nhom')
+    context = {
+        'nhom_vthh': nhom_vthh_list,
+        'mode': 'edit',
+        'product_id': pk,
+    }
+    return render(request, 'product_create.html', context)
+
+def product_get_vattu_list(request):
+    """API endpoint để lấy danh sách vật tư cho modal chọn NVL"""
+    vattu_list = VatTu.objects.select_related('id_nhom_vthh').all().order_by('id_san_pham')
+    data = []
+    for vt in vattu_list:
+        ten_nhom = vt.id_nhom_vthh.ten_nhom if vt.id_nhom_vthh else vt.nhom_vthh
+        data.append({
+            'id_san_pham': vt.id_san_pham,
+            'ten_sp_chinh': vt.ten_sp_chinh,
+            'loai_sp': vt.loai_sp,
+            'don_vi_tinh': vt.don_vi_tinh,
+            'nhom_vthh': ten_nhom,
+        })
+    return JsonResponse({'success': True, 'data': data})
+
+def product_detail(request, pk):
     try:
-        # Phân tích JSON từ request body
-        data = json.loads(request.body)
-        data['alt_name'] = data.get('alt_name', '').strip().capitalize()
+        product = get_object_or_404(VatTu, id_san_pham=pk)
+        dinh_muc = DinhMucNguyenVatLieu.objects.filter(id_san_pham=product).select_related('id_nguyen_vat_lieu')
         
-        # Lấy ID sản phẩm từ dữ liệu gửi lên
-        product_id = data.get('id')
-
-        # Tìm sản phẩm cần cập nhật trong database
-        product = get_object_or_404(VatTu, id_san_pham=product_id)
+        materials = []
+        for dm in dinh_muc:
+            materials.append({
+                'id_nguyen_vat_lieu': dm.id_nguyen_vat_lieu_id,
+                'ten_nguyen_lieu': dm.id_nguyen_vat_lieu.ten_sp_chinh if dm.id_nguyen_vat_lieu else '',
+                'loai_sp': dm.id_nguyen_vat_lieu.loai_sp if dm.id_nguyen_vat_lieu else '',
+                'don_vi_tinh': dm.id_nguyen_vat_lieu.don_vi_tinh if dm.id_nguyen_vat_lieu else '',
+                'so_luong': dm.so_luong,
+                'trong_luong': dm.trong_luong,
+                'gia': dm.gia,
+                'la_nvl_chinh': dm.la_nvl_chinh,
+                'ghi_chu': dm.ghi_chu,
+            })
+            
+        product_data = {
+            'id_san_pham': product.id_san_pham,
+            'ten_sp_chinh': product.ten_sp_chinh,
+            'ten_khac': product.ten_khac,
+            'ma_hs': product.ma_hs,
+            'ty_le_thu_hoi': product.ty_le_thu_hoi,
+            'don_vi_tinh': product.don_vi_tinh,
+            'loai_sp': product.loai_sp,
+            'id_nhom_vthh': product.id_nhom_vthh_id,
+            'ghi_chu': product.ghi_chu,
+        }
         
-        # Cập nhật thông tin sản phẩm
-        product.ten_khac = data.get('alt_name', product.ten_khac)
-        product.ma_hs = data.get('hs_code', product.ma_hs)
-        product.ghi_chu = data.get('note', product.ghi_chu)
-
-        # Xử lý trường số - tỉ lệ thu hồi
-        recovery_rate = data.get('recovery_rate')
-        if recovery_rate:
-            try:
-                product.ty_le_thu_hoi = float(recovery_rate)
-            except (ValueError, TypeError):
-                # Giữ nguyên giá trị cũ nếu dữ liệu không hợp lệ
-                pass
-        
-        # Lưu thay đổi vào database
-        product.save()
-        
-        # Trả về kết quả thành công
         return JsonResponse({
             'success': True,
-            'message': 'Cập nhật sản phẩm thành công!'
+            'product': product_data,
+            'materials': materials
         })
-        
     except Exception as e:
-        return JsonResponse({
-            'success': False,
-            'message': f'Lỗi: {str(e)}'
-        }, status=500)
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
 @require_POST
+@transaction.atomic
+def product_create(request):
+    try:
+        data = json.loads(request.body)
+        prod_data = data.get('product', {})
+        materials_data = data.get('materials', [])
+        
+        required_fields = {
+            'ten_sp_chinh': 'Tên sản phẩm',
+            'don_vi_tinh': 'Đơn vị tính',
+            'loai_sp': 'Loại sản phẩm',
+        }
+        for field, label in required_fields.items():
+            if not prod_data.get(field, '').strip():
+                return JsonResponse({'success': False, 'message': f'{label} không được để trống'}, status=400)
+
+        id_san_pham = prod_data.get('id_san_pham', '').strip()
+        if not id_san_pham:
+            return JsonResponse({'success': False, 'message': 'Mã sản phẩm không được để trống'}, status=400)
+            
+        if VatTu.objects.filter(id_san_pham=id_san_pham).exists():
+            return JsonResponse({'success': False, 'message': 'Mã sản phẩm đã tồn tại'}, status=400)
+            
+        # Xử lý id_nhom_vthh
+        id_nhom = prod_data.get('id_nhom_vthh')
+        if not id_nhom:
+            return JsonResponse({'success': False, 'message': 'Nhóm VTHH không được để trống'}, status=400)
+        nhom_vthh_obj = NhomVthh.objects.filter(id=id_nhom).first()
+        if not nhom_vthh_obj:
+            return JsonResponse({'success': False, 'message': 'Nhóm VTHH không tồn tại'}, status=400)
+        nhom_vthh_text = nhom_vthh_obj.ten_nhom
+
+        ty_le_thu_hoi = prod_data.get('ty_le_thu_hoi')
+        if ty_le_thu_hoi is not None and ty_le_thu_hoi != '':
+            ty_le_thu_hoi = float(ty_le_thu_hoi)
+            if ty_le_thu_hoi < 0:
+                return JsonResponse({'success': False, 'message': 'Tỉ lệ thu hồi không được âm'}, status=400)
+        else:
+            ty_le_thu_hoi = None
+
+        product = VatTu.objects.create(
+            id_san_pham=id_san_pham,
+            ten_sp_chinh=prod_data.get('ten_sp_chinh', ''),
+            ten_khac=prod_data.get('ten_khac', ''),
+            ma_hs=prod_data.get('ma_hs', ''),
+            ty_le_thu_hoi=ty_le_thu_hoi,
+            don_vi_tinh=prod_data.get('don_vi_tinh', ''),
+            loai_sp=prod_data.get('loai_sp', ''),
+            id_nhom_vthh=nhom_vthh_obj,
+            nhom_vthh=nhom_vthh_text,
+            ghi_chu=prod_data.get('ghi_chu', '')
+        )
+        nvl_ids = [mat.get('id_nguyen_vat_lieu') for mat in materials_data]
+        if len(nvl_ids) != len(set(nvl_ids)):
+            raise ValueError("Có nguyên vật liệu bị trùng lặp trong danh sách định mức")
+            
+        dm_list = []
+        for mat in materials_data:
+            nvl_id = mat.get('id_nguyen_vat_lieu')
+            if nvl_id == id_san_pham:
+                raise ValueError("Sản phẩm không thể tự tham chiếu chính nó làm nguyên vật liệu")
+                
+            nvl_obj = VatTu.objects.filter(id_san_pham=nvl_id).first()
+            if not nvl_obj:
+                raise ValueError(f"Nguyên vật liệu {nvl_id} không tồn tại")
+                
+            sl = float(mat.get('so_luong', 0) or 0)
+            tl = float(mat.get('trong_luong', 0) or 0)
+            gia = float(mat.get('gia', 0) or 0)
+            
+            if sl < 0 or tl < 0 or gia < 0:
+                raise ValueError("Số lượng, trọng lượng và giá không được âm")
+                
+            dm_list.append(DinhMucNguyenVatLieu(
+                id_san_pham=product,
+                id_nguyen_vat_lieu=nvl_obj,
+                so_luong=sl,
+                trong_luong=tl,
+                gia=gia,
+                la_nvl_chinh=mat.get('la_nvl_chinh', False),
+                ghi_chu=mat.get('ghi_chu', '')
+            ))
+            
+        if dm_list:
+            DinhMucNguyenVatLieu.objects.bulk_create(dm_list)
+            
+        return JsonResponse({'success': True, 'message': 'Tạo sản phẩm thành công'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=400)
+
+
+@require_POST
+@transaction.atomic
+def product_update(request):
+    """API endpoint để xử lý cập nhật thông tin sản phẩm và BOM"""
+    try:
+        data = json.loads(request.body)
+        prod_data = data.get('product', {})
+        materials_data = data.get('materials', [])
+        
+        product_id = prod_data.get('id_san_pham')
+        product = get_object_or_404(VatTu, id_san_pham=product_id)
+        
+        required_fields = {
+            'ten_sp_chinh': 'Tên sản phẩm',
+            'don_vi_tinh': 'Đơn vị tính',
+            'loai_sp': 'Loại sản phẩm',
+        }
+        for field, label in required_fields.items():
+            if not prod_data.get(field, '').strip():
+                return JsonResponse({'success': False, 'message': f'{label} không được để trống'}, status=400)
+        
+        # Xử lý id_nhom_vthh
+        id_nhom = prod_data.get('id_nhom_vthh')
+        if not id_nhom:
+            return JsonResponse({'success': False, 'message': 'Nhóm VTHH không được để trống'}, status=400)
+        nhom_vthh_obj = NhomVthh.objects.filter(id=id_nhom).first()
+        if not nhom_vthh_obj:
+            return JsonResponse({'success': False, 'message': 'Nhóm VTHH không tồn tại'}, status=400)
+            
+        product.id_nhom_vthh = nhom_vthh_obj
+        product.nhom_vthh = nhom_vthh_obj.ten_nhom
+
+        ty_le_thu_hoi = prod_data.get('ty_le_thu_hoi')
+        if ty_le_thu_hoi is not None and ty_le_thu_hoi != '':
+            ty_le_thu_hoi = float(ty_le_thu_hoi)
+            if ty_le_thu_hoi < 0:
+                return JsonResponse({'success': False, 'message': 'Tỉ lệ thu hồi không được âm'}, status=400)
+            product.ty_le_thu_hoi = ty_le_thu_hoi
+
+        product.ten_sp_chinh = prod_data.get('ten_sp_chinh', product.ten_sp_chinh)
+        product.ten_khac = prod_data.get('ten_khac', product.ten_khac)
+        product.ma_hs = prod_data.get('ma_hs', product.ma_hs)
+        product.don_vi_tinh = prod_data.get('don_vi_tinh', product.don_vi_tinh)
+        product.loai_sp = prod_data.get('loai_sp', product.loai_sp)
+        product.ghi_chu = prod_data.get('ghi_chu', product.ghi_chu)
+        product.save()
+        
+        # Cập nhật định mức (Xóa hết và tạo lại)
+        DinhMucNguyenVatLieu.objects.filter(id_san_pham=product).delete()
+        
+        nvl_ids = [mat.get('id_nguyen_vat_lieu') for mat in materials_data]
+        if len(nvl_ids) != len(set(nvl_ids)):
+            raise ValueError("Có nguyên vật liệu bị trùng lặp trong danh sách định mức")
+            
+        dm_list = []
+        for mat in materials_data:
+            nvl_id = mat.get('id_nguyen_vat_lieu')
+            if nvl_id == product_id:
+                raise ValueError("Sản phẩm không thể tự tham chiếu chính nó làm nguyên vật liệu")
+                
+            nvl_obj = VatTu.objects.filter(id_san_pham=nvl_id).first()
+            if not nvl_obj:
+                raise ValueError(f"Nguyên vật liệu {nvl_id} không tồn tại")
+                
+            sl = float(mat.get('so_luong', 0) or 0)
+            tl = float(mat.get('trong_luong', 0) or 0)
+            gia = float(mat.get('gia', 0) or 0)
+            
+            if sl < 0 or tl < 0 or gia < 0:
+                raise ValueError("Số lượng, trọng lượng và giá không được âm")
+                
+            dm_list.append(DinhMucNguyenVatLieu(
+                id_san_pham=product,
+                id_nguyen_vat_lieu=nvl_obj,
+                so_luong=sl,
+                trong_luong=tl,
+                gia=gia,
+                la_nvl_chinh=mat.get('la_nvl_chinh', False),
+                ghi_chu=mat.get('ghi_chu', '')
+            ))
+            
+        if dm_list:
+            DinhMucNguyenVatLieu.objects.bulk_create(dm_list)
+            
+        return JsonResponse({'success': True, 'message': 'Cập nhật sản phẩm thành công!'})
+        
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': f'Lỗi: {str(e)}'}, status=500)
+
+@require_POST
+@transaction.atomic
 def product_delete(request):
     """Để xử lý xóa sản phẩm"""
     product_id = json.loads(request.body).get('id')
 
     if not product_id:
-        return JsonResponse({
-            'success': False,
-            'message': 'Không tìm thấy mã sản phẩm!'
-        }, status=404)
+        return JsonResponse({'success': False, 'message': 'Không tìm thấy mã sản phẩm!'}, status=404)
 
     product = get_object_or_404(VatTu, id_san_pham=product_id)
+    
+    # Kiểm tra tham chiếu trước khi xóa
+    references = []
+    
+    if CtLenhSanXuat.objects.filter(Q(id_san_pham=product) | Q(id_nguyen_vat_lieu=product)).exists():
+        references.append("Chi tiết Lệnh sản xuất")
+    if CtLenhSanXuatOriginal.objects.filter(Q(id_san_pham=product) | Q(id_nguyen_vat_lieu=product)).exists():
+        references.append("Chi tiết Lệnh sản xuất (gốc)")
+    if BangKeCtc.objects.filter(id_san_pham=product).exists():
+        references.append("Bảng kê CTC")
+    if CtBangKeCtc.objects.filter(id_san_pham=product_id).exists():
+        references.append("Chi tiết bảng kê CTC")
+    if DinhMucNguyenVatLieu.objects.filter(id_nguyen_vat_lieu=product).exists():
+        references.append("Định mức nguyên vật liệu của sản phẩm khác")
+    if BangKeThuMuaTuDan.objects.filter(id_san_pham=product_id).exists():
+        references.append("Bảng kê thu mua từ dân")
+    if BangKeWo.objects.filter(id_san_pham=product_id).exists():
+        references.append("Bảng kê WO")
+    if BangKeTruLuiNguyenLieu.objects.filter(id_san_pham=product_id).exists():
+        references.append("Bảng kê trừ lùi nguyên liệu")
+        
+    if references:
+        msg = "Không thể xóa sản phẩm vì đang được sử dụng trong: " + ", ".join(references)
+        return JsonResponse({'success': False, 'message': msg}, status=400)
+        
+    # Xóa định mức của chính nó trước
+    DinhMucNguyenVatLieu.objects.filter(id_san_pham=product).delete()
     product.delete()
 
-    return JsonResponse({
-        'success': True,
-        'message': 'Xóa sản phẩm thành công!'
-    })
+    return JsonResponse({'success': True, 'message': 'Xóa sản phẩm thành công!'})
 
+def nhom_vthh_list(request):
+    nhom_vthh = NhomVthh.objects.all().order_by('ten_nhom')
+    data = [{'id': item.id, 'ma_nhom': item.ma_nhom, 'ten_nhom': item.ten_nhom} for item in nhom_vthh]
+    return JsonResponse({'success': True, 'data': data})
 
 @require_POST
-def products_sync_cloudify(request):
-    """Xử lý đồng bộ hóa dữ liệu sản phẩm từ Cloudify."""
+def nhom_vthh_create(request):
     try:
-        data_cloudify, session = fetch_erp_data(model='danh.muc.vat.tu.hang.hoa', endpoint='search_read', fields=["MA","TEN","DONG_SAN_PHAM","TINH_CHAT","LIST_NHOM_VTHH","DVT_CHINH_ID"])
-
-    except requests.RequestException as e:
-        return JsonResponse({
-            'success': False,
-            'message': f'Lỗi kết nối đến Cloudify: {str(e)}'
-        }, status=500)
+        data = json.loads(request.body)
+        ma_nhom = data.get('ma_nhom', '').strip()
+        ten_nhom = data.get('ten_nhom', '').strip()
         
-    if data_cloudify:
-        adapter_data = {
-            "0":'Vật tư hàng hóa', 
-            "1":'Thành phẩm', 
-            "2":'Dich vụ', 
-            "3":'Chỉ là diễn giải', 
-            "4":'Bán thành phẩm'
-        }
-        for item in data_cloudify['records']:
-            item['TINH_CHAT'] = adapter_data.get(item['TINH_CHAT'], None)
-            item['DVT_CHINH_ID'] = item['DVT_CHINH_ID'][1] if item['DVT_CHINH_ID'] else None
-
-        if data_cloudify['length'] == len(data_cloudify['records']):
-
-            # Lấy ra danh sách mã sản phẩm từ Cloudify
-            cloudify_product = {item['MA']: item for item in data_cloudify['records']}
-
-            # Lấy ra danh sách sản phẩm từ database
-            db_products = VatTu.objects.filter(id_san_pham__in=cloudify_product.keys())
+        if not ma_nhom or not ten_nhom:
+            return JsonResponse({'success': False, 'message': 'Mã và tên nhóm không được để trống'}, status=400)
             
-            # Lấy danh sách các mã đã tìm thấy trong database
-            found_product_id = {item.id_san_pham for item in db_products}
+        if NhomVthh.objects.filter(ma_nhom=ma_nhom).exists():
+            return JsonResponse({'success': False, 'message': 'Mã nhóm đã tồn tại'}, status=400)
+            
+        NhomVthh.objects.create(ma_nhom=ma_nhom, ten_nhom=ten_nhom)
+        return JsonResponse({'success': True, 'message': 'Thêm nhóm VTHH thành công'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
-            # Tạo danh sách các mã sản phẩm không tìm thấy trong database
-            not_found_product_id = set(cloudify_product.keys()) - found_product_id
-
-            # Update lại những sản phẩm đã tìm thấy
-            for item in db_products:
-                item.ten_sp_chinh = cloudify_product[item.id_san_pham].get('TEN')
-                item.don_vi_tinh = cloudify_product[item.id_san_pham].get('DVT_CHINH_ID')
-                item.loai_sp = cloudify_product[item.id_san_pham].get('TINH_CHAT')
-                item.nhom_vthh = cloudify_product[item.id_san_pham].get('LIST_NHOM_VTHH')
+@require_POST
+@transaction.atomic
+def nhom_vthh_update(request, pk):
+    try:
+        data = json.loads(request.body)
+        nhom = get_object_or_404(NhomVthh, id=pk)
+        nhom.ma_nhom = data.get('ma_nhom', nhom.ma_nhom)
+        nhom.ten_nhom = data.get('ten_nhom', nhom.ten_nhom)
+        nhom.save()
         
-            # Thêm mới những sản phẩm không tìm thấy
-            objs = []
-            for id in not_found_product_id:
-                objs.append(
-                    VatTu(
-                        id_san_pham=id,
-                        ten_sp_chinh=cloudify_product[id].get('TEN'),
-                        ten_khac=cloudify_product[id].get('TEN'),
-                        don_vi_tinh=cloudify_product[id].get('DVT_CHINH_ID'),
-                        loai_sp=cloudify_product[id].get('TINH_CHAT'),
-                        nhom_vthh=cloudify_product[id].get('LIST_NHOM_VTHH')
-                    )
-                )
-
-            # Dùng transaction để đảm bảo atomicity
-            with transaction.atomic():
-                VatTu.objects.bulk_update(db_products, ['ten_sp_chinh', 'don_vi_tinh', 'loai_sp', 'nhom_vthh']) # Cập nhật những sản phẩm đã tìm thấy
-                VatTu.objects.bulk_create(objs) # Thêm mới những sản phẩm không tìm thấy
-
-            return JsonResponse({
-                'success': True,
-                'data': data_cloudify
-            })
+        VatTu.objects.filter(id_nhom_vthh=nhom).update(nhom_vthh=nhom.ten_nhom)
         
-        else:
-            return JsonResponse({
-                'success': False,
-                'message': 'Đồng bộ thiếu dữ liệu!',
-                'data': data_cloudify
-            })
+        return JsonResponse({'success': True, 'message': 'Cập nhật nhóm VTHH thành công'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
 
-    return JsonResponse({
-        'success': False,
-        'message': 'Không thể đồng bộ hóa dữ liệu từ Cloudify!'
-    }, status=500)
+@require_POST
+def nhom_vthh_delete(request, pk):
+    try:
+        nhom = get_object_or_404(NhomVthh, id=pk)
+        if VatTu.objects.filter(id_nhom_vthh=nhom).exists():
+            return JsonResponse({'success': False, 'message': 'Không thể xóa nhóm đang được sử dụng bởi sản phẩm'}, status=400)
+        nhom.delete()
+        return JsonResponse({'success': True, 'message': 'Xóa nhóm VTHH thành công'})
+    except Exception as e:
+        return JsonResponse({'success': False, 'message': str(e)}, status=500)
+
+
 
 
 def fetch_erp_data(model=None, endpoint=None, params=None, fields=None, session=None):

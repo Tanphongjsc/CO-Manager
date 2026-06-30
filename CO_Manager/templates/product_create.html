@@ -1,0 +1,201 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}
+{% if mode == 'edit' %}Sửa Sản phẩm{% else %}Thêm mới Sản phẩm{% endif %}
+{% endblock %}
+
+{% block css %}
+<link rel="stylesheet" href="{% static 'css/purchase_create.css' %}">
+<link rel="stylesheet" href="{% static 'css/products.css' %}">
+<link rel="stylesheet" href="{% static 'css/product_form.css' %}">
+{% endblock %}
+
+{% block content %}
+<div id="product-form-container">
+    <div class="page-header">
+        {% if mode == 'edit' %}SỬA SẢN PHẨM{% else %}TẠO MỚI SẢN PHẨM{% endif %}
+    </div>
+
+    <div class="form-section">
+        <h3 class="section-title">THÔNG TIN SẢN PHẨM</h3>
+        <form id="product-form">
+            <input type="hidden" id="form-mode" value="{{ mode }}">
+            {% if mode == 'edit' %}
+            <input type="hidden" id="edit-product-id-val" value="{{ product_id }}">
+            {% endif %}
+
+            <div class="form-row">
+                <div class="form-group col-md-3">
+                    <label>Mã sản phẩm (*)</label>
+                    {% if mode == 'edit' %}
+                    <input type="text" id="id_san_pham" class="form-control" required readonly>
+                    {% else %}
+                    <input type="text" id="id_san_pham" class="form-control" required>
+                    {% endif %}
+                </div>
+                <div class="form-group col-md-5">
+                    <label>Tên sản phẩm (*)</label>
+                    <input type="text" id="ten_sp_chinh" class="form-control" required>
+                </div>
+                <div class="form-group col-md-4">
+                    <label>Tên khác</label>
+                    <input type="text" id="ten_khac" class="form-control">
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group col-md-3">
+                    <label>Mã HS</label>
+                    <input type="text" id="ma_hs" class="form-control">
+                </div>
+                <div class="form-group col-md-3">
+                    <label>Tỉ lệ thu hồi</label>
+                    <input type="number" id="ty_le_thu_hoi" class="form-control" step="0.01" min="0">
+                </div>
+                <div class="form-group col-md-3">
+                    <label>Đơn vị tính (*)</label>
+                    <select id="don_vi_tinh" class="form-control" required>
+                        <option value="">-- Chọn ĐVT --</option>
+                        <option value="kg">kg</option>
+                        <option value="g">g</option>
+                        <option value="tấn">tấn</option>
+                        <option value="chai">chai</option>
+                        <option value="lọ">lọ</option>
+                        <option value="cuốn">cuốn</option>
+                        <option value="túi">túi</option>
+                        <option value="thùng">thùng</option>
+                        <option value="cái">cái</option>
+                        <option value="hộp">hộp</option>
+                        <option value="can">can</option>
+                        <option value="lít">lít</option>
+                        <option value="ml">ml</option>
+                        <option value="mét">mét</option>
+                        <option value="bộ">bộ</option>
+                        <option value="kiện">kiện</option>
+                        <option value="bao">bao</option>
+                    </select>
+                </div>
+                <div class="form-group col-md-3">
+                    <label>Loại sản phẩm (*)</label>
+                    <select id="loai_sp" class="form-control" required>
+                        <option value="">-- Chọn Loại SP --</option>
+                        <option value="Vật tư hàng hóa">Vật tư hàng hóa</option>
+                        <option value="Bán thành phẩm">Bán thành phẩm</option>
+                        <option value="Thành phẩm">Thành phẩm</option>
+                        <option value="Dịch vụ">Dịch vụ</option>
+                        <option value="Chỉ là diễn giải">Chỉ là diễn giải</option>
+                    </select>
+                </div>
+            </div>
+
+            <div class="form-row">
+                <div class="form-group col-md-4">
+                    <label>Nhóm VTHH (*)</label>
+                    <select id="id_nhom_vthh" class="form-control" required>
+                        <option value="">-- Chọn Nhóm VTHH --</option>
+                        {% for nhom in nhom_vthh %}
+                        <option value="{{ nhom.id }}">{{ nhom.ten_nhom }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="form-group col-md-8">
+                    <label>Ghi chú</label>
+                    <input type="text" id="ghi_chu" class="form-control">
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <div class="table-section mt-4">
+        <div class="table-header" style="justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+            <h3>ĐỊNH MỨC NGUYÊN VẬT LIỆU</h3>
+            <div style="display: flex; gap: 15px; align-items: center; flex-wrap: wrap;">
+                <div class="bom-summary-top" style="margin: 0;">
+                    <span class="summary-badge" style="background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.5);">Tổng TL Net: <strong id="top-total-net">0</strong></span>
+                    <span class="summary-badge" style="background: rgba(255,255,255,0.2); color: white; border: 1px solid rgba(255,255,255,0.5);">Tổng TL Gross: <strong id="top-total-gross">0</strong></span>
+                </div>
+                <button type="button" class="btn btn-success" id="add-bom-row-btn" style="margin: 0;">
+                    <i class="fas fa-plus"></i> Thêm dòng
+                </button>
+            </div>
+        </div>
+
+        <div class="table-responsive">
+            <table class="data-table" id="bom-table" style="min-width: 1000px;">
+                <thead>
+                    <tr>
+                        <th style="width: 50px;">STT</th>
+                        <th style="width: 150px;">Mã NVL</th>
+                        <th>Tên NVL</th>
+                        <th style="width: 120px;">Loại SP</th>
+                        <th style="width: 80px;">ĐVT</th>
+                        <th style="width: 100px;">Số lượng</th>
+                        <th style="width: 100px;">Trọng lượng</th>
+                        <th style="width: 100px;">Giá</th>
+                        <th style="width: 80px;">NVL chính</th>
+                        <th>Ghi chú</th>
+                        <th style="width: 60px;">Xóa</th>
+                    </tr>
+                </thead>
+                <tbody id="bom-tbody">
+                    <!-- Rows will be added dynamically -->
+                </tbody>
+                <tfoot>
+                    <tr class="bom-footer-stats">
+                        <td colspan="5" style="text-align: right; font-weight: bold;">Tổng cộng:</td>
+                        <td id="footer-total-sl" style="font-weight: bold;">0</td>
+                        <td id="footer-total-tl" style="font-weight: bold;">0</td>
+                        <td colspan="4">Số dòng: <span id="footer-row-count">0</span></td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+    </div>
+    
+    <div class="form-actions">
+        <a href="{% url 'products' %}" class="btn btn-secondary"><i class="fas fa-arrow-left"></i> Quay lại</a>
+        <button type="button" id="save-product-btn" class="btn btn-primary">
+            <i class="fas fa-save"></i> Lưu thông tin
+        </button>
+    </div>
+</div>
+
+<!-- Modal Chọn Vật Tư (NVL) -->
+<div id="selectVattuModal" class="modal">
+    <div class="modal-content large-modal">
+        <span class="close" id="closeSelectVattuModal">&times;</span>
+        <div class="modal-header">
+            <h3><i class="fas fa-box-open"></i> Chọn Nguyên vật liệu</h3>
+        </div>
+        <div class="modal-body">
+            <div class="search-container mb-3">
+                <input type="text" id="vattu-search-input" class="form-control"
+                    placeholder="Tìm theo mã, tên, loại SP, nhóm VTHH...">
+            </div>
+            <div class="table-container" style="max-height: 400px; overflow-y: auto;">
+                <table class="standard-table" id="vattu-list-table">
+                    <thead>
+                        <tr>
+                            <th>Mã SP</th>
+                            <th>Tên SP</th>
+                            <th>ĐVT</th>
+                            <th>Loại SP</th>
+                            <th>Nhóm VTHH</th>
+                            <th>Chọn</th>
+                        </tr>
+                    </thead>
+                    <tbody id="vattu-list-tbody">
+                        <!-- Dữ liệu render bằng JS -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block javascript %}
+<script src="{% static 'js/product_form.js' %}"></script>
+{% endblock %}
