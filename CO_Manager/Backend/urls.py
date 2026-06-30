@@ -30,9 +30,22 @@ urlpatterns = [
     path('users/delete/', views.users_delete, name='delete_user'),
 
     path('products/', views.product_management, name='products'),
+    path('products/create/', views.product_create_page, name='product_create_page'),
+    path('products/edit/<str:pk>/', views.product_edit_page, name='product_edit_page'),
     path('products/update/', views.product_update, name='update_product'),
     path('products/delete/', views.product_delete, name='delete_product'),
-    path('products/sync-cloudify/', views.products_sync_cloudify, name='products_sync_cloudify'),
+    # path('products/sync-cloudify/', views.products_sync_cloudify, name='products_sync_cloudify'),
+
+    # Product API URLs
+    path('api/products/create/', views.product_create, name='api_product_create'),
+    path('api/products/detail/<str:pk>/', views.product_detail, name='api_product_detail'),
+    path('api/products/vattu-list/', views.product_get_vattu_list, name='api_product_vattu_list'),
+
+    # Nhóm VTHH CRUD API URLs
+    path('api/nhom-vthh/list/', views.nhom_vthh_list, name='api_nhom_vthh_list'),
+    path('api/nhom-vthh/create/', views.nhom_vthh_create, name='api_nhom_vthh_create'),
+    path('api/nhom-vthh/update/<int:pk>/', views.nhom_vthh_update, name='api_nhom_vthh_update'),
+    path('api/nhom-vthh/delete/<int:pk>/', views.nhom_vthh_delete, name='api_nhom_vthh_delete'),
 
     # Phụ lục X URLs
     path('phu_luc_x/', views.phu_luc_x, name='phu_luc_x'),

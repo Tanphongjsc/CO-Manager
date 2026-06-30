@@ -33,11 +33,10 @@ class BangKeThuMuaTuDan(models.Model):
     dia_chi_to_chuc_thu_mua = models.CharField(blank=True, null=True)
     nguoi_thu_mua = models.CharField(blank=True, null=True)
     hoa_don = models.BooleanField(blank=True, null=True)
-    
+
     class Meta:
         managed = False
         db_table = 'BANG_KE_THU_MUA_TU_DAN'
-
 
 
 class BangKeTruLuiNguyenLieu(models.Model):
@@ -54,7 +53,7 @@ class BangKeTruLuiNguyenLieu(models.Model):
     ngay_thang = models.DateField(blank=True, null=True)
     trang_thai = models.CharField(blank=True, null=True)
     ghi_chu = models.TextField(blank=True, null=True)
-    
+
     class Meta:
         managed = False
         db_table = 'BANG_KE_TRU_LUI_NGUYEN_LIEU'
@@ -130,6 +129,7 @@ class CtLenhSanXuat(models.Model):
         managed = False
         db_table = 'CT_LENH_SAN_XUAT'
 
+
 class CtLenhSanXuatOriginal(models.Model):
     id_ct_lenh_san_xuat = models.BigAutoField(primary_key=True)
     id_lenh_san_xuat = models.ForeignKey('LenhSanXuat', models.DO_NOTHING, db_column='id_lenh_san_xuat')
@@ -145,10 +145,41 @@ class CtLenhSanXuatOriginal(models.Model):
         db_table = 'CT_LENH_SAN_XUAT_ORIGINAL'
         db_table_comment = 'Dữ liệu chi tiết lệnh sản xuất gốc được đồng bộ từ Cloudify (sử dụng cho việc sản xuất của nhà máy)'
 
+
+class DinhMucNguyenVatLieu(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    id_san_pham = models.ForeignKey('VatTu', models.DO_NOTHING, db_column='id_san_pham', blank=True, null=True)
+    id_nguyen_vat_lieu = models.ForeignKey('VatTu', models.DO_NOTHING, db_column='id_nguyen_vat_lieu', related_name='dinhmucnguyenvatlieu_id_nguyen_vat_lieu_set', blank=True, null=True)
+    so_luong = models.FloatField(blank=True, null=True)
+    trong_luong = models.FloatField(blank=True, null=True)
+    la_nvl_chinh = models.BooleanField(blank=True, null=True)
+    gia = models.FloatField(blank=True, null=True)
+    ghi_chu = models.TextField(blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = 'DINH_MUC_NGUYEN_VAT_LIEU'
+
+
+class KhachHang(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    ma_kh = models.CharField(blank=True, null=True)
+    ten_kh = models.CharField(blank=True, null=True)
+    dia_chi = models.CharField(blank=True, null=True)
+    trang_thai = models.CharField(blank=True, null=True)
+    sdt = models.CharField(blank=True, null=True)
+    fax = models.CharField(blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = 'KHACH_HANG'
+
+
 class LenhSanXuat(models.Model):
     id_lenh_san_xuat = models.CharField(primary_key=True)
     id_don_hang = models.CharField(blank=True, null=True)
     ngay_tao_don_hang = models.DateField(blank=True, null=True)
+    id_khach_hang = models.ForeignKey(KhachHang, models.DO_NOTHING, db_column='id_khach_hang', blank=True, null=True)
 
     class Meta:
         managed = False
@@ -169,6 +200,17 @@ class Nguoi(models.Model):
         db_table = 'NGUOI'
         db_table_comment = 'Thông tin người bán hoặc mua'
 
+
+class NhomVthh(models.Model):
+    id = models.BigAutoField(primary_key=True)
+    ma_nhom = models.CharField(blank=True, null=True)
+    ten_nhom = models.CharField(blank=True, null=True)
+
+    class Meta:
+        managed = False
+        db_table = 'NHOM_VTHH'
+
+
 class PhuLucX(models.Model):
     id = models.BigAutoField(primary_key=True)
     ngay_lap_giay_to = models.DateField()
@@ -180,6 +222,7 @@ class PhuLucX(models.Model):
         managed = False
         db_table = 'PHU_LUC_X'
 
+
 class VatTu(models.Model):
     ten_sp_chinh = models.CharField()
     ten_khac = models.CharField(blank=True, null=True)
@@ -190,9 +233,9 @@ class VatTu(models.Model):
     ghi_chu = models.TextField(blank=True, null=True)
     id_san_pham = models.CharField(primary_key=True)
     nhom_vthh = models.CharField(blank=True, null=True)
+    id_nhom_vthh = models.ForeignKey(NhomVthh, models.DO_NOTHING, db_column='id_nhom_vthh', blank=True, null=True)
 
     class Meta:
         managed = False
         db_table = 'VAT_TU'
         db_table_comment = 'Bảng chứa nguyên vật liệu & Sản phẩm Link từ Cloudify sang'
-

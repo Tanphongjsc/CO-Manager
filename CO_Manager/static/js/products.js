@@ -1,120 +1,7 @@
 // products.js
 document.addEventListener('DOMContentLoaded', function() {
-    // Các phần tử DOM
-    const modal = document.getElementById('editProductModal');
-    const closeBtn = modal ? modal.querySelector('.close') : null;
-    const cancelBtn = document.getElementById('cancel-edit-btn');
-    const editButtons = document.querySelectorAll('.edit-btn');
-    const deleteButtons = document.querySelectorAll('.delete-btn');
-    const productForm = document.getElementById('edit-product-form');
     
-    // Xử lý nút Sửa để mở modal
-    if (editButtons) {
-        editButtons.forEach(button => {
-            button.addEventListener('click', function(e) {
-                e.preventDefault();
-                const productId = this.getAttribute('data-id');
-                
-                // Lấy thông tin sản phẩm từ hàng được chọn
-                const row = this.closest('tr');
-                const productName = row.cells[1].textContent.trim();
-                const productAltName = row.cells[2].textContent.trim();
-                const productHsCode = row.cells[3].textContent.trim();
-                const productRecoveryRate = row.cells[4].textContent.trim();
-                const productUnit = row.cells[5].textContent.trim();
-                const productType = row.cells[6].textContent.trim();
-                const productNote = row.cells[7].textContent.trim();
-                
-                // Điền thông tin vào form trong modal
-                document.getElementById('edit-product-id').value = productId;
-                document.getElementById('edit-product-name').value = productName;
-                document.getElementById('edit-product-alt-name').value = productAltName;
-                document.getElementById('edit-product-hs-code').value = productHsCode;
-                document.getElementById('edit-product-recovery-rate').value = productRecoveryRate !== 'None' ? productRecoveryRate : '';
-                document.getElementById('edit-product-unit').value = productUnit;
-                document.getElementById('edit-product-type').value = productType;
-                document.getElementById('edit-product-note').value = productNote;
-                
-                // Hiển thị modal
-                if (modal) {
-                    modal.style.display = 'block';
-                }
-            });
-        });
-    }
-    
-    // Xử lý submit form
-    if (productForm) {
-        productForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            
-            // Thu thập dữ liệu từ form
-            const productData = {
-                id: document.getElementById('edit-product-id').value,
-                name: document.getElementById('edit-product-name').value,
-                alt_name: document.getElementById('edit-product-alt-name').value,
-                hs_code: document.getElementById('edit-product-hs-code').value,
-                recovery_rate: document.getElementById('edit-product-recovery-rate').value,
-                unit: document.getElementById('edit-product-unit').value,
-                type: document.getElementById('edit-product-type').value,
-                note: document.getElementById('edit-product-note').value
-            };
-            
-            // Gửi dữ liệu lên server bằng AJAX
-            fetch('/products/update/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCsrfToken()
-                },
-                body: JSON.stringify(productData)
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.success) {
-                    // Cập nhật giao diện nếu thành công
-                    alert('Cập nhật sản phẩm thành công!');
-                    
-                    // Đóng modal
-                    if (modal) {
-                        modal.style.display = 'none';
-                    }
-                    
-                    // Tải lại trang để hiển thị dữ liệu mới
-                    window.location.reload();
-                } else {
-                    alert('Có lỗi xảy ra: ' + data.message);
-                }
-            })
-            .catch(error => {
-                console.error('Lỗi:', error);
-                alert('Có lỗi xảy ra khi gửi yêu cầu.');
-            });
-        });
-    }
-    
-    // Đóng modal khi nhấp vào nút đóng (X)
-    if (closeBtn) {
-        closeBtn.addEventListener('click', function() {
-            modal.style.display = 'none';
-        });
-    }
-    
-    // Đóng modal khi nhấp vào nút Hủy
-    if (cancelBtn) {
-        cancelBtn.addEventListener('click', function() {
-            modal.style.display = 'none';
-        });
-    }
-    
-    // Đóng modal khi nhấp bên ngoài modal
-    window.addEventListener('click', function(event) {
-        if (modal && event.target === modal) {
-            modal.style.display = 'none';
-        }
-    });
-    
-    // Hàm để lấy CSRF token từ cookie
+    // Hàm lấy CSRF token
     function getCsrfToken() {
         const cookieValue = document.cookie
             .split('; ')
@@ -122,89 +9,48 @@ document.addEventListener('DOMContentLoaded', function() {
             ?.split('=')[1];
         return cookieValue || '';
     }
-    
-    // Xử lý tìm kiếm sản phẩm
+
+    // Hàm escape HTML để phòng chống XSS
+    function escapeHtml(str) {
+        if (!str) return '';
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;');
+    }
+
+    // --- TÌM KIẾM SẢN PHẨM ---
     const searchInput = document.getElementById('product-search-input');
     const searchBtn = document.getElementById('product-search-btn');
     
     if (searchBtn) {
-        searchBtn.addEventListener('click', function() {
-            performSearch();
-        });
+        searchBtn.addEventListener('click', performSearch);
     }
     
     if (searchInput) {
         searchInput.addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                performSearch();
-            }
+            if (e.key === 'Enter') performSearch();
         });
     }
     
     function performSearch() {
-        const searchValue = searchInput.value.toLowerCase().trim(); // Lấy giá trị tìm kiếm
-        // Lấy tất cả các hàng trong bảng chứa dữ liệu sản phẩm
-        const tableRows = document.querySelectorAll('.standard-table tbody tr');
+        const searchValue = searchInput.value.toLowerCase().trim();
+        const tableRows = document.querySelectorAll('.data-table tbody tr');
 
         tableRows.forEach(row => {
-            // Lấy toàn bộ nội dung text của hàng và chuyển về chữ thường
             const rowText = row.textContent.toLowerCase();
-            
-            // Nếu nội dung hàng chứa giá trị tìm kiếm thì hiển thị, ngược lại ẩn đi
             if (rowText.includes(searchValue)) {
-                row.style.display = ''; // Hiển thị hàng
+                row.style.display = '';
             } else {
-                row.style.display = 'none'; // Ẩn hàng
+                row.style.display = 'none';
             }
         });
     }
 
-    // Xử lý nút đồng bộ từ Cloudify
-    const syncBtn = document.getElementById('sync-cloudify-btn');
-    const syncSpinner = document.getElementById('sync-spinner');
-
-    if (syncBtn) {
-        syncBtn.addEventListener('click', async function() {
-            try {
-                // Hiển thị spinner và vô hiệu hóa nút
-                syncSpinner.classList.remove('d-none');
-                syncBtn.disabled = true;
-                const btnText = syncBtn.querySelector('.btn-text');
-                if (btnText) btnText.textContent = 'Đang đồng bộ...';
-                
-                // Thêm độ trễ nhỏ để đảm bảo spinner được hiển thị
-                await new Promise(resolve => setTimeout(resolve, 50));
-                
-                // Gọi API đồng bộ
-                const response = await fetch('/products/sync-cloudify/', {
-                    method: 'POST',
-                    headers: {
-                        'X-CSRFToken': getCsrfToken()
-                    }
-                });
-                
-                const data = await response.json();
-
-                if (data.success) {
-                    alert('Đồng bộ dữ liệu thành công!');
-                    window.location.reload();
-                } else {
-                    alert('Có lỗi xảy ra khi đồng bộ: ' + data.message);
-                }
-            } catch (error) {
-                console.error('Lỗi:', error);
-                alert('Có lỗi xảy ra khi đồng bộ từ Cloudify.');
-            } finally {
-                // Ẩn spinner và kích hoạt lại nút
-                syncSpinner.classList.add('d-none');
-                syncBtn.disabled = false;
-                const btnText = syncBtn.querySelector('.btn-text');
-                if (btnText) btnText.textContent = 'Đồng bộ từ Cloudify';
-            }
-        });
-    }
-
-    // Xử lý nút xóa sản phẩm
+    // --- XÓA SẢN PHẨM ---
+    const deleteButtons = document.querySelectorAll('.delete-btn');
     if (deleteButtons) {
         deleteButtons.forEach(button => {
             button.addEventListener('click', function(e) {
@@ -212,9 +58,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const productId = this.getAttribute('data-id');
                 const row = this.closest('tr');
                 
-                // Hiển thị hộp thoại xác nhận
                 if (confirm('Bạn có chắc chắn muốn xóa sản phẩm này?')) {
-                    // Gửi yêu cầu xóa sản phẩm
                     fetch('/products/delete/', {
                         method: 'POST',
                         headers: {
@@ -227,9 +71,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     .then(data => {
                         if (data.success) {
                             alert('Xóa sản phẩm thành công!');
-                            row.remove(); // Xóa hàng khỏi bảng
+                            row.remove();
                         } else {
-                            alert('Có lỗi xảy ra khi xóa sản phẩm: ' + data.message);
+                            alert(data.message); // Hiển thị chi tiết lỗi
                         }
                     })
                     .catch(error => {
@@ -241,4 +85,131 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // --- CRUD NHÓM VTHH ---
+    const manageNhomBtn = document.getElementById('manage-nhom-vthh-btn');
+    const nhomModal = document.getElementById('manageNhomVthhModal');
+    const closeNhomModalBtn = document.getElementById('closeNhomVthhModal');
+    const nhomForm = document.getElementById('nhom-vthh-form');
+    const nhomTbody = document.getElementById('nhom-vthh-tbody');
+    const nhomCancelBtn = document.getElementById('nhom-vthh-cancel-btn');
+
+    if (manageNhomBtn && nhomModal) {
+        manageNhomBtn.addEventListener('click', function() {
+            loadNhomVthh();
+            nhomModal.style.display = 'block';
+        });
+
+        closeNhomModalBtn.addEventListener('click', function() {
+            nhomModal.style.display = 'none';
+        });
+
+        window.addEventListener('click', function(event) {
+            if (event.target === nhomModal) nhomModal.style.display = 'none';
+        });
+    }
+
+    function loadNhomVthh() {
+        fetch('/api/nhom-vthh/list/')
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    renderNhomVthhTable(data.data);
+                }
+            });
+    }
+
+    function renderNhomVthhTable(list) {
+        nhomTbody.innerHTML = '';
+        list.forEach(item => {
+            const tr = document.createElement('tr');
+            const safeMaNhom = escapeHtml(item.ma_nhom);
+            const safeTenNhom = escapeHtml(item.ten_nhom);
+            tr.innerHTML = `
+                <td>${safeMaNhom}</td>
+                <td>${safeTenNhom}</td>
+                <td>
+                    <button class="btn btn-sm btn-warning edit-nhom-btn" data-id="${item.id}" data-ma="${safeMaNhom}" data-ten="${safeTenNhom}">Sửa</button>
+                    <button class="btn btn-sm btn-danger delete-nhom-btn" data-id="${item.id}">Xóa</button>
+                </td>
+            `;
+            nhomTbody.appendChild(tr);
+        });
+
+        document.querySelectorAll('.edit-nhom-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const id = this.getAttribute('data-id');
+                const ma = this.getAttribute('data-ma');
+                const ten = this.getAttribute('data-ten');
+                
+                document.getElementById('nhom-vthh-id').value = id;
+                document.getElementById('nhom-vthh-ma').value = ma;
+                document.getElementById('nhom-vthh-ten').value = ten;
+                
+                document.getElementById('nhom-vthh-form-title').textContent = 'Sửa Nhóm VTHH';
+                document.getElementById('nhom-vthh-submit-btn').textContent = 'Cập nhật';
+                nhomCancelBtn.classList.remove('d-none');
+            });
+        });
+
+        document.querySelectorAll('.delete-nhom-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                const id = this.getAttribute('data-id');
+                if (confirm('Bạn có chắc chắn muốn xóa nhóm này?')) {
+                    fetch(`/api/nhom-vthh/delete/${id}/`, {
+                        method: 'POST',
+                        headers: {'X-CSRFToken': getCsrfToken()}
+                    })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.success) {
+                            loadNhomVthh();
+                        } else {
+                            alert(data.message);
+                        }
+                    });
+                }
+            });
+        });
+    }
+
+    if (nhomForm) {
+        nhomForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const id = document.getElementById('nhom-vthh-id').value;
+            const ma_nhom = document.getElementById('nhom-vthh-ma').value;
+            const ten_nhom = document.getElementById('nhom-vthh-ten').value;
+            
+            const url = id ? `/api/nhom-vthh/update/${id}/` : '/api/nhom-vthh/create/';
+            
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': getCsrfToken()
+                },
+                body: JSON.stringify({ ma_nhom, ten_nhom })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    resetNhomForm();
+                    loadNhomVthh();
+                } else {
+                    alert(data.message);
+                }
+            });
+        });
+    }
+
+    if (nhomCancelBtn) {
+        nhomCancelBtn.addEventListener('click', resetNhomForm);
+    }
+
+    function resetNhomForm() {
+        nhomForm.reset();
+        document.getElementById('nhom-vthh-id').value = '';
+        document.getElementById('nhom-vthh-form-title').textContent = 'Thêm Nhóm VTHH Mới';
+        document.getElementById('nhom-vthh-submit-btn').textContent = 'Thêm';
+        nhomCancelBtn.classList.add('d-none');
+    }
 });

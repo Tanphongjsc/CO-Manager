@@ -4,36 +4,45 @@
 {% block title %}Quản lý Sản phẩm - Danh sách{% endblock %}
 
 {% block css %}
+<link rel="stylesheet" href="{% static 'css/purchase.css' %}">
 <link rel="stylesheet" href="{% static 'css/products.css' %}">
+<link rel="stylesheet" href="{% static 'css/product_form.css' %}">
 {% endblock %}
 
 {% block content %}
-<div id="product-management" class="module-content">
-  <h2 class="module-title">Quản lý Sản phẩm</h2>
+<div id="product-management">
+  <div class="page-header">QUẢN LÝ SẢN PHẨM</div>
 
-  <div class="actions-bar">
-    <div class="search-container">
-      <input type="text" id="product-search-input" class="form-control" placeholder="Tìm kiếm sản phẩm...">
-      <button id="product-search-btn" class="btn btn-primary">Tìm kiếm</button>
-    </div>
-    <button id="sync-cloudify-btn" class="btn btn-info">
-      <i class="fas fa-sync-alt"></i>
-      <span class="btn-text">Đồng bộ từ Cloudify</span>
-      <span class="spinner-border spinner-border-sm ml-2 d-none" id="sync-spinner" role="status" aria-hidden="true"></span>
-    </button>
+  <div class="filter-section">
+      <div class="filter-title">Tìm kiếm và Hành động</div>
+      <div class="filter-form" style="display: flex; justify-content: space-between; align-items: center; width: 100%; grid-template-columns: 1fr auto;">
+          <div class="search-container" style="display: flex; gap: 10px; align-items: center; max-width: 400px; width: 100%;">
+              <input type="text" id="product-search-input" class="form-control" style="width: 100%;" placeholder="Tìm kiếm sản phẩm...">
+              <button id="product-search-btn" class="btn btn-primary" style="margin-top: 0; white-space: nowrap;">Tìm kiếm</button>
+          </div>
+          <div class="button-group" style="margin-top: 0;">
+              <button id="manage-nhom-vthh-btn" class="btn btn-info">
+                  <i class="fas fa-tags"></i> Quản lý Nhóm VTHH
+              </button>
+              <a href="{% url 'product_create_page' %}" class="btn btn-success">
+                  <i class="fas fa-plus"></i> Thêm mới
+              </a>
+          </div>
+      </div>
   </div>
 
-  <div class="table-container">
-    <table class="standard-table">
+  <div class="table-section">
+    <div class="table-title">Danh sách sản phẩm</div>
+    <div class="table-wrapper">
+      <table class="data-table">
       <thead>
         <tr>
           <th>Mã sản phẩm</th>
           <th>Tên sản phẩm</th>
-          <th>Tên khác</th>
-          <th>Mã HS</th>
-          <th>Tỉ lệ thu hồi</th>
+          <th>Nhóm VTHH</th>
           <th>Đơn vị tính</th>
           <th>Loại SP</th>
+          <th>Tỉ lệ thu hồi</th>
           <th>Ghi chú</th>
           <th>Hành động</th>
         </tr>
@@ -43,79 +52,76 @@
         <tr>
           <td>{{ product.id_san_pham }}</td>
           <td>{{ product.ten_sp_chinh }}</td>
-          <td>{{ product.ten_khac|default_if_none:'' }}</td>
-          <td>{{ product.ma_hs|default_if_none:'' }}</td>
-          <td>{{ product.ty_le_thu_hoi|default_if_none:'' }}</td>
+          <td>
+            {% if product.id_nhom_vthh %}
+                {{ product.id_nhom_vthh.ten_nhom }}
+            {% else %}
+                {{ product.nhom_vthh|default_if_none:'' }}
+            {% endif %}
+          </td>
           <td>{{ product.don_vi_tinh }}</td>
           <td>{{ product.loai_sp }}</td>
+          <td>{{ product.ty_le_thu_hoi|default_if_none:'' }}</td>
           <td>{{ product.ghi_chu|default_if_none:'' }}</td>
           <td>
             <div class="action-buttons">
-              <button class="btn btn-sm btn-warning edit-btn" data-id="{{ product.id_san_pham }}">Sửa</button>
+              <a href="{% url 'product_edit_page' product.id_san_pham %}" class="btn btn-sm btn-warning">Sửa</a>
               <button class="btn btn-sm btn-danger delete-btn" data-id="{{ product.id_san_pham }}">Xóa</button>
             </div>
           </td>
         </tr>
         {% endfor %}
       </tbody>
-    </table>
+      </table>
+    </div>
   </div>
 </div>
 
-<!-- Modal Popup Chỉnh sửa Sản phẩm -->
-<div id="editProductModal" class="modal">
-    <div class="modal-content">
-        <span class="close">&times;</span>
-        <div class="product-edit-content">
-            <h3>Chỉnh sửa thông tin sản phẩm</h3>
-            <form id="edit-product-form">
-                {% csrf_token %}
-
-                <div class="form-group">
-                    <label for="edit-product-code">Mã sản phẩm:</label>
-                    <input type="text" id="edit-product-id" class="form-control" readonly>
-                </div>
-                
-                <div class="form-group">
-                    <label for="edit-product-name">Tên sản phẩm:</label>
-                    <input type="text" id="edit-product-name" class="form-control" readonly>
-                </div>
-                
-                <div class="form-group">
-                    <label for="edit-product-alt-name">Tên khác:</label>
-                    <input type="text" id="edit-product-alt-name" class="form-control" required>
-                </div>
-                
-                <div class="form-group">
-                    <label for="edit-product-hs-code">Mã HS:</label>
-                    <input type="text" id="edit-product-hs-code" class="form-control">
-                </div>
-                
-                <div class="form-group">
-                    <label for="edit-product-recovery-rate">Tỉ lệ thu hồi:</label>
-                    <input type="number" id="edit-product-recovery-rate" class="form-control" step="0.01" >
-                </div>
-                
-                <div class="form-group">
-                    <label for="edit-product-unit">Đơn vị tính:</label>
-                    <input type="text" id="edit-product-unit" class="form-control" readonly>
-                </div>
-                
-                <div class="form-group">
-                    <label for="edit-product-type">Loại SP:</label>
-                    <input type="text" id="edit-product-type" class="form-control" readonly>
-                </div>
-                
-                <div class="form-group">
-                    <label for="edit-product-note">Ghi chú:</label>
-                    <textarea id="edit-product-note" class="form-control" rows="3"></textarea>
-                </div>
-                
-                <div class="form-actions">
-                    <button type="button" id="cancel-edit-btn" class="btn btn-secondary">Hủy</button>
-                    <button type="submit" id="save-product-btn" class="btn btn-primary">Lưu thay đổi</button>
-                </div>
-            </form>
+<!-- Modal CRUD Nhóm VTHH -->
+<div id="manageNhomVthhModal" class="modal">
+    <div class="modal-content large-modal">
+        <span class="close" id="closeNhomVthhModal">&times;</span>
+        <div class="modal-header">
+            <h3><i class="fas fa-tags"></i> Quản lý Nhóm VTHH</h3>
+        </div>
+        <div class="modal-body">
+            <div class="nhom-vthh-form-container form-card">
+                <h4 id="nhom-vthh-form-title" class="section-title">Thêm Nhóm VTHH Mới</h4>
+                <form id="nhom-vthh-form">
+                    <input type="hidden" id="nhom-vthh-id">
+                    <div class="form-row align-items-end">
+                        <div class="form-group col-md-4">
+                            <label for="nhom-vthh-ma">Mã Nhóm <span class="text-danger">(*)</span></label>
+                            <input type="text" id="nhom-vthh-ma" class="form-control" required placeholder="Nhập mã...">
+                        </div>
+                        <div class="form-group col-md-5">
+                            <label for="nhom-vthh-ten">Tên Nhóm <span class="text-danger">(*)</span></label>
+                            <input type="text" id="nhom-vthh-ten" class="form-control" required placeholder="Nhập tên...">
+                        </div>
+                        <div class="form-group col-md-3 action-btn-group">
+                            <button type="submit" class="btn btn-primary" id="nhom-vthh-submit-btn">
+                                <i class="fas fa-plus"></i> Thêm
+                            </button>
+                            <button type="button" class="btn btn-secondary d-none" id="nhom-vthh-cancel-btn">Hủy</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            
+            <div class="table-container mt-3">
+                <table class="standard-table" id="nhom-vthh-table">
+                    <thead>
+                        <tr>
+                            <th>Mã Nhóm</th>
+                            <th>Tên Nhóm</th>
+                            <th class="text-center" style="width: 150px;">Hành động</th>
+                        </tr>
+                    </thead>
+                    <tbody id="nhom-vthh-tbody">
+                        <!-- Dữ liệu render bằng JS -->
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>

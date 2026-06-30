@@ -1,0 +1,137 @@
+/* product_form.css */
+#product-form-container {
+    background-color: #fff;
+    border-radius: 8px;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    padding: 20px;
+}
+
+
+.form-row {
+    display: flex;
+    flex-wrap: wrap;
+    margin-right: -10px;
+    margin-left: -10px;
+}
+
+.form-group {
+    padding-right: 10px;
+    padding-left: 10px;
+    margin-bottom: 15px;
+}
+
+.col-md-3 { flex: 0 0 25%; max-width: 25%; }
+.col-md-4 { flex: 0 0 33.333333%; max-width: 33.333333%; }
+.col-md-5 { flex: 0 0 41.666667%; max-width: 41.666667%; }
+.col-md-8 { flex: 0 0 66.666667%; max-width: 66.666667%; }
+
+.bom-summary-top {
+    display: flex;
+    gap: 15px;
+}
+
+.summary-badge {
+    padding: 8px 15px;
+    border-radius: 20px;
+    font-size: 0.9rem;
+    font-weight: 500;
+}
+
+
+#bom-table input.form-control {
+    padding: 5px;
+    height: 30px;
+    font-size: 0.9rem;
+}
+
+.bom-footer-stats td {
+    background-color: #f8f9fa;
+    border-top: 2px solid #dee2e6;
+}
+
+.stt-col {
+    text-align: center;
+    font-weight: bold;
+    color: #666;
+}
+
+/* Modal styling */
+.large-modal {
+    max-width: 850px;
+    width: 90%;
+}
+
+.modal-header {
+    margin-bottom: 15px;
+    border-bottom: 1px solid #dee2e6;
+    padding-bottom: 15px;
+    display: flex;
+    align-items: center;
+}
+
+.modal-header h3 {
+    margin: 0;
+    font-size: 1.3rem;
+    color: #2c3e50;
+    font-weight: 600;
+}
+
+.modal-header i {
+    color: #3498db;
+    margin-right: 10px;
+}
+
+.modal-body {
+    padding: 10px 0;
+}
+
+/* Card and Form Styles */
+.form-card {
+    background: #f8f9fa;
+    border: 1px solid #e9ecef;
+    border-radius: 8px;
+    padding: 20px;
+    margin-bottom: 25px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.02);
+}
+
+.section-title {
+    font-size: 1.1rem;
+    color: #495057;
+    margin-bottom: 15px;
+    font-weight: 600;
+    border-bottom: 2px solid #e9ecef;
+    padding-bottom: 8px;
+    display: inline-block;
+}
+
+.align-items-end {
+    align-items: flex-end;
+}
+
+.action-btn-group {
+    display: flex;
+    gap: 10px;
+}
+
+.form-control {
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    transition: border-color 0.15s ease-in-out, box-shadow 0.15s ease-in-out;
+}
+
+.form-control:focus {
+    border-color: #80bdff;
+    outline: 0;
+    box-shadow: 0 0 0 0.2rem rgba(0,123,255,.25);
+}
+
+.btn {
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+}
